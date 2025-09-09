@@ -1,0 +1,127 @@
+"""Exception handling and error management for the Vantage CLI."""
+
+import inspect
+from functools import wraps
+from sys import exc_info
+
+import buzz
+import snick
+import typer
+from loguru import logger
+from rich import traceback
+from rich.console import Console
+from rich.panel import Panel
+
+# Enables prettified traceback printing via rich
+traceback.install()
+
+
+class VantageCliError(buzz.Buzz):
+    """Base exception class for Vantage CLI errors."""
+
+    pass
+
+
+class DeploymentError(VantageCliError):
+    """Exception for deployment-related failures."""
+
+    pass
+
+
+class ValidationError(VantageCliError):
+    """Exception for data validation failures."""
+
+    pass
+
+
+class ConfigurationError(VantageCliError):
+    """Exception for configuration-related issues."""
+
+    pass
+
+
+class AuthenticationError(VantageCliError):
+    """Exception for authentication and authorization failures."""
+
+    pass
+
+
+class ApiError(VantageCliError):
+    """Exception for API communication failures."""
+
+    pass
+
+
+class Abort(buzz.Buzz):
+    """Exception class for aborting operations with user-friendly messages."""
+
+    def __init__(
+        self,
+        message,
+        *args,
+        subject=None,
+        log_message=None,
+        warn_only=False,
+        **kwargs,
+    ):
+        self.subject = subject
+        self.log_message = log_message
+        self.warn_only = warn_only
+        (_, self.original_error, __) = exc_info()
+        super().__init__(message, *args, **kwargs)
+
+
+def handle_abort(func):
+    """Handle abort exceptions in decorated functions."""
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except Abort as err:
+                if not err.warn_only:
+                    if err.log_message is not None:
+                        logger.error(err.log_message)
+
+                    if err.original_error is not None:
+                        logger.error(f"Original exception: {err.original_error}")
+
+                panel_kwargs = {}
+                if err.subject is not None:
+                    panel_kwargs["title"] = f"[red]{err.subject}"
+                message = snick.dedent(err.message)
+
+                console = Console()
+                console.print()
+                console.print(Panel(message, **panel_kwargs))
+                console.print()
+                raise typer.Exit(code=1)
+
+        return async_wrapper
+    else:
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Abort as err:
+                if not err.warn_only:
+                    if err.log_message is not None:
+                        logger.error(err.log_message)
+
+                    if err.original_error is not None:
+                        logger.error(f"Original exception: {err.original_error}")
+
+                panel_kwargs = {}
+                if err.subject is not None:
+                    panel_kwargs["title"] = f"[red]{err.subject}"
+                message = snick.dedent(err.message)
+
+                console = Console()
+                console.print()
+                console.print(Panel(message, **panel_kwargs))
+                console.print()
+                raise typer.Exit(code=1)
+
+        return wrapper
