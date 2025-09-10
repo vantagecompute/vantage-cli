@@ -5,7 +5,7 @@ import pytest
 import typer
 from juju.errors import JujuError
 
-from vantage_cli.apps.juju_localhost import app as juju_app
+from vantage_cli.apps.slurm_juju_localhost import app as juju_app
 
 
 @pytest.fixture()

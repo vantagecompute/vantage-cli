@@ -1,10 +1,11 @@
 # © 2025 Vantage Compute, Inc. All rights reserved.
 # Confidential and proprietary. Unauthorized use prohibited.
-"""Applications management commands for Vantage CLI."""
+"""Application deployment commands for Vantage CLI."""
 
 from vantage_cli import AsyncTyper
-from vantage_cli.commands.apps.deploy import deploy_app
-from vantage_cli.commands.apps.list import list_apps
+
+from .deploy import deploy_app
+from .list import list_apps
 
 # Create the apps command group
 apps_app = AsyncTyper(
@@ -14,6 +15,8 @@ apps_app = AsyncTyper(
     no_args_is_help=True,
 )
 
-# Register commands
+# Register subcommands directly
 apps_app.command("list")(list_apps)
 apps_app.command("deploy")(deploy_app)
+
+__all__ = ["apps_app"]
