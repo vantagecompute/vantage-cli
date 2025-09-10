@@ -9,7 +9,7 @@ license = {text = "MIT"}
 requires-python = ">=3.12"
 dependencies = [
     "juju ~= 3.6",
-    "typer @ git+https://github.com/jamesbeedy/typer.git@fix_interspersed_args",
+    "typer>=0.17.4",
     "rich>=14.1.0",
     "ruamel.yaml",
     "pydantic>=2.11",

@@ -10,7 +10,6 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/vantage-cli.svg)](https://pypi.org/project/vantage-cli/)
-[![LXD](https://img.shields.io/badge/LXD-5.0+-orange.svg)](https://linuxcontainers.org/lxd)
 
 ![Build Status](https://img.shields.io/github/actions/workflow/status/vantagecompute/vantage-cli/ci.yaml?branch=main&label=build&logo=github&style=plastic)
 ![GitHub Issues](https://img.shields.io/github/issues/vantagecompute/vantage-cli?label=issues&logo=github&style=plastic)
