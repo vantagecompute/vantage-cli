@@ -9,21 +9,6 @@ permalink: /contact/
 
 Get help, report issues, or connect with the Vantage Compute community.
 
-## Getting Help
-
-### 📚 Documentation
-Start with our comprehensive documentation:
-
-- **[Installation Guide](/vantage-cli/installation/)** - Setup and configuration
-- **[Command Reference](/vantage-cli/commands/)** - Complete command documentation
-- **[Troubleshooting](/vantage-cli/troubleshooting/)** - Common issues and solutions
-- **[Architecture Guide](/vantage-cli/architecture/)** - Technical deep-dive
-
-### Project Resources
-- **Repository**: [github.com/vantagecompute/vantage-cli](https://github.com/vantagecompute/vantage-cli)
-- **Documentation**: (site path /vantage-cli/)
-- **Releases**: (managed)
-
 ## Stay Updated
 
 ### 📢 Announcements
