@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 import pytest
 import typer
 
-from vantage_cli.apps.multipass_singlenode import app as multipass_app
+from vantage_cli.apps.slurm_multipass_localhost import app as multipass_app
 
 
 class DummyPopen:

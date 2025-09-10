@@ -3,6 +3,7 @@ layout: home
 title: "Vantage CLI - Unified Cluster & Auth Tool"
 description: "Authenticate, manage profiles & clusters, deploy apps, and run GraphQL queries against Vantage Compute"
 permalink: /
+version: "0.1.3"
 ---
 
 ## 🚀 Vantage CLI
@@ -65,6 +66,5 @@ uv run vantage --help
 - [Contributing](contributing)
 - [Architecture](architecture)
 
+version: "0.1.3"
 ---
-
-**Made with ❤️ by [Vantage Compute](https://vantagecompute.ai)**

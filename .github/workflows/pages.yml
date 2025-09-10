@@ -28,6 +28,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Update documentation version
+        run: |
+          # Extract version from pyproject.toml and update docs
+          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          TODAY=$(date +%Y-%m-%d)
+          echo "📝 Updating docs with version: $VERSION"
+          
+          # Update all documentation files
+          sed -i "s/^version: .*/version: \"$VERSION\"/" docs/_data/project.yml
+          sed -i "s/^updated: .*/updated: \"$TODAY\"/" docs/_data/project.yml
+          
+          if grep -q "^version:" docs/_config.yml; then
+              sed -i "s/^version: .*/version: \"$VERSION\"/" docs/_config.yml
+          else
+              sed -i "/^description:/a version: \"$VERSION\"" docs/_config.yml
+          fi
+          
+          if grep -q "^version:" docs/index.md; then
+              sed -i "s/^version: .*/version: \"$VERSION\"/" docs/index.md
+          else
+              sed -i "/^permalink:/a version: \"$VERSION\"" docs/index.md
+          fi
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Build with Jekyll

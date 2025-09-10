@@ -2,6 +2,7 @@
 # GitHub Pages configuration for Vantage CLI
 title: Vantage CLI
 description: A powerful Python CLI for interacting with the Vantage platform.
+version: "0.1.3"
 
 # Site settings
 url: "https://vantagecompute.github.io"

@@ -21,6 +21,40 @@ default:
 lock:
     uv lock
 
+# Update documentation files with current version from pyproject.toml
+[group("docs")]
+update-docs-version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Extract version from pyproject.toml
+    VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+    TODAY=$(date +%Y-%m-%d)
+    echo "📝 Updating docs with version: $VERSION (date: $TODAY)"
+    
+    # Update docs/_data/project.yml
+    sed -i "s/^version: .*/version: \"$VERSION\"/" docs/_data/project.yml
+    sed -i "s/^updated: .*/updated: \"$TODAY\"/" docs/_data/project.yml
+    
+    # Update docs/_config.yml (add version if missing, update if exists)
+    if grep -q "^version:" docs/_config.yml; then
+        sed -i "s/^version: .*/version: \"$VERSION\"/" docs/_config.yml
+    else
+        sed -i "/^description:/a version: \"$VERSION\"" docs/_config.yml
+    fi
+    
+    # Update docs/index.md front matter (add version if missing, update if exists)
+    if grep -q "^version:" docs/index.md; then
+        sed -i "s/^version: .*/version: \"$VERSION\"/" docs/index.md
+    else
+        sed -i "/^permalink:/a version: \"$VERSION\"" docs/index.md
+    fi
+    
+    echo "✅ Updated documentation files with version $VERSION"
+
+# Build documentation with updated version  
+[group("docs")]
+build-docs: update-docs-version
+    @echo "📚 Documentation version updated. Ready for Jekyll build."
 
 # Run static type checker on code
 [group("lint")]

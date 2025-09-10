@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke tests for `vantage_cli.apps.microk8s.app` to raise coverage safely.
+"""Smoke tests for `vantage_cli.apps.slurm_microk8s_localhost.app` to raise coverage safely.
 
 These tests mock out subprocess invocation, filesystem, and external binaries to
 exercise branching logic (binary missing, existing values reuse, downloads,
@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import typer
 
-from vantage_cli.apps.microk8s import app as microk8s_app
+from vantage_cli.apps.slurm_microk8s_localhost import app as microk8s_app
 
 
 class DummyCompleted:
@@ -49,7 +49,7 @@ def _patch_run(sequence: Sequence[Tuple[int, str]]) -> Callable[..., DummyComple
 
 def test_deploy_missing_microk8s_binary(ctx: MagicMock):
     """If microk8s not found deploy should exit with code 1."""
-    with patch("vantage_cli.apps.microk8s.app.shutil.which", return_value=None):
+    with patch("vantage_cli.apps.slurm_microk8s_localhost.app.shutil.which", return_value=None):
         with pytest.raises(typer.Exit) as exc:
             ctx2 = MagicMock()
             ctx2.obj = SimpleNamespace(profile="p")
@@ -67,15 +67,16 @@ def test_deploy_happy_path_reuse_existing_values(ctx: MagicMock, tmp_path: Path)
     (tmp_path / "microk8s-slurm" / "values-operator.yaml").write_text("op: 1")
     (tmp_path / "microk8s-slurm" / "values-slurm.yaml").write_text("slurm: 1")
 
-    with patch("vantage_cli.apps.microk8s.app.Path.cwd", return_value=tmp_path):
+    with patch("vantage_cli.apps.slurm_microk8s_localhost.app.Path.cwd", return_value=tmp_path):
         with patch(
-            "vantage_cli.apps.microk8s.app.shutil.which",
+            "vantage_cli.apps.slurm_microk8s_localhost.app.shutil.which",
             side_effect=["/usr/bin/microk8s", "/usr/bin/helm"],
         ):
-            # First command (status) returns success; others also succeed
-            run_seq = [(0, "ok") for _ in range(15)]
+            # Fake run result
+            run_seq = [(0, "ok") for _ in range(20)]
             with patch(
-                "vantage_cli.apps.microk8s.app.subprocess.run", side_effect=_patch_run(run_seq)
+                "vantage_cli.apps.slurm_microk8s_localhost.app.subprocess.run",
+                side_effect=_patch_run(run_seq),
             ):
                 import asyncio
 
@@ -88,15 +89,16 @@ def test_deploy_download_values_when_missing(ctx: MagicMock, tmp_path: Path):
     # Only create one file so other triggers download
     (tmp_path / "microk8s-slurm" / "values-operator.yaml").write_text("op: 1")
 
-    with patch("vantage_cli.apps.microk8s.app.Path.cwd", return_value=tmp_path):
+    with patch("vantage_cli.apps.slurm_microk8s_localhost.app.Path.cwd", return_value=tmp_path):
         with patch(
-            "vantage_cli.apps.microk8s.app.shutil.which",
+            "vantage_cli.apps.slurm_microk8s_localhost.app.shutil.which",
             side_effect=["/usr/bin/microk8s", "/usr/bin/helm"],
         ):
             # Provide enough successful runs
             run_seq = [(0, "ok") for _ in range(20)]
             with patch(
-                "vantage_cli.apps.microk8s.app.subprocess.run", side_effect=_patch_run(run_seq)
+                "vantage_cli.apps.slurm_microk8s_localhost.app.subprocess.run",
+                side_effect=_patch_run(run_seq),
             ):
                 import asyncio
 
@@ -109,15 +111,16 @@ def test_deploy_fatal_command_failure(ctx: MagicMock, tmp_path: Path):
     (tmp_path / "microk8s-slurm" / "values-operator.yaml").write_text("op: 1")
     (tmp_path / "microk8s-slurm" / "values-slurm.yaml").write_text("slurm: 1")
 
-    with patch("vantage_cli.apps.microk8s.app.Path.cwd", return_value=tmp_path):
+    with patch("vantage_cli.apps.slurm_microk8s_localhost.app.Path.cwd", return_value=tmp_path):
         with patch(
-            "vantage_cli.apps.microk8s.app.shutil.which",
+            "vantage_cli.apps.slurm_microk8s_localhost.app.shutil.which",
             side_effect=["/usr/bin/microk8s", "/usr/bin/helm"],
         ):
             # First run (status) fails (code 2) -> should raise
             run_seq = [(2, "boom"), (0, "ignored")]  # subsequent not used
             with patch(
-                "vantage_cli.apps.microk8s.app.subprocess.run", side_effect=_patch_run(run_seq)
+                "vantage_cli.apps.slurm_microk8s_localhost.app.subprocess.run",
+                side_effect=_patch_run(run_seq),
             ):
                 import asyncio
 
@@ -132,15 +135,16 @@ def test_deploy_nonfatal_command_failure(ctx: MagicMock, tmp_path: Path):
     (tmp_path / "microk8s-slurm" / "values-operator.yaml").write_text("op: 1")
     (tmp_path / "microk8s-slurm" / "values-slurm.yaml").write_text("slurm: 1")
 
-    with patch("vantage_cli.apps.microk8s.app.Path.cwd", return_value=tmp_path):
+    with patch("vantage_cli.apps.slurm_microk8s_localhost.app.Path.cwd", return_value=tmp_path):
         with patch(
-            "vantage_cli.apps.microk8s.app.shutil.which",
+            "vantage_cli.apps.slurm_microk8s_localhost.app.shutil.which",
             side_effect=["/usr/bin/microk8s", "/usr/bin/helm"],
         ):
             # status ok, then first addon enable fails but allow_fail=True so continues
             run_seq = [(0, "ready"), (1, "already enabled"), (0, "rest ok"), (0, "rest ok")] * 5
             with patch(
-                "vantage_cli.apps.microk8s.app.subprocess.run", side_effect=_patch_run(run_seq)
+                "vantage_cli.apps.slurm_microk8s_localhost.app.subprocess.run",
+                side_effect=_patch_run(run_seq),
             ):
                 import asyncio
 

@@ -1,12 +1,13 @@
-# Project metadata for Vantage CLI
+# Project metadata for Vantage CLI  
+# Note: version and updated fields are automatically updated by `just update-docs-version`
 name: "vantage-cli"
-version: "0.1.0"
+version: "0.1.3"
 description: "CLI for authentication, profiles, clusters, apps & GraphQL against the Vantage Compute platform"
 repository: "https://github.com/vantagecompute/vantage-cli"
 documentation: "https://vantagecompute.github.io/vantage-cli"
 license: "Apache 2.0"
 python_version: ">=3.12"
-updated: "2025-09-09"
+updated: "2025-09-10"
 
 
 

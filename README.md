@@ -46,6 +46,34 @@ cd vantage-cli && uv sync
 uv run vantage login
 ```
 
+## Deploy a Slurm Cluster
+
+### Localhost
+
+#### Create a Singlenode Slurm Cluster using Multipass
+
+```bash
+vantage clusters create my-slurm-multipass-cluster \
+    --cloud localhost \
+    --deploy slurm-multipass-localhost
+```
+
+#### Create a Slurm Cluster on LXD
+
+```bash
+vantage clusters create my-slurm-lxd-cluster \
+    --cloud localhost \
+    --deploy slurm-juju-localhost
+```
+
+#### Create a Slurm Cluster on MicroK8S
+
+```bash
+vantage clusters create my-slurm-microk8s-cluster \
+    --cloud localhost \
+    --deploy slurm-microk8s-locahost
+```
+
 ## 📚 Documentation
 
 Visit our comprehensive documentation site:
