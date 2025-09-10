@@ -11,7 +11,7 @@ permalink: /
 
 Vantage CLI is a modern async Python tool that unifies authentication, profile management, cluster operations and GraphQL querying against the Vantage Compute platform.
 
-**[Get Started →](/vantage-cli/installation/)** | **[View on GitHub →](https://github.com/vantagecompute/vantage-cli)**
+**[Get Started →](/installation/)** | **[View on GitHub →](https://github.com/vantagecompute/vantage-cli)**
 
 ---
 
@@ -79,11 +79,11 @@ The CLI operates against remote services; no local package relocation required.
 
 ## Where Next?
 
-- [Installation](/installation/)
-- [Commands](/commands/)
-- [Usage Examples](/usage/)
-- [Contributing](/contributing/)
-- [Architecture](/architecture/)
+- [Installation](installation)
+- [Commands](commands)
+- [Usage Examples](usage)
+- [Contributing](contributing)
+- [Architecture](architecture)
 
 ---
 
