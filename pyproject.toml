@@ -1,13 +1,13 @@
 [project]
 name = "vantage-cli"
-version = "0.1.1"
+version = "0.1.2"
 description = "The Vantage Compute CLI."
 authors = [
     {name = "jamesbeedy", email = "james@vantagecompute.ai"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "juju ~= 3.6",
     "typer>=0.17.4",

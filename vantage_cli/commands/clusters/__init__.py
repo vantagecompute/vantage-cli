@@ -13,11 +13,8 @@ from .list import list_clusters
 cluster_app = AsyncTyper(
     name="clusters",
     help="Manage Vantage compute clusters for high-performance computing workloads.",
-    context_settings={
-        "allow_extra_args": True,
-        "allow_interspersed_args": True,
-        "ignore_unknown_options": True,
-    },
+    invoke_without_command=True,
+    no_args_is_help=True,
 )
 
 # Register subcommands directly

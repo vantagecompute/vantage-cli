@@ -8,7 +8,7 @@
 # Vantage CLI
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/vantage-cli.svg)](https://pypi.org/project/vantage-cli/)
 
 ![Build Status](https://img.shields.io/github/actions/workflow/status/vantagecompute/vantage-cli/ci.yaml?branch=main&label=build&logo=github&style=plastic)

@@ -48,10 +48,20 @@ def _global_patch_base_dir():
         with patch("vantage_cli.config.VANTAGE_CLI_LOCAL_USER_BASE_DIR", _test_home):
             with patch("vantage_cli.constants.USER_CONFIG_FILE", _test_home / "config.json"):
                 with patch("vantage_cli.config.USER_CONFIG_FILE", _test_home / "config.json"):
-                    with patch("vantage_cli.constants.USER_TOKEN_CACHE_DIR", _test_home / "token_cache"):
-                        with patch("vantage_cli.config.USER_TOKEN_CACHE_DIR", _test_home / "token_cache"):
-                            with patch("vantage_cli.constants.VANTAGE_CLI_ACTIVE_PROFILE", _test_home / "active_profile"):
-                                with patch("vantage_cli.config.VANTAGE_CLI_ACTIVE_PROFILE", _test_home / "active_profile"):
+                    with patch(
+                        "vantage_cli.constants.USER_TOKEN_CACHE_DIR", _test_home / "token_cache"
+                    ):
+                        with patch(
+                            "vantage_cli.config.USER_TOKEN_CACHE_DIR", _test_home / "token_cache"
+                        ):
+                            with patch(
+                                "vantage_cli.constants.VANTAGE_CLI_ACTIVE_PROFILE",
+                                _test_home / "active_profile",
+                            ):
+                                with patch(
+                                    "vantage_cli.config.VANTAGE_CLI_ACTIVE_PROFILE",
+                                    _test_home / "active_profile",
+                                ):
                                     yield
 
 

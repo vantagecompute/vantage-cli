@@ -10,11 +10,8 @@ from vantage_cli.apps.multipass_singlenode import multipass_singlenode_app
 apps_app = AsyncTyper(
     name="apps",
     help="Vantage infrastructure automation applications.",
-    context_settings={
-        "allow_extra_args": True,
-        "allow_interspersed_args": True,
-        "ignore_unknown_options": True,
-    },
+    invoke_without_command=True,
+    no_args_is_help=True,
 )
 
 # Register subcommand groups
