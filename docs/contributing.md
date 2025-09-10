@@ -62,7 +62,7 @@ Register the sub-app in `main.py`.
 Standards
 ---------
 
-- Python 3.11+
+- Python 3.12+
 - Type hints required
 - `--json` for structured output where useful
 - Minimal side effects in library functions

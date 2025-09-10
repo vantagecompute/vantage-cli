@@ -33,13 +33,7 @@ from vantage_cli.exceptions import handle_abort
 from vantage_cli.schemas import CliContext, Persona, TokenSet
 
 app = AsyncTyper(
-    name="Vantage CLI",
-    add_completion=True,
-    context_settings={
-        "allow_extra_args": True,
-        "allow_interspersed_args": True,
-        "max_content_width": 120,
-    },
+    name="Vantage CLI", add_completion=True, help="Vantage Compute Command Line Interface"
 )
 
 app.add_typer(clouds_app, name="clouds")

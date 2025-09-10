@@ -15,11 +15,6 @@ profile_app = typer.Typer(
     help="Manage Vantage CLI profiles to work with different environments and configurations.",
     invoke_without_command=True,
     no_args_is_help=True,
-    context_settings={
-        "allow_extra_args": True,
-        "allow_interspersed_args": True,
-        "ignore_unknown_options": True,
-    },
 )
 
 # Register subcommands
