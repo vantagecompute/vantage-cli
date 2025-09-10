@@ -4,6 +4,7 @@
 import json
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -99,6 +100,7 @@ class TestCreateProfile:
     def test_create_profile_success(self):
         """Test successful profile creation."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch("vantage_cli.commands.profile.crud.init_user_filesystem") as mock_init:
@@ -108,9 +110,7 @@ class TestCreateProfile:
                         return_value=True,
                     ):
                         with patch("vantage_cli.commands.profile.crud.print_json") as mock_print:
-                            create_profile(
-                                ctx=mock_ctx, profile_name="test_profile", json_output=True
-                            )
+                            create_profile(ctx=mock_ctx, profile_name="test_profile")
 
                             mock_init.assert_called_once_with("test_profile")
                             mock_dump.assert_called_once()
@@ -119,6 +119,7 @@ class TestCreateProfile:
     def test_create_profile_already_exists(self):
         """Test creating profile that already exists without force."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -128,15 +129,14 @@ class TestCreateProfile:
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
                 with pytest.raises(Abort) as exc_info:
-                    create_profile(
-                        ctx=mock_ctx, profile_name="test_profile", force=False, json_output=False
-                    )
+                    create_profile(ctx=mock_ctx, profile_name="test_profile", force=False)
 
                 assert "already exists" in str(exc_info.value)
 
     def test_create_profile_with_force(self):
         """Test creating profile that already exists with force=True."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -153,7 +153,6 @@ class TestCreateProfile:
                                 ctx=mock_ctx,
                                 profile_name="test_profile",
                                 force=True,
-                                json_output=True,
                             )
 
                             # Should not raise an exception
@@ -165,6 +164,7 @@ class TestDeleteProfile:
     def test_delete_profile_success(self):
         """Test successful profile deletion."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -182,19 +182,19 @@ class TestDeleteProfile:
                                 ctx=mock_ctx,
                                 profile_name="test_profile",
                                 force=True,
-                                json_output=True,
                             )
 
     def test_delete_profile_not_found(self):
         """Test deleting profile that doesn't exist."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
                 with pytest.raises(Abort) as exc_info:
-                    delete_profile(ctx=mock_ctx, profile_name="nonexistent", json_output=False)
+                    delete_profile(ctx=mock_ctx, profile_name="nonexistent")
 
                 assert "does not exist" in str(exc_info.value)
 
@@ -210,9 +210,7 @@ class TestDeleteProfile:
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
                 with pytest.raises(Abort) as exc_info:
-                    delete_profile(
-                        ctx=mock_ctx, profile_name="default", force=False, json_output=False
-                    )
+                    delete_profile(ctx=mock_ctx, profile_name="default", force=False)
 
                 assert "Cannot delete 'default' profile" in str(exc_info.value)
 
@@ -223,6 +221,7 @@ class TestGetProfile:
     def test_get_profile_success(self):
         """Test successful profile retrieval."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
         existing_profiles = {
             "test_profile": {
                 "api_base_url": "https://example.com",
@@ -237,7 +236,7 @@ class TestGetProfile:
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=True
             ):
                 with patch("vantage_cli.commands.profile.crud.print_json") as mock_print:
-                    get_profile(ctx=mock_ctx, profile_name="test_profile", json_output=True)
+                    get_profile(ctx=mock_ctx, profile_name="test_profile")
 
                     mock_print.assert_called_once()
                     call_args = mock_print.call_args[1]["data"]
@@ -247,13 +246,14 @@ class TestGetProfile:
     def test_get_profile_not_found(self):
         """Test getting profile that doesn't exist."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
                 with pytest.raises(Abort) as exc_info:
-                    get_profile(ctx=mock_ctx, profile_name="nonexistent", json_output=False)
+                    get_profile(ctx=mock_ctx, profile_name="nonexistent")
 
                 assert "does not exist" in str(exc_info.value)
 
@@ -264,6 +264,7 @@ class TestListProfiles:
     def test_list_profiles_success(self):
         """Test successful profile listing."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
         existing_profiles = {
             "default": {"api_base_url": "https://api.example.com"},
             "test": {"api_base_url": "https://test.example.com"},
@@ -279,7 +280,7 @@ class TestListProfiles:
                     return_value=True,
                 ):
                     with patch("vantage_cli.commands.profile.crud.print_json") as mock_print:
-                        list_profiles(ctx=mock_ctx, json_output=True)
+                        list_profiles(ctx=mock_ctx)
 
                         mock_print.assert_called_once()
                         call_args = mock_print.call_args[1]["data"]
@@ -290,6 +291,7 @@ class TestListProfiles:
     def test_list_profiles_empty(self):
         """Test listing profiles when none exist."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
 
         with patch("vantage_cli.commands.profile.crud.get_active_profile", return_value="default"):
             with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
@@ -298,7 +300,7 @@ class TestListProfiles:
                     return_value=True,
                 ):
                     with patch("vantage_cli.commands.profile.crud.print_json") as mock_print:
-                        list_profiles(ctx=mock_ctx, json_output=True)
+                        list_profiles(ctx=mock_ctx)
 
                         mock_print.assert_called_once()
                         call_args = mock_print.call_args[1]["data"]
@@ -312,6 +314,7 @@ class TestUseProfile:
     def test_use_profile_success(self):
         """Test successful profile activation."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -322,7 +325,7 @@ class TestUseProfile:
             ):
                 with patch("vantage_cli.commands.profile.crud.set_active_profile") as mock_set:
                     with patch("vantage_cli.commands.profile.crud.print_json") as mock_print:
-                        use_profile(ctx=mock_ctx, profile_name="test_profile", json_output=True)
+                        use_profile(ctx=mock_ctx, profile_name="test_profile")
 
                         mock_set.assert_called_once_with("test_profile")
                         mock_print.assert_called_once()
@@ -330,10 +333,11 @@ class TestUseProfile:
     def test_use_profile_not_found(self):
         """Test using profile that doesn't exist."""
         mock_ctx = MagicMock()
+        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
                 with pytest.raises(typer.Exit):
-                    use_profile(ctx=mock_ctx, profile_name="nonexistent", json_output=False)
+                    use_profile(ctx=mock_ctx, profile_name="nonexistent")

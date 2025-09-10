@@ -14,7 +14,8 @@ from vantage_cli.main import whoami
 from vantage_cli.schemas import IdentityData, Persona, TokenSet
 
 
-def test_whoami_minimal_rich_table_no_optional_fields():
+@pytest.mark.asyncio
+async def test_whoami_minimal_rich_table_no_optional_fields():
     """Covers False branches for optional token metadata rows (name, user_id, issued, expires)."""
     with (
         patch("vantage_cli.main.extract_persona") as mock_extract,
@@ -34,7 +35,7 @@ def test_whoami_minimal_rich_table_no_optional_fields():
         mock_extract.return_value = persona
         mock_decode.return_value = {}
 
-        whoami(ctx)
+        await whoami(ctx)
 
         mock_print_json.assert_not_called()
         mock_extract.assert_called_once_with("minimal")

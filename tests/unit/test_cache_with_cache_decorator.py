@@ -97,6 +97,9 @@ def test_main_callback_no_subcommand(monkeypatch, capsys):
         invoked_subcommand = None
         obj = None
 
+        def get_help(self):
+            return "Usage: vantage [OPTIONS] COMMAND [ARGS]...\n\nNo command provided. Use --help for help."
+
     dctx = DummyCtx()
     with pytest.raises(typer.Exit):
         main_callback(dctx)  # type: ignore[arg-type]

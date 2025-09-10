@@ -21,40 +21,52 @@ default:
 lock:
     uv lock
 
-# Update documentation files with current version from pyproject.toml
-[group("docs")]
-update-docs-version:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Extract version from pyproject.toml
-    VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-    TODAY=$(date +%Y-%m-%d)
-    echo "📝 Updating docs with version: $VERSION (date: $TODAY)"
-    
-    # Update docs/_data/project.yml
-    sed -i "s/^version: .*/version: \"$VERSION\"/" docs/_data/project.yml
-    sed -i "s/^updated: .*/updated: \"$TODAY\"/" docs/_data/project.yml
-    
-    # Update docs/_config.yml (add version if missing, update if exists)
-    if grep -q "^version:" docs/_config.yml; then
-        sed -i "s/^version: .*/version: \"$VERSION\"/" docs/_config.yml
-    else
-        sed -i "/^description:/a version: \"$VERSION\"" docs/_config.yml
-    fi
-    
-    # Update docs/index.md front matter (add version if missing, update if exists)
-    if grep -q "^version:" docs/index.md; then
-        sed -i "s/^version: .*/version: \"$VERSION\"/" docs/index.md
-    else
-        sed -i "/^permalink:/a version: \"$VERSION\"" docs/index.md
-    fi
-    
-    echo "✅ Updated documentation files with version $VERSION"
+# Install Docusaurus dependencies
+[group("docusaurus")]
+docs-install:
+    @echo "📦 Installing Docusaurus dependencies..."
+    cd docs && yarn install
 
-# Build documentation with updated version  
-[group("docs")]
-build-docs: update-docs-version
-    @echo "📚 Documentation version updated. Ready for Jekyll build."
+# Start Docusaurus development server
+[group("docusaurus")]
+docs-dev: docs-install
+    @echo "🚀 Starting Docusaurus development server..."
+    cd docs && yarn start
+
+# Start Docusaurus development server on specific port
+[group("docusaurus")]
+docs-dev-port port="3000": docs-install
+    @echo "🚀 Starting Docusaurus development server on port {{port}}..."
+    cd docs && yarn start --port {{port}}
+
+# Build Docusaurus for production
+[group("docusaurus")]
+docs-build: docs-install
+    @echo "🏗️ Building Docusaurus for production..."
+    cd docs && yarn build
+
+# Serve built Docusaurus site locally
+[group("docusaurus")]
+docs-serve: docs-build
+    @echo "🌐 Serving built Docusaurus site..."
+    cd docs && yarn serve
+
+# Clean Docusaurus build artifacts
+[group("docusaurus")]
+docs-clean:
+    @echo "🧹 Cleaning Docusaurus build artifacts..."
+    cd docs && rm -rf build .docusaurus
+
+# Show available documentation commands
+[group("docusaurus")]
+docs-help:
+    @echo "📚 Docusaurus Commands:"
+    @echo "  docs-install    - Install dependencies"
+    @echo "  docs-dev        - Start development server"
+    @echo "  docs-dev-port   - Start dev server on specific port"
+    @echo "  docs-build      - Build for production"
+    @echo "  docs-serve      - Serve built site"
+    @echo "  docs-clean      - Clean build artifacts"
 
 # Run static type checker on code
 [group("lint")]

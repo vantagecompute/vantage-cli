@@ -137,9 +137,9 @@ def test_cluster_commands_import():
 
     try:
         # Test imports
-        from vantage_cli.commands.clusters.delete import delete_cluster
-        from vantage_cli.commands.clusters.get import get_cluster
-        from vantage_cli.commands.clusters.list import list_clusters
+        from vantage_cli.commands.cluster.delete import delete_cluster
+        from vantage_cli.commands.cluster.get import get_cluster
+        from vantage_cli.commands.cluster.list import list_clusters
 
         print("✅ Cluster command imports successful")
 

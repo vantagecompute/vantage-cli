@@ -5,10 +5,10 @@ import pytest
 import typer
 
 from vantage_cli import render as core_render
-from vantage_cli.commands.clouds import render as clouds_render
-from vantage_cli.commands.clouds.add import add_command
-from vantage_cli.commands.clouds.delete import delete_command
-from vantage_cli.commands.clouds.update import update_command
+from vantage_cli.commands.cloud import render as clouds_render
+from vantage_cli.commands.cloud.add import add_command
+from vantage_cli.commands.cloud.delete import delete_command
+from vantage_cli.commands.cloud.update import update_command
 
 
 class DummyContext(SimpleNamespace):

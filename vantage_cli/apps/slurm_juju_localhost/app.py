@@ -184,7 +184,7 @@ async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = No
 
     # Get client secret from API if not in cluster data (import locally to avoid circular import)
     if not client_secret:
-        from vantage_cli.commands.clusters import utils as cluster_utils
+        from vantage_cli.commands.cluster import utils as cluster_utils
 
         client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
 
@@ -237,7 +237,7 @@ async def deploy_command(
     console.print(Panel("Juju Localhost SLURM Application"))
     console.print("Deploying juju localhost slurm application...")
     # Get cluster data by name - for now using local import to avoid circular imports
-    from vantage_cli.commands.clusters import utils as cluster_utils
+    from vantage_cli.commands.cluster import utils as cluster_utils
 
     cluster_data = await cluster_utils.get_cluster_by_name(ctx, cluster_name)
 

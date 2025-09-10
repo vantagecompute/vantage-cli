@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from vantage_cli.commands.clusters.create import create_cluster, deploy_app_to_cluster
+from vantage_cli.commands.cluster.create import create_cluster, deploy_app_to_cluster
 from vantage_cli.config import Settings
 from vantage_cli.exceptions import Abort
 
@@ -36,7 +36,7 @@ async def test_create_cluster_no_response(monkeypatch):
     ctx = make_ctx()
     dummy_client = DummyClient([{}])  # createCluster key missing -> Abort
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.create_async_graphql_client",
+        "vantage_cli.commands.cluster.create.create_async_graphql_client",
         DummyGraphQLFactory(dummy_client),
     )
     # Call the original (undecorated) function to avoid decorator file I/O.
@@ -51,7 +51,7 @@ async def test_create_cluster_error_message(monkeypatch):
     ctx = make_ctx()
     dummy_client = DummyClient([{"createCluster": {"message": "Name taken"}}])
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.create_async_graphql_client",
+        "vantage_cli.commands.cluster.create.create_async_graphql_client",
         DummyGraphQLFactory(dummy_client),
     )
     original_fn = create_cluster.__wrapped__  # type: ignore[attr-defined]
@@ -65,7 +65,7 @@ async def test_create_cluster_unclear_status(monkeypatch):
     ctx = make_ctx()
     dummy_client = DummyClient([{"createCluster": {"status": "PENDING"}}])
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.create_async_graphql_client",
+        "vantage_cli.commands.cluster.create.create_async_graphql_client",
         DummyGraphQLFactory(dummy_client),
     )
     # Should not raise; prints yellow message path
@@ -96,7 +96,7 @@ async def test_deploy_app_to_cluster_paths(monkeypatch):
     cluster = {"name": "c1"}
 
     # 1. App not found
-    monkeypatch.setattr("vantage_cli.commands.clusters.create.get_available_apps", lambda: {})
+    monkeypatch.setattr("vantage_cli.commands.cluster.create.get_available_apps", lambda: {})
     await deploy_app_to_cluster(ctx, cluster, "missing-app")
 
     # 2. Function based app
@@ -106,7 +106,7 @@ async def test_deploy_app_to_cluster_paths(monkeypatch):
         called["func"] = True
 
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.get_available_apps",
+        "vantage_cli.commands.cluster.create.get_available_apps",
         lambda: {"func-app": {"deploy_function": deploy_func}},
     )
     await deploy_app_to_cluster(ctx, cluster, "func-app")
@@ -122,7 +122,7 @@ async def test_deploy_app_to_cluster_paths(monkeypatch):
 
     app_instance = App()
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.get_available_apps",
+        "vantage_cli.commands.cluster.create.get_available_apps",
         lambda: {"class-app": {"instance": app_instance}},
     )
     await deploy_app_to_cluster(ctx, cluster, "class-app")
@@ -133,14 +133,14 @@ async def test_deploy_app_to_cluster_paths(monkeypatch):
         pass
 
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.get_available_apps",
+        "vantage_cli.commands.cluster.create.get_available_apps",
         lambda: {"nodeploy": {"instance": NoDeploy()}},
     )
     await deploy_app_to_cluster(ctx, cluster, "nodeploy")
 
     # 5. Unknown spec (neither deploy_function nor instance)
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.get_available_apps",
+        "vantage_cli.commands.cluster.create.get_available_apps",
         lambda: {"weird": {"other": 1}},
     )
     await deploy_app_to_cluster(ctx, cluster, "weird")
@@ -150,7 +150,7 @@ async def test_deploy_app_to_cluster_paths(monkeypatch):
         raise RuntimeError("explode")
 
     monkeypatch.setattr(
-        "vantage_cli.commands.clusters.create.get_available_apps",
+        "vantage_cli.commands.cluster.create.get_available_apps",
         lambda: {"boom-app": {"deploy_function": boom}},
     )
     await deploy_app_to_cluster(ctx, cluster, "boom-app")

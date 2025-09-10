@@ -80,7 +80,7 @@ async def test_deploy_success(monkeypatch: pytest.MonkeyPatch, ctx: Any) -> None
 
     monkeypatch.setitem(
         sys.modules,
-        "vantage_cli.commands.clusters.utils",
+        "vantage_cli.commands.cluster.utils",
         types.SimpleNamespace(get_cluster_client_secret=fake_get_secret),
     )  # type: ignore[arg-type]
     await multipass_app.deploy(ctx, _cluster_data())
@@ -115,7 +115,7 @@ async def test_deploy_failure_return_code(monkeypatch: pytest.MonkeyPatch, ctx: 
 
     monkeypatch.setitem(
         sys.modules,
-        "vantage_cli.commands.clusters.utils",
+        "vantage_cli.commands.cluster.utils",
         types.SimpleNamespace(get_cluster_client_secret=fake_get_secret),
     )  # type: ignore[arg-type]
     with pytest.raises(typer.Exit):

@@ -1,6 +1,7 @@
 """Unit tests for profile commands."""
 
 import json
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
@@ -29,6 +30,7 @@ class TestCreateProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
+        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
         ctx.params = {"json_output": False}
         return ctx
 
@@ -208,6 +210,7 @@ class TestDeleteProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
+        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
         ctx.params = {"json_output": False}
         return ctx
 
@@ -367,6 +370,7 @@ class TestGetProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
+        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
         ctx.params = {"json_output": False}
         return ctx
 
@@ -496,6 +500,7 @@ class TestListProfiles:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
+        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
         ctx.params = {"json_output": False}
         return ctx
 
@@ -618,6 +623,7 @@ class TestUseProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
+        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
         ctx.params = {"json_output": False}
         return ctx
 

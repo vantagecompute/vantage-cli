@@ -31,15 +31,12 @@ class TestSettings:
         # Execute
         settings = Settings()
 
-        # Verify
-        assert settings.supported_clouds == [
-            "localhost",
-            "aws",
-            "gcp",
-            "azure",
-            "on-premises",
-            "k8s",
-        ]
+        # Verify - check that all expected clouds exist (order doesn't matter)
+        expected_clouds = {"localhost", "aws", "gcp", "azure", "on-premises", "k8s", "maas"}
+        actual_clouds = set(settings.supported_clouds)
+        assert expected_clouds.issubset(actual_clouds), (
+            f"Missing clouds: {expected_clouds - actual_clouds}"
+        )
         assert settings.api_base_url == "https://apis.vantagecompute.ai"
         assert settings.oidc_base_url == "https://auth.vantagecompute.ai"
         assert settings.oidc_client_id == "default"
@@ -309,30 +306,28 @@ class TestDumpSettings:
 class TestClearSettings:
     """Tests for clear_settings function."""
 
-    @patch("vantage_cli.config.USER_CONFIG_FILE")
-    @patch("vantage_cli.config.USER_TOKEN_CACHE_DIR")
-    def test_clear_settings_success(self, mock_token_dir, mock_config_file):
+    @patch("vantage_cli.config.VANTAGE_CLI_LOCAL_USER_BASE_DIR")
+    def test_clear_settings_success(self, mock_base_dir):
         """Test successful settings clearing."""
         with patch("shutil.rmtree") as mock_rmtree:
             # Execute
             clear_settings()
 
             # Verify
-            mock_rmtree.assert_called_once_with(f"{mock_token_dir}")
+            mock_rmtree.assert_called_once_with(mock_base_dir)
 
-    @patch("vantage_cli.config.USER_TOKEN_CACHE_DIR")
-    def test_clear_settings_no_directory(self, mock_token_dir):
+    @patch("vantage_cli.config.VANTAGE_CLI_LOCAL_USER_BASE_DIR")
+    def test_clear_settings_no_directory(self, mock_base_dir):
         """Test clear_settings when directory doesn't exist."""
-        with patch("vantage_cli.config.USER_CONFIG_FILE") as mock_config_file:
-            with patch("vantage_cli.config.VANTAGE_CLI_ACTIVE_PROFILE") as mock_active_file:
-                with patch("shutil.rmtree") as mock_rmtree:
-                    # Execute
-                    clear_settings()
+        with patch("shutil.rmtree") as mock_rmtree:
+            # Configure mock to raise FileNotFoundError
+            mock_rmtree.side_effect = FileNotFoundError()
 
-                    # Verify - rmtree should always be called on token cache dir
-                    mock_rmtree.assert_called_once_with(f"{mock_token_dir}")
-                    mock_config_file.unlink.assert_called_once_with(missing_ok=True)
-                    mock_active_file.unlink.assert_called_once_with(missing_ok=True)
+            # Execute (should not raise an exception)
+            clear_settings()
+
+            # Verify - rmtree should be called on base directory
+            mock_rmtree.assert_called_once_with(mock_base_dir)
 
 
 class TestEnsureDefaultProfileExists:

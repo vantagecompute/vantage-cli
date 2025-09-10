@@ -286,7 +286,7 @@ async def deploy_command(
     cluster_data = None
     if cluster_name:
         try:
-            from vantage_cli.commands.clusters import (
+            from vantage_cli.commands.cluster import (
                 utils as cluster_utils,  # local import to avoid cycles
             )
 

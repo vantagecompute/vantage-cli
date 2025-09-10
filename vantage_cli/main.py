@@ -13,19 +13,30 @@ from rich import print_json
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from typing_extensions import Annotated
 
-from vantage_cli import AsyncTyper
+from vantage_cli import AsyncTyper, __version__
 from vantage_cli.apps import apps_app
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
 from vantage_cli.cache import clear_token_cache, load_tokens_from_cache, with_cache
 from vantage_cli.client import attach_client
-from vantage_cli.commands.clouds import clouds_app
-from vantage_cli.commands.clusters import cluster_app
+from vantage_cli.commands.alias import (
+    apps_command,
+    clouds_command,
+    clusters_command,
+    federations_command,
+    networks_command,
+    notebooks_command,
+    teams_command,
+)
+from vantage_cli.commands.cloud import clouds_app
+from vantage_cli.commands.cluster import cluster_app
+from vantage_cli.commands.config import config_app
+from vantage_cli.commands.license import license_app
+from vantage_cli.commands.network import network_app
 from vantage_cli.commands.profile import profile_app
+from vantage_cli.commands.storage import storage_app
 from vantage_cli.config import (
     attach_settings,
-    clear_settings,
     ensure_default_profile_exists,
     get_active_profile,
 )
@@ -33,13 +44,33 @@ from vantage_cli.exceptions import handle_abort
 from vantage_cli.schemas import CliContext, Persona, TokenSet
 
 app = AsyncTyper(
-    name="Vantage CLI", add_completion=True, help="Vantage Compute Command Line Interface"
+    name="Vantage CLI",
+    add_completion=False,
+    help="Vantage Compute Command Line Interface",
+    no_args_is_help=True,
+    invoke_without_command=True,
 )
 
-app.add_typer(clouds_app, name="clouds")
-app.add_typer(cluster_app, name="clusters")
+
+@app.command()
+def version(ctx: typer.Context):
+    """Show version and exit."""
+    if hasattr(ctx.obj, "json_output") and ctx.obj and ctx.obj.json_output:
+        import json
+
+        print(json.dumps({"version": __version__}))
+    else:
+        typer.echo(__version__)
+
+
+app.add_typer(clouds_app, name="cloud")
+app.add_typer(cluster_app, name="cluster")
+app.add_typer(config_app, name="config")
+app.add_typer(license_app, name="license")
+app.add_typer(network_app, name="network")
 app.add_typer(profile_app, name="profile")
-app.add_typer(apps_app, name="apps")
+app.add_typer(storage_app, name="storage")
+app.add_typer(apps_app, name="app")
 
 
 def setup_logging(verbose: bool = False):
@@ -52,31 +83,31 @@ def setup_logging(verbose: bool = False):
     logger.debug("Logging initialized")
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Enable verbose output")
-    ] = False,
-    profile: Annotated[
-        Optional[str], typer.Option("--profile", "-p", help="Specify the profile to use")
-    ] = None,
-    json: Annotated[bool, typer.Option("--json", "-j", help="Output in JSON format")] = False,
 ):
     """Handle global options for the application."""
+    # If no subcommand is invoked, display help
     if ctx.invoked_subcommand is None:
-        console = Console()
-        console.print("No command provided. Please check [bold magenta]usage[/bold magenta]")
+        print(ctx.get_help())
         raise typer.Exit()
 
     ensure_default_profile_exists()
+
+    # Get injected parameters from context object if they exist
+    profile = getattr(ctx.obj, "profile", None) if hasattr(ctx, "obj") and ctx.obj else None
+    verbose = getattr(ctx.obj, "verbose", False) if hasattr(ctx, "obj") and ctx.obj else False
+    json_output = (
+        getattr(ctx.obj, "json_output", False) if hasattr(ctx, "obj") and ctx.obj else False
+    )
 
     # Use explicit profile if provided, otherwise get the active profile
     active_profile = profile if profile is not None else get_active_profile()
 
     setup_logging(verbose=verbose)
 
-    cli_ctx = CliContext(profile=active_profile, verbose=verbose, json_output=json)
+    cli_ctx = CliContext(profile=active_profile, verbose=verbose, json_output=json_output)
     ctx.obj = cli_ctx
 
 
@@ -287,10 +318,14 @@ async def whoami(ctx: typer.Context):
             console.print()
 
 
-@app.command()
-async def clear_config():
-    """Clear all user tokens and config."""
-    clear_settings()
+# Register alias commands
+app.command("apps", hidden=True)(apps_command)
+app.command("clouds", hidden=True)(clouds_command)
+app.command("clusters", hidden=True)(clusters_command)
+app.command("federations", hidden=True)(federations_command)
+app.command("networks", hidden=True)(networks_command)
+app.command("notebooks", hidden=True)(notebooks_command)
+app.command("teams", hidden=True)(teams_command)
 
 
 if __name__ == "__main__":

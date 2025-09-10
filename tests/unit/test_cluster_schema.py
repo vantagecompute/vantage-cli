@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from vantage_cli.commands.clusters import schema as cluster_schema
+from vantage_cli.commands.cluster import schema as cluster_schema
 
 
 def test_vantage_cluster_context_creation():

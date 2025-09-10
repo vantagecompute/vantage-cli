@@ -3,7 +3,7 @@ from typing import Any, Iterable
 
 import pytest
 
-from vantage_cli.commands.clusters import utils as cluster_utils
+from vantage_cli.commands.cluster import utils as cluster_utils
 
 
 class DummyTokenSet:

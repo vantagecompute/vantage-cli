@@ -1,5 +1,6 @@
 """Comprehensive tests for cluster commands."""
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -7,11 +8,11 @@ import typer
 
 # Import the functions we want to test
 try:
-    from vantage_cli.commands.clusters.create import create_cluster
-    from vantage_cli.commands.clusters.delete import delete_cluster
-    from vantage_cli.commands.clusters.get import get_cluster
-    from vantage_cli.commands.clusters.list import list_clusters
-    from vantage_cli.commands.clusters.render import (
+    from vantage_cli.commands.cluster.create import create_cluster
+    from vantage_cli.commands.cluster.delete import delete_cluster
+    from vantage_cli.commands.cluster.get import get_cluster
+    from vantage_cli.commands.cluster.list import list_clusters
+    from vantage_cli.commands.cluster.render import (
         render_cluster_details,
         render_clusters_table,
     )
@@ -31,9 +32,7 @@ class TestClusterCreate:
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
         ctx.params = {"json_output": False}
-        ctx.obj = Mock()
-        ctx.obj.settings = Mock()
-        ctx.obj.profile = "default"
+        ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
         return ctx
 
     @pytest.fixture
@@ -53,7 +52,7 @@ class TestClusterCreate:
         }
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.create.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.create.create_async_graphql_client")
     async def test_create_cluster_success(
         self, mock_graphql_client_factory, mock_context, sample_creation_response
     ):
@@ -76,7 +75,7 @@ class TestClusterCreate:
         assert "test-cluster" in str(call_args)
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.create.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.create.create_async_graphql_client")
     async def test_create_cluster_with_config_file(
         self, mock_graphql_client_factory, mock_context, sample_creation_response, tmp_path
     ):
@@ -108,7 +107,7 @@ class TestClusterCreate:
         mock_client.execute_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.create.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.create.create_async_graphql_client")
     async def test_create_cluster_graphql_error(self, mock_graphql_client_factory, mock_context):
         """Test cluster creation with GraphQL error."""
         # Setup
@@ -135,6 +134,15 @@ class TestClusterList:
         ctx.params = {"json_output": False}
         ctx.obj = Mock()
         ctx.obj.settings = Mock()
+        ctx.obj.settings.supported_clouds = [
+            "maas",
+            "localhost",
+            "aws",
+            "gcp",
+            "azure",
+            "on-premises",
+            "k8s",
+        ]
         ctx.obj.profile = "default"
         return ctx
 
@@ -174,7 +182,7 @@ class TestClusterList:
         }
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.list.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.list.create_async_graphql_client")
     async def test_list_clusters_success(
         self, mock_graphql_client_factory, mock_context, sample_clusters_response
     ):
@@ -193,7 +201,7 @@ class TestClusterList:
         assert "getClusters" in str(call_args)
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.list.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.list.create_async_graphql_client")
     async def test_list_clusters_empty(self, mock_graphql_client_factory, mock_context):
         """Test listing when no clusters exist."""
         # Setup
@@ -209,7 +217,7 @@ class TestClusterList:
         mock_client.execute_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.list.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.list.create_async_graphql_client")
     async def test_list_clusters_json_output(
         self, mock_graphql_client_factory, mock_context, sample_clusters_response
     ):
@@ -220,13 +228,13 @@ class TestClusterList:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute
-        await list_clusters(ctx=mock_context, json_output=True)
+        await list_clusters(ctx=mock_context)
 
         # Verify
         mock_client.execute_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.list.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.list.create_async_graphql_client")
     async def test_list_clusters_graphql_error(self, mock_graphql_client_factory, mock_context):
         """Test cluster listing with GraphQL error."""
         # Setup
@@ -249,6 +257,15 @@ class TestClusterDelete:
         ctx.params = {"json_output": False}
         ctx.obj = Mock()
         ctx.obj.settings = Mock()
+        ctx.obj.settings.supported_clouds = [
+            "maas",
+            "localhost",
+            "aws",
+            "gcp",
+            "azure",
+            "on-premises",
+            "k8s",
+        ]
         ctx.obj.profile = "default"
         ctx.obj.json_output = False  # Explicitly set json_output to False
         return ctx
@@ -259,7 +276,7 @@ class TestClusterDelete:
         return {"deleteCluster": {"message": "Cluster deleted successfully"}}
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
     async def test_delete_cluster_with_force(
         self, mock_graphql_client_factory, mock_context, sample_deletion_response
     ):
@@ -279,7 +296,7 @@ class TestClusterDelete:
         assert "test-cluster" in str(call_args)
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
     @patch("rich.prompt.Confirm.ask", return_value=True)
     async def test_delete_cluster_with_confirmation(
         self, mock_confirm, mock_graphql_client_factory, mock_context, sample_deletion_response
@@ -291,16 +308,15 @@ class TestClusterDelete:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute
-        await delete_cluster(
-            ctx=mock_context, cluster_name="test-cluster", force=False, json_output=False
-        )
+        mock_context.obj.json_output = False
+        await delete_cluster(ctx=mock_context, cluster_name="test-cluster", force=False)
 
         # Verify confirmation was asked and GraphQL was called
         mock_confirm.assert_called_once()
         mock_client.execute_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
     @patch("rich.prompt.Confirm.ask", return_value=False)
     async def test_delete_cluster_cancelled(
         self, mock_confirm, mock_graphql_client_factory, mock_context
@@ -311,16 +327,15 @@ class TestClusterDelete:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute
-        await delete_cluster(
-            ctx=mock_context, cluster_name="test-cluster", force=False, json_output=False
-        )
+        mock_context.obj.json_output = False
+        await delete_cluster(ctx=mock_context, cluster_name="test-cluster", force=False)
 
         # Verify confirmation was asked but GraphQL was NOT called
         mock_confirm.assert_called_once()
         mock_client.execute_async.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
     async def test_delete_cluster_json_output(
         self, mock_graphql_client_factory, mock_context, sample_deletion_response
     ):
@@ -331,15 +346,14 @@ class TestClusterDelete:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute
-        await delete_cluster(
-            ctx=mock_context, cluster_name="test-cluster", force=True, json_output=True
-        )
+        mock_context.obj.json_output = True
+        await delete_cluster(ctx=mock_context, cluster_name="test-cluster", force=True)
 
         # Verify
         mock_client.execute_async.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
     async def test_delete_cluster_graphql_error(self, mock_graphql_client_factory, mock_context):
         """Test cluster deletion with GraphQL error."""
         # Setup
@@ -362,6 +376,15 @@ class TestClusterGet:
         ctx.params = {"json_output": False}
         ctx.obj = Mock()
         ctx.obj.settings = Mock()
+        ctx.obj.settings.supported_clouds = [
+            "maas",
+            "localhost",
+            "aws",
+            "gcp",
+            "azure",
+            "on-premises",
+            "k8s",
+        ]
         ctx.obj.profile = "default"
         return ctx
 
@@ -389,7 +412,7 @@ class TestClusterGet:
 
     @pytest.mark.asyncio
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.utils.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.utils.create_async_graphql_client")
     async def test_get_cluster_success(
         self, mock_graphql_client_factory, mock_context, sample_cluster_response
     ):
@@ -412,7 +435,7 @@ class TestClusterGet:
 
     @pytest.mark.asyncio
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.utils.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.utils.create_async_graphql_client")
     async def test_get_cluster_not_found(self, mock_graphql_client_factory, mock_context):
         """Test getting a cluster that doesn't exist."""
         # Setup
@@ -427,7 +450,7 @@ class TestClusterGet:
 
     @pytest.mark.asyncio
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.utils.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.utils.create_async_graphql_client")
     async def test_get_cluster_json_output(
         self, mock_graphql_client_factory, mock_context, sample_cluster_response
     ):
@@ -438,14 +461,14 @@ class TestClusterGet:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute
-        await get_cluster(ctx=mock_context, cluster_name="test-cluster", json_output=True)
+        await get_cluster(ctx=mock_context, cluster_name="test-cluster")
 
         # Verify
         mock_client.execute_async.assert_called_once()
 
     @pytest.mark.asyncio
     @pytest.mark.asyncio
-    @patch("vantage_cli.commands.clusters.utils.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.utils.create_async_graphql_client")
     async def test_get_cluster_graphql_error(self, mock_graphql_client_factory, mock_context):
         """Test cluster retrieval with GraphQL error."""
         # Setup
