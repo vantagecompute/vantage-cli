@@ -5,16 +5,22 @@ description: "Authenticate, manage profiles & clusters, deploy apps, and run Gra
 permalink: /
 ---
 
-Vantage CLI is a modern async Python tool that unifies authentication, profile management, cluster operations and GraphQL querying.
+## 🚀 Vantage CLI
+
+### The unified command-line interface for Vantage Compute
+
+Vantage CLI is a modern async Python tool that unifies authentication, profile management, cluster operations and GraphQL querying against the Vantage Compute platform.
+
+**[Get Started →](/installation/)** | **[View on GitHub →](https://github.com/vantagecompute/vantage-cli)**
+
+---
 
 ## Key Features
 
 - 🏗️ **Modern Architecture**: Built with Typer CLI framework and modular Python design
 - 📦 **Relocatable Packages**: Runtime path configuration for cross-environment deployment
-- ⚡ **Intelligent Caching**: Multi-layer build caching for ultra-fast rebuilds
 - 🔧 **Exception Handling**: Comprehensive error management with custom exception hierarchy
-- 🧪 **Tested**: 100% test coverage with 112 passing tests using proper LXD mocking
-- 🚀 **GPU Support**: CUDA-enabled builds for GPU-accelerated workloads
+- 🧪 **Tested**: 100% test coverage with 363 passing tests
 
 ## Quick Start {#quick-start}
 
@@ -73,13 +79,12 @@ The CLI operates against remote services; no local package relocation required.
 
 ## Where Next?
 
-- [Installation](/vantage-cli/installation/)
-- [Commands](/vantage-cli/commands/)
-- [Usage Examples](/vantage-cli/usage/)
-- [Contributing](/vantage-cli/contributing/)
-- [Architecture](/vantage-cli/architecture/)
+- [Installation](installation)
+- [Commands](commands)
+- [Usage Examples](usage)
+- [Contributing](contributing)
+- [Architecture](architecture)
 
 ---
 
-Built by Vantage Compute.
-
+**Made with ❤️ by [Vantage Compute](https://vantagecompute.ai)**

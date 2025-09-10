@@ -1716,6 +1716,72 @@
                 width: calc(100% + 6rem);
             }
         }
+
+        /* Hero Section Styles */
+        h2:first-of-type {
+            font-size: 2.5rem;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            background: var(--vantage-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            border-bottom: none;
+            text-align: center;
+        }
+
+        h2:first-of-type + h3 {
+            font-size: 1.25rem;
+            color: var(--vantage-text-secondary);
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+            text-align: center;
+        }
+
+        h2:first-of-type + h3 + p {
+            font-size: 1.125rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h2:first-of-type + h3 + p + p {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(107, 70, 193, 0.05);
+            border-radius: 12px;
+            border: 1px solid rgba(107, 70, 193, 0.1);
+        }
+
+        h2:first-of-type + h3 + p + p strong a {
+            display: inline-block;
+            background: var(--vantage-gradient);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 0.25rem 0.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        h2:first-of-type + h3 + p + p strong a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(107, 70, 193, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            h2:first-of-type {
+                font-size: 2rem;
+            }
+            
+            h2:first-of-type + h3 + p + p strong a {
+                display: block;
+                margin: 0.5rem 0;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1759,25 +1825,17 @@
                         <span class="nav-icon">⚙️</span>
                         <span class="nav-text">Installation</span>
                     </a></li>
-                    <li><a href="{{ site.baseurl }}/deployment" {% if page.url contains "/deployment" %}class="active"{% endif %}>
-                        <span class="nav-icon">📦</span>
-                        <span class="nav-text">Deployment</span>
+                    <li><a href="{{ site.baseurl }}/usage" {% if page.url contains "/usage" %}class="active"{% endif %}>
+                        <span class="nav-icon">�</span>
+                        <span class="nav-text">Usage</span>
+                    </a></li>
+                    <li><a href="{{ site.baseurl }}/commands" {% if page.url contains "/commands" %}class="active"{% endif %}>
+                        <span class="nav-icon">⚡</span>
+                        <span class="nav-text">Commands</span>
                     </a></li>
                     <li><a href="{{ site.baseurl }}/architecture" {% if page.url contains "/architecture" %}class="active"{% endif %}>
                         <span class="nav-icon">🏗️</span>
                         <span class="nav-text">Architecture</span>
-                    </a></li>
-                    <li><a href="{{ site.baseurl }}/api-reference" {% if page.url contains "/api-reference" %}class="active"{% endif %}>
-                        <span class="nav-icon">📚</span>
-                        <span class="nav-text">API Reference</span>
-                    </a></li>
-                    <li><a href="{{ site.baseurl }}/examples" {% if page.url contains "/examples" %}class="active"{% endif %}>
-                        <span class="nav-icon">💡</span>
-                        <span class="nav-text">Examples</span>
-                    </a></li>
-                    <li><a href="{{ site.baseurl }}/optimization" {% if page.url contains "/optimization" %}class="active"{% endif %}>
-                        <span class="nav-icon">🚀</span>
-                        <span class="nav-text">Optimization</span>
                     </a></li>
                     <li><a href="{{ site.baseurl }}/troubleshooting" {% if page.url contains "/troubleshooting" %}class="active"{% endif %}>
                         <span class="nav-icon">🐛</span>
