@@ -88,7 +88,7 @@ jobs:
         sudo snap install astral-uv --classic
         uv venv
         uv pip install dist/*.whl
-        uv run python3 -c "import vantage_cli.__version__; print('Package imported successfully')"
+        uv run python3 -c "import vantage_cli; print('Package imported successfully')"
 
   publish-pypi:
     name: Publish to PyPI
