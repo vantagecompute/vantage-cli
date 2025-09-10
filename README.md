@@ -1,1 +1,87 @@
-# vantage-cli
+<div align="center">
+<a href="https://www.vantagecompute.ai/">
+  <img src="https://vantage-compute-public-assets.s3.us-east-1.amazonaws.com/branding/vantage-logo-text-black-horz.png" alt="Vantage Compute Logo" width="100" style="margin-bottom: 0.5em;"/>
+</a>
+</div>
+<div align="center">
+
+# Vantage CLI
+
+[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
+[![PyPI](https://img.shields.io/pypi/v/vantage-cli.svg)](https://pypi.org/project/vantage-cli/)
+[![LXD](https://img.shields.io/badge/LXD-5.0+-orange.svg)](https://linuxcontainers.org/lxd)
+
+![Build Status](https://img.shields.io/github/actions/workflow/status/vantagecompute/vantage-cli/ci.yaml?branch=main&label=build&logo=github&style=plastic)
+![GitHub Issues](https://img.shields.io/github/issues/vantagecompute/vantage-cli?label=issues&logo=github&style=plastic)
+![Pull Requests](https://img.shields.io/github/issues-pr/vantagecompute/vantage-cli?label=pull-requests&logo=github&style=plastic)
+![GitHub Contributors](https://img.shields.io/github/contributors/vantagecompute/vantage-cli?logo=github&style=plastic)
+
+</div>
+
+A modern Python CLI tool to interface to Vantage Compute.
+
+## 🚀 Quick Start
+
+### Option 1: Install from PyPI (Recommended)
+
+```bash
+# Install LXD
+pip install vantage-cli
+
+# Login to Vantage
+vantage login
+
+# Check your logged in user
+vantage whoami
+```
+
+### Option 2: Install from Source
+
+```bash
+# Clone and setup
+git clone https://github.com/vantagecompute/vantage-cli.git
+cd vantage-cli && uv sync
+
+# Login to Vantage
+uv run vantage login
+```
+
+## 📚 Documentation
+
+Visit our comprehensive documentation site:
+**[vantagecompute.github.io/vantage-cli](https://vantagecompute.github.io/vantage-cli)**
+
+- **[Installation Guide](https://vantagecompute.github.io/vantage-cli/installation/)**: Detailed setup instructions
+- **[Architecture Overview](https://vantagecompute.github.io/vantage-cli/architecture/)**: How vantage-cli works
+- **[Command Reference](https://vantagecompute.github.io/vantage-cli/commands/)**: Complete command documentation
+- **[Troubleshooting](https://vantagecompute.github.io/vantage-cli/troubleshooting/)**: Common issues and solutions
+
+
+## 📄 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+Copyright 2025 Vantage Compute Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+## 🆘 Support
+
+- **Issues**: [GitHub Issues](https://github.com/vantagecompute/vantage-cli/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/vantagecompute/vantage-cli/discussions)
+- **Email**: [james@vantagecompute.ai](mailto:james@vantagecompute.ai)
+
+---
+
+**Made with ❤️ by [Vantage Compute](https://vantagecompute.ai)**
