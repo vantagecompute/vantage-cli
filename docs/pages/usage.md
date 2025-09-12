@@ -104,7 +104,7 @@ vantage team list-members --team team-123
 
 ```bash
 vantage profile list
-vantage profile create --name staging --set-active
+vantage profile create --name staging --activate
 vantage login
 ```
 
