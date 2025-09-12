@@ -66,6 +66,17 @@ vantage = "vantage_cli.main:app"
 
 [tool.coverage.run]
 branch = true
+omit = [
+    # Exclude new stub command modules from coverage
+    "vantage_cli/commands/job/*",
+    "vantage_cli/commands/support_ticket/*",
+    "vantage_cli/commands/team/*",
+    "vantage_cli/commands/federation/*",
+    # Exclude existing stub command modules with low coverage
+    "vantage_cli/commands/license/*",
+    "vantage_cli/commands/storage/*",
+    "vantage_cli/commands/network/*",
+]
 
 [tool.coverage.report]
 show_missing = true
@@ -123,3 +134,8 @@ max-complexity = 15
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0",
+]

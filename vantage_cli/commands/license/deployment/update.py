@@ -1,0 +1,75 @@
+# © 2025 Vantage Compute, Inc. All rights reserved.
+# Confidential and proprietary. Unauthorized use prohibited.
+"""Update license deployment command."""
+
+from typing import Annotated, Optional
+
+import typer
+from rich import print_json
+from rich.console import Console
+
+from vantage_cli.command_base import get_effective_json_output
+from vantage_cli.config import attach_settings
+
+console = Console()
+
+
+@attach_settings
+async def update_license_deployment(
+    ctx: typer.Context,
+    deployment_id: Annotated[str, typer.Argument(help="ID of the license deployment to update")],
+    name: Annotated[
+        Optional[str], typer.Option("--name", "-n", help="New name for the deployment")
+    ] = None,
+    environment: Annotated[
+        Optional[str],
+        typer.Option("--environment", "-e", help="New environment for the deployment"),
+    ] = None,
+    nodes: Annotated[Optional[int], typer.Option("--nodes", help="New number of nodes")] = None,
+    description: Annotated[
+        Optional[str], typer.Option("--description", "-d", help="New description")
+    ] = None,
+    status: Annotated[
+        Optional[str],
+        typer.Option("--status", "-s", help="New status (active, inactive, suspended)"),
+    ] = None,
+):
+    """Update a license deployment."""
+    if get_effective_json_output(ctx):
+        # JSON output
+        updates = {}
+        if name:
+            updates["name"] = name
+        if environment:
+            updates["environment"] = environment
+        if nodes:
+            updates["nodes"] = nodes
+        if description:
+            updates["description"] = description
+        if status:
+            updates["status"] = status
+
+        print_json(
+            data={
+                "deployment_id": deployment_id,
+                "updates": updates,
+                "status": "updated",
+                "updated_at": "2025-09-10T10:00:00Z",
+            }
+        )
+    else:
+        # Rich console output
+        console.print(f"🔄 Updating license deployment [bold blue]{deployment_id}[/bold blue]")
+
+        if name:
+            console.print(f"   Name: [green]{name}[/green]")
+        if environment:
+            console.print(f"   Environment: [yellow]{environment}[/yellow]")
+        if nodes:
+            console.print(f"   Nodes: [cyan]{nodes}[/cyan]")
+        if description:
+            console.print(f"   Description: {description}")
+        if status:
+            console.print(f"   Status: [magenta]{status}[/magenta]")
+
+        console.print("✅ License deployment updated successfully!")

@@ -1,0 +1,87 @@
+# © 2025 Vantage Compute, Inc. All rights reserved.
+# Confidential and proprietary. Unauthorized use prohibited.
+"""List license deployments command."""
+
+from typing import Annotated, Optional
+
+import typer
+from rich import print_json
+from rich.console import Console
+
+from vantage_cli.command_base import get_effective_json_output
+from vantage_cli.config import attach_settings
+
+console = Console()
+
+
+@attach_settings
+async def list_license_deployments(
+    ctx: typer.Context,
+    environment: Annotated[
+        Optional[str], typer.Option("--environment", "-e", help="Filter by environment")
+    ] = None,
+    status: Annotated[
+        Optional[str], typer.Option("--status", "-s", help="Filter by status")
+    ] = None,
+    limit: Annotated[
+        Optional[int],
+        typer.Option("--limit", "-l", help="Maximum number of deployments to return"),
+    ] = 10,
+):
+    """List all license deployments."""
+    if get_effective_json_output(ctx):
+        # JSON output
+        deployments = [
+            {
+                "deployment_id": "deployment-123",
+                "name": "web-app-deployment",
+                "product_id": "product-456",
+                "environment": "prod",
+                "nodes": 5,
+                "status": "active",
+                "licenses_allocated": 50,
+                "licenses_used": 35,
+            },
+            {
+                "deployment_id": "deployment-124",
+                "name": "api-deployment",
+                "product_id": "product-789",
+                "environment": "dev",
+                "nodes": 2,
+                "status": "inactive",
+                "licenses_allocated": 20,
+                "licenses_used": 0,
+            },
+        ]
+
+        # Apply filters
+        if environment:
+            deployments = [d for d in deployments if d["environment"] == environment]
+        if status:
+            deployments = [d for d in deployments if d["status"] == status]
+
+        print_json(
+            data={
+                "deployments": deployments[:limit] if limit else deployments,
+                "total": len(deployments),
+                "filters": {"environment": environment, "status": status, "limit": limit},
+            }
+        )
+    else:
+        # Rich console output
+        console.print("📦 License Deployments:")
+        console.print()
+
+        deployments = [
+            ("deployment-123", "web-app-deployment", "prod", "active", "50/35"),
+            ("deployment-124", "api-deployment", "dev", "inactive", "20/0"),
+        ]
+
+        for dep_id, name, env, stat, licenses in deployments:
+            console.print(f"  🏷️  [bold blue]{dep_id}[/bold blue] - {name}")
+            console.print(
+                f"      Environment: [cyan]{env}[/cyan] | Status: [green]{stat}[/green] | Licenses: [yellow]{licenses}[/yellow]"
+            )
+            console.print()
+
+        console.print(f"📊 Total deployments: {len(deployments)}")

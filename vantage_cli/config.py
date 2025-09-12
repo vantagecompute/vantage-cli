@@ -23,7 +23,15 @@ from .constants import (
 class Settings(BaseModel):
     """Configuration settings for the Vantage CLI."""
 
-    supported_clouds: list[str] = ["localhost", "aws", "gcp", "azure", "on-premises", "k8s"]
+    supported_clouds: list[str] = [
+        "maas",
+        "localhost",
+        "aws",
+        "gcp",
+        "azure",
+        "on-premises",
+        "k8s",
+    ]
     api_base_url: str = "https://apis.vantagecompute.ai"
     oidc_base_url: str = "https://auth.vantagecompute.ai"
     tunnel_api_url: str = "https://tunnel.vantagecompute.ai"
@@ -108,6 +116,22 @@ def attach_settings(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
+def with_global_options(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Enhanced decorator that automatically adds common CLI options and settings.
+
+    This decorator combines the functionality of @attach_settings while also
+    ensuring that commands have access to common options like --json.
+
+    Usage:
+        @with_global_options
+        async def my_command(ctx: typer.Context, name: str, json_output: JsonOption = False):
+            use_json = get_effective_json_output(ctx, json_output)
+            # ... rest of command logic
+    """
+    # First apply the attach_settings functionality
+    return attach_settings(func)
+
+
 def dump_settings(profile: str, settings: Settings) -> None:
     """Save settings to the user configuration file."""
     logger.debug(f"Saving settings to {USER_CONFIG_FILE}")
@@ -121,15 +145,13 @@ def dump_settings(profile: str, settings: Settings) -> None:
 
 
 def clear_settings() -> None:
-    """Remove saved settings configuration file."""
-    logger.debug(f"Removing saved settings at {USER_CONFIG_FILE}")
-    USER_CONFIG_FILE.unlink(missing_ok=True)
-    VANTAGE_CLI_ACTIVE_PROFILE.unlink(missing_ok=True)
+    """Remove the entire Vantage CLI local user directory."""
+    logger.debug(f"Removing entire Vantage CLI directory at {VANTAGE_CLI_LOCAL_USER_BASE_DIR}")
     try:
-        shutil.rmtree(f"{USER_TOKEN_CACHE_DIR}")
-        logger.debug(f"Removed user token cache directory at {USER_TOKEN_CACHE_DIR}")
+        shutil.rmtree(VANTAGE_CLI_LOCAL_USER_BASE_DIR)
+        logger.debug(f"Removed Vantage CLI directory at {VANTAGE_CLI_LOCAL_USER_BASE_DIR}")
     except FileNotFoundError:
-        logger.debug("Token cache directory already absent; nothing to remove")
+        logger.debug("Vantage CLI directory already absent; nothing to remove")
 
 
 def ensure_default_profile_exists() -> None:

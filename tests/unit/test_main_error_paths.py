@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import pytest
 import typer
 
 from vantage_cli.exceptions import Abort
@@ -10,7 +11,8 @@ from vantage_cli.main import whoami
 from vantage_cli.schemas import IdentityData, Persona, TokenSet
 
 
-def test_whoami_success_rich_table():
+@pytest.mark.asyncio
+async def test_whoami_success_rich_table():
     """Covers rich table rendering path (json_output False)."""
     with (
         patch("vantage_cli.main.extract_persona") as mock_extract,
@@ -37,14 +39,15 @@ def test_whoami_success_rich_table():
             "name": "User Name",
         }
 
-        whoami(ctx)
+        await whoami(ctx)
 
         mock_print_json.assert_not_called()
         mock_extract.assert_called_once_with("test_profile")
         mock_decode.assert_called_once()
 
 
-def test_whoami_error_json_output():
+@pytest.mark.asyncio
+async def test_whoami_error_json_output():
     """Covers error path with json_output True producing JSON error info."""
     with (
         patch("vantage_cli.main.extract_persona") as mock_extract,
@@ -56,13 +59,14 @@ def test_whoami_error_json_output():
         mock_config_file.read_text.return_value = json.dumps({"p": {}})
         mock_extract.side_effect = Abort("boom")
 
-        whoami(ctx)
+        await whoami(ctx)
 
         mock_extract.assert_called_once_with("p")
         mock_print_json.assert_called_once()
 
 
-def test_whoami_error_rich_panel():
+@pytest.mark.asyncio
+async def test_whoami_error_rich_panel():
     """Covers error path with json_output False producing rich Panel output."""
     with (
         patch("vantage_cli.main.extract_persona") as mock_extract,
@@ -74,7 +78,7 @@ def test_whoami_error_rich_panel():
         mock_config_file.read_text.return_value = json.dumps({"err_prof": {}})
         mock_extract.side_effect = Abort("nope")
 
-        whoami(ctx)
+        await whoami(ctx)
 
         mock_extract.assert_called_once_with("err_prof")
         mock_print_json.assert_not_called()

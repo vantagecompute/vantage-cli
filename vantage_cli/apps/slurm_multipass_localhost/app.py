@@ -58,7 +58,7 @@ async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = No
     cluster_name = cluster_data.get("name", "unknown-cluster")
 
     # Get client secret (import locally to avoid circular import)
-    from vantage_cli.commands.clusters import utils as cluster_utils
+    from vantage_cli.commands.cluster import utils as cluster_utils
 
     client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
     client_secret = require_client_secret(client_secret, console)
@@ -162,7 +162,7 @@ async def deploy_command(
     console.print(Panel("Multipass Singlenode SLURM Application"))
     console.print("Deploying multipass singlenode slurm application...")
     # Import locally to avoid circular import
-    from vantage_cli.commands.clusters import utils as cluster_utils
+    from vantage_cli.commands.cluster import utils as cluster_utils
 
     cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
 

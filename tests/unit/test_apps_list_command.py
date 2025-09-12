@@ -1,12 +1,13 @@
 """Tests for the apps list command."""
 
 import json
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
 import typer
 
-from vantage_cli.commands.apps.list import list_apps
+from vantage_cli.commands.app.list import list_apps
 
 
 @pytest.fixture
@@ -25,15 +26,14 @@ def mock_ctx() -> typer.Context:
     """Mock typer context."""
     ctx = Mock(spec=typer.Context)
     # Mock the obj attribute with profile for @attach_settings decorator
-    ctx.obj = Mock()
-    ctx.obj.profile = "default"
+    ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
     return ctx
 
 
 @pytest.fixture
 def mock_console():
     """Mock rich console."""
-    with patch("vantage_cli.commands.apps.list.console") as mock_console:
+    with patch("vantage_cli.commands.app.list.console") as mock_console:
         yield mock_console
 
 
@@ -71,8 +71,8 @@ def mock_available_apps():
 class TestListApps:
     """Tests for the list_apps function."""
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
-    @patch("vantage_cli.commands.apps.list.render_json")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.render_json")
     @pytest.mark.asyncio
     async def test_list_apps_json_output_with_apps(
         self,
@@ -82,10 +82,10 @@ class TestListApps:
         mock_ctx,
         mock_available_apps,
     ):
-        """Test list_apps with JSON output when apps are available."""
+        """Test list_apps command with JSON output and available apps."""
         mock_get_available_apps.return_value = mock_available_apps
-
-        await list_apps(mock_ctx, json_output=True)
+        mock_ctx.obj.json_output = True
+        await list_apps(mock_ctx)
 
         # Verify render_json was called with the correct structure
         mock_render_json.assert_called_once()
@@ -106,21 +106,21 @@ class TestListApps:
         assert app2["module"] == "vantage_cli.apps.test_app2"
         assert app2["description"] == "No description available"
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
-    @patch("vantage_cli.commands.apps.list.render_json")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.render_json")
     @pytest.mark.asyncio
     async def test_list_apps_json_output_empty(
         self, mock_render_json, mock_get_available_apps, mock_config_file, mock_ctx
     ):
         """Test list_apps with JSON output when no apps are available."""
         mock_get_available_apps.return_value = {}
-
-        await list_apps(mock_ctx, json_output=True)
+        mock_ctx.obj.json_output = True
+        await list_apps(mock_ctx)
 
         # Verify render_json was called with empty apps list
         mock_render_json.assert_called_once_with({"apps": []})
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_table_output_with_apps(
         self,
@@ -132,8 +132,8 @@ class TestListApps:
     ):
         """Test list_apps with table output when apps are available."""
         mock_get_available_apps.return_value = mock_available_apps
-
-        await list_apps(mock_ctx, json_output=False)
+        mock_ctx.obj.json_output = False
+        await list_apps(mock_ctx)
 
         # Verify console.print was called (for the table and summary)
         assert mock_console.print.call_count == 2
@@ -142,20 +142,20 @@ class TestListApps:
         summary_call = mock_console.print.call_args_list[1]
         assert "Found 2 application(s)" in str(summary_call)
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_table_output_empty(
         self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
     ):
         """Test list_apps with table output when no apps are available."""
         mock_get_available_apps.return_value = {}
-
-        await list_apps(mock_ctx, json_output=False)
+        mock_ctx.obj.json_output = False
+        await list_apps(mock_ctx)
 
         # Verify console.print was called with "No applications found"
         mock_console.print.assert_called_once_with("[yellow]No applications found.[/yellow]")
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_app_with_no_module_name(
         self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
@@ -175,13 +175,13 @@ class TestListApps:
             },
         }
         mock_get_available_apps.return_value = mock_apps
-
-        await list_apps(mock_ctx, json_output=False)
+        mock_ctx.obj.json_output = False
+        await list_apps(mock_ctx)
 
         # Should handle the missing __name__ gracefully
         assert mock_console.print.call_count == 2
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_app_without_deploy_function(
         self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
@@ -197,19 +197,19 @@ class TestListApps:
             },
         }
         mock_get_available_apps.return_value = mock_apps
-
-        await list_apps(mock_ctx, json_output=False)
+        mock_ctx.obj.json_output = False
+        await list_apps(mock_ctx)
 
         # Should handle the missing deploy_function gracefully
         assert mock_console.print.call_count == 2
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_json_output_handles_missing_attributes(
         self, mock_get_available_apps, mock_config_file, mock_ctx
     ):
         """Test list_apps JSON output handles missing module/function attributes."""
-        with patch("vantage_cli.commands.apps.list.render_json") as mock_render_json:
+        with patch("vantage_cli.commands.app.list.render_json") as mock_render_json:
             mock_module = Mock()
             del mock_module.__name__  # Remove __name__ attribute
 
@@ -220,8 +220,8 @@ class TestListApps:
                 },
             }
             mock_get_available_apps.return_value = mock_apps
-
-            await list_apps(mock_ctx, json_output=True)
+            mock_ctx.obj.json_output = True
+            await list_apps(mock_ctx)
 
             # Verify render_json was called with fallback values
             mock_render_json.assert_called_once()
@@ -235,16 +235,16 @@ class TestListApps:
             assert app["module"] == "unknown"
             assert app["description"] == "No deploy function available"
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_handles_exception(
         self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
     ):
         """Test list_apps handles exceptions gracefully."""
         mock_get_available_apps.side_effect = Exception("Test error")
-
+        mock_ctx.obj.json_output = False
         with pytest.raises(typer.Exit) as exc_info:
-            await list_apps(mock_ctx, json_output=False)
+            await list_apps(mock_ctx)
 
         # Verify it exits with code 1
         assert exc_info.value.exit_code == 1
@@ -254,7 +254,7 @@ class TestListApps:
         error_call = mock_console.print.call_args[0][0]
         assert "Error listing applications: Test error" in error_call
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_multiline_docstring(
         self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
@@ -279,14 +279,14 @@ class TestListApps:
             },
         }
         mock_get_available_apps.return_value = mock_apps
-
-        await list_apps(mock_ctx, json_output=False)
+        mock_ctx.obj.json_output = False
+        await list_apps(mock_ctx)
 
         # Should use only the first line of the docstring
         assert mock_console.print.call_count == 2
 
-    @patch("vantage_cli.commands.apps.list.get_available_apps")
-    @patch("vantage_cli.commands.apps.list.render_json")
+    @patch("vantage_cli.commands.app.list.get_available_apps")
+    @patch("vantage_cli.commands.app.list.render_json")
     @pytest.mark.asyncio
     async def test_list_apps_json_multiline_docstring(
         self, mock_render_json, mock_get_available_apps, mock_config_file, mock_ctx
@@ -310,8 +310,8 @@ class TestListApps:
             },
         }
         mock_get_available_apps.return_value = mock_apps
-
-        await list_apps(mock_ctx, json_output=True)
+        mock_ctx.obj.json_output = True
+        await list_apps(mock_ctx)
 
         # Verify render_json was called with first line of docstring
         mock_render_json.assert_called_once()

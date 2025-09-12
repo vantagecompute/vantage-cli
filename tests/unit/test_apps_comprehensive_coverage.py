@@ -13,7 +13,7 @@ import typer
 
 from vantage_cli.apps.slurm_microk8s_localhost import app as microk8s_app
 from vantage_cli.apps.slurm_multipass_localhost import app as multipass_app
-from vantage_cli.commands.clusters.utils import get_available_apps
+from vantage_cli.commands.cluster.utils import get_available_apps
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ class TestMicrok8sAppAdditionalCoverage:
                         return_value=("test-client", "test-secret"),
                     ) as mock_validate_creds:
                         with patch(
-                            "vantage_cli.commands.clusters.utils.get_cluster_client_secret",
+                            "vantage_cli.commands.cluster.utils.get_cluster_client_secret",
                             new_callable=AsyncMock,
                             return_value="test-secret",
                         ):
@@ -168,7 +168,10 @@ class TestMultipassAppAdditionalCoverage:
         mock_popen.communicate.return_value = ("", "")
 
         with patch("subprocess.Popen", return_value=mock_popen):
-            with patch("vantage_cli.apps.slurm_multipass_localhost.app.which", return_value="/usr/bin/multipass"):
+            with patch(
+                "vantage_cli.apps.slurm_multipass_localhost.app.which",
+                return_value="/usr/bin/multipass",
+            ):
                 # Mock at both the app level and the common level to handle import differences
                 with patch(
                     "vantage_cli.apps.slurm_multipass_localhost.app.validate_cluster_data",
@@ -187,7 +190,7 @@ class TestMultipassAppAdditionalCoverage:
                                 return_value=("test-client", "test-secret"),
                             ):
                                 with patch(
-                                    "vantage_cli.commands.clusters.utils.get_cluster_client_secret",
+                                    "vantage_cli.commands.cluster.utils.get_cluster_client_secret",
                                     new_callable=AsyncMock,
                                     return_value="test-secret",
                                 ):
@@ -235,7 +238,7 @@ class TestMultipassAppAdditionalCoverage:
                         return_value=("test-client", "test-secret"),
                     ):
                         with patch(
-                            "vantage_cli.commands.clusters.utils.get_cluster_client_secret",
+                            "vantage_cli.commands.cluster.utils.get_cluster_client_secret",
                             new_callable=AsyncMock,
                             return_value="test-secret",
                         ):

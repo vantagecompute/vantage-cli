@@ -28,7 +28,7 @@ class TestAppsCommandStructure:
         assert "slurm-juju-localhost" not in command_names
         assert "slurm-multipass-localhost" not in command_names
 
-    @patch("vantage_cli.commands.apps.list.list_apps")
+    @patch("vantage_cli.commands.app.list.list_apps")
     def test_list_command_function(self, mock_list_apps):
         """Test that the list command is properly connected."""
         # Find the list command
@@ -39,7 +39,7 @@ class TestAppsCommandStructure:
         assert list_command is not None
         assert list_command.callback.__name__ == "list_apps"
 
-    @patch("vantage_cli.commands.apps.deploy.deploy_app")
+    @patch("vantage_cli.commands.app.deploy.deploy_app")
     def test_deploy_command_function(self, mock_deploy_app):
         """Test that the deploy command is properly connected."""
         # Find the deploy command

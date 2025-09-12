@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import typer
 
-from vantage_cli.commands.apps.deploy import deploy_app
+from vantage_cli.commands.app.deploy import deploy_app
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def mock_ctx() -> typer.Context:
 @pytest.fixture
 def mock_console():
     """Mock rich console."""
-    with patch("vantage_cli.commands.apps.deploy.console") as mock_console:
+    with patch("vantage_cli.commands.app.deploy.console") as mock_console:
         yield mock_console
 
 
@@ -54,7 +54,7 @@ class TestDeployApp:
     @pytest.mark.asyncio
     async def test_deploy_app_invalid_app_name(self, mock_ctx, mock_console, mock_config_file):
         """Test deploy_app with invalid app name."""
-        with patch("vantage_cli.commands.apps.deploy.get_available_apps") as mock_get_apps:
+        with patch("vantage_cli.commands.app.deploy.get_available_apps") as mock_get_apps:
             mock_get_apps.return_value = {
                 "slurm-juju-localhost": {"deploy_function": AsyncMock()},
                 "slurm-multipass-localhost": {"deploy_function": AsyncMock()},
@@ -78,8 +78,8 @@ class TestDeployApp:
     async def test_deploy_app_invalid_cluster_name(self, mock_ctx, mock_console, mock_config_file):
         """Test deploy_app with invalid cluster name."""
         with (
-            patch("vantage_cli.commands.apps.deploy.get_available_apps") as mock_get_apps,
-            patch("vantage_cli.commands.apps.deploy.get_cluster_by_name") as mock_get_cluster,
+            patch("vantage_cli.commands.app.deploy.get_available_apps") as mock_get_apps,
+            patch("vantage_cli.commands.app.deploy.get_cluster_by_name") as mock_get_cluster,
         ):
             mock_get_apps.return_value = {"slurm-juju-localhost": {"deploy_function": AsyncMock()}}
             mock_get_cluster.return_value = None
@@ -103,8 +103,8 @@ class TestDeployApp:
         mock_deploy_func = AsyncMock()
 
         with (
-            patch("vantage_cli.commands.apps.deploy.get_available_apps") as mock_get_apps,
-            patch("vantage_cli.commands.apps.deploy.get_cluster_by_name") as mock_get_cluster,
+            patch("vantage_cli.commands.app.deploy.get_available_apps") as mock_get_apps,
+            patch("vantage_cli.commands.app.deploy.get_cluster_by_name") as mock_get_cluster,
         ):
             mock_get_apps.return_value = {
                 "slurm-juju-localhost": {"deploy_function": mock_deploy_func}
@@ -130,8 +130,8 @@ class TestDeployApp:
     ):
         """Test deploy_app with app that has no deploy function."""
         with (
-            patch("vantage_cli.commands.apps.deploy.get_available_apps") as mock_get_apps,
-            patch("vantage_cli.commands.apps.deploy.get_cluster_by_name") as mock_get_cluster,
+            patch("vantage_cli.commands.app.deploy.get_available_apps") as mock_get_apps,
+            patch("vantage_cli.commands.app.deploy.get_cluster_by_name") as mock_get_cluster,
         ):
             mock_get_apps.return_value = {
                 "broken-app": {"description": "An app without deploy function"}
@@ -154,8 +154,8 @@ class TestDeployApp:
         mock_deploy_func = AsyncMock(side_effect=Exception("Deploy failed"))
 
         with (
-            patch("vantage_cli.commands.apps.deploy.get_available_apps") as mock_get_apps,
-            patch("vantage_cli.commands.apps.deploy.get_cluster_by_name") as mock_get_cluster,
+            patch("vantage_cli.commands.app.deploy.get_available_apps") as mock_get_apps,
+            patch("vantage_cli.commands.app.deploy.get_cluster_by_name") as mock_get_cluster,
         ):
             mock_get_apps.return_value = {"failing-app": {"deploy_function": mock_deploy_func}}
             mock_get_cluster.return_value = mock_cluster_data
@@ -176,8 +176,8 @@ class TestDeployApp:
         mock_deploy_func = AsyncMock(side_effect=typer.Exit(1))
 
         with (
-            patch("vantage_cli.commands.apps.deploy.get_available_apps") as mock_get_apps,
-            patch("vantage_cli.commands.apps.deploy.get_cluster_by_name") as mock_get_cluster,
+            patch("vantage_cli.commands.app.deploy.get_available_apps") as mock_get_apps,
+            patch("vantage_cli.commands.app.deploy.get_cluster_by_name") as mock_get_cluster,
         ):
             mock_get_apps.return_value = {"exit-app": {"deploy_function": mock_deploy_func}}
             mock_get_cluster.return_value = mock_cluster_data
@@ -197,8 +197,8 @@ class TestDeployApp:
         mock_multipass_deploy = AsyncMock()
 
         with (
-            patch("vantage_cli.commands.apps.deploy.get_available_apps") as mock_get_apps,
-            patch("vantage_cli.commands.apps.deploy.get_cluster_by_name") as mock_get_cluster,
+            patch("vantage_cli.commands.app.deploy.get_available_apps") as mock_get_apps,
+            patch("vantage_cli.commands.app.deploy.get_cluster_by_name") as mock_get_cluster,
         ):
             mock_get_apps.return_value = {
                 "slurm-juju-localhost": {"deploy_function": mock_juju_deploy},
