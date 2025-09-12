@@ -47,11 +47,15 @@ def create_profile(
     activate: Annotated[
         bool, typer.Option("--activate", help="Activate this profile after creation")
     ] = False,
+    json_output: Annotated[
+        bool, typer.Option("--json", "-j", help="Output in JSON format")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
+    ] = False,
 ):
     """Create a new Vantage CLI profile."""
     # Get the effective JSON output preference
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
     effective_json = get_effective_json_output(ctx, json_output)
 
     # Check if profile already exists
@@ -138,11 +142,16 @@ def delete_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to delete")],
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
+    json_output: Annotated[
+        bool, typer.Option("--json", "-j", help="Output in JSON format")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
+    ] = False,
 ):
     """Delete a Vantage CLI profile."""
     # Get the effective JSON output preference
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
+    effective_json = get_effective_json_output(ctx, json_output)
     effective_json = get_effective_json_output(ctx, json_output)
 
     # Check if profile exists
@@ -250,11 +259,15 @@ def delete_profile(
 def get_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to get details for")],
+    json_output: Annotated[
+        bool, typer.Option("--json", "-j", help="Output in JSON format")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
+    ] = False,
 ):
     """Get details of a specific Vantage CLI profile."""
     # Get the effective JSON output preference
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
     effective_json = get_effective_json_output(ctx, json_output)
 
     # Check if profile exists
@@ -305,10 +318,16 @@ def get_profile(
             )
 
 
-def list_profiles(ctx: typer.Context):
+def list_profiles(
+    ctx: typer.Context,
+    json_output: Annotated[
+        bool, typer.Option("--json", "-j", help="Output in JSON format")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
+    ] = False,
+):
     """List all Vantage CLI profiles."""
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
     # Get the effective JSON output preference
     effective_json = get_effective_json_output(ctx, json_output)
 
@@ -366,11 +385,15 @@ def list_profiles(ctx: typer.Context):
 def use_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to activate")],
+    json_output: Annotated[
+        bool, typer.Option("--json", "-j", help="Output in JSON format")
+    ] = False,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
+    ] = False,
 ):
     """Activate a profile for use in the current session."""
     # Get the effective JSON output preference
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
     effective_json = get_effective_json_output(ctx, json_output)
 
     # Check if profile exists

@@ -6,6 +6,7 @@ from .clusters import clusters_command
 from .federations import federations_command
 from .networks import networks_command
 from .notebooks import notebooks_command
+from .profiles import profiles_command
 from .teams import teams_command
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "federations_command",
     "networks_command",
     "notebooks_command",
+    "profiles_command",
     "teams_command",
 ]
