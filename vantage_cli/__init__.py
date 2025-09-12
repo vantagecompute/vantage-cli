@@ -55,8 +55,28 @@ class AsyncTyper(typer.Typer):
     def maybe_run_async(func: Callable, *args: Any, **kwargs: Any) -> Any:
         """Run function asynchronously if it's a coroutine, otherwise run normally."""
         if inspect.iscoroutinefunction(func):
-            return asyncio.run(func(*args, **kwargs))
-        return func(*args, **kwargs)
+            # Check if we're already in an event loop
+            try:
+                asyncio.get_running_loop()
+                # We're in an event loop, cannot use asyncio.run()
+                # This typically happens in tests, return the coroutine
+                return func(*args, **kwargs)
+            except RuntimeError:
+                # No event loop running, safe to use asyncio.run()
+                return asyncio.run(func(*args, **kwargs))
+        else:
+            # Check if the function call returns a coroutine
+            result = func(*args, **kwargs)
+            if inspect.iscoroutine(result):
+                # Function returned a coroutine, need to run it
+                try:
+                    asyncio.get_running_loop()
+                    # We're in an event loop, return the coroutine
+                    return result
+                except RuntimeError:
+                    # No event loop running, safe to use asyncio.run()
+                    return asyncio.run(result)
+            return result
 
     def command(
         self,

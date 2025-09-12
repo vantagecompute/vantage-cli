@@ -68,6 +68,102 @@ const config: Config = {
       },
     ],
   ],
+  plugins: [
+    [ 
+      'docusaurus-plugin-llms',
+        {
+          // Options here
+          generateLLMsTxt: true,
+          generateLLMsFullTxt: true,
+          docsDir: 'docs',
+          ignoreFiles: ['advanced/*', 'private/*'],
+          title: 'Vantage Compute CLI Documentation',
+          description: 'Complete platform, CLI documentation for Vantage Compute.',
+          includeBlog: false,
+          // Content cleaning options
+          excludeImports: true,
+          removeDuplicateHeadings: true,
+          // Generate individual markdown files following llmstxt.org specification
+          generateMarkdownFiles: true,
+          // Control documentation order
+          includeOrder: [],
+          includeUnmatchedLast: true,
+          // Path transformation options
+          pathTransformation: {
+            // Paths to ignore when constructing URLs (will be removed if found)
+            ignorePaths: ['docs'],
+            // Paths to add when constructing URLs (will be prepended if not already present)
+            // addPaths: ['api'],
+          },
+          // Custom LLM files for specific documentation sections
+          customLLMFiles: [
+            {
+              filename: 'llms-index.txt',
+              includePatterns: ['pages/index.md'],
+              fullContent: true,
+              title: 'Vantage CLI Documentation Index',
+              description: 'Index reference for Vantage CLI'
+            },
+            {
+              filename: 'llms-usage.txt',
+              includePatterns: ['pages/usage.md'],
+              fullContent: true,
+              title: 'Vantage CLI Usage Documentation',
+              description: 'Usage documentation for Vantage CLI'
+             },
+            {
+              filename: 'llms-commands.txt',
+              includePatterns: ['pages/commands.md'],
+              fullContent: true,
+              title: 'Vantage CLI Commands Documentation',
+              description: 'Commands documentation for Vantage CLI'
+            },
+            {
+              filename: 'llms-contributing.txt',
+              includePatterns: ['pages/contributing.md'],
+              fullContent: true,
+              title: 'Vantage CLI Contributing Documentation',
+              description: 'Contributing documentation for Vantage CLI'
+            },
+            {
+              filename: 'llms-troubleshooting.txt',
+              includePatterns: ['pages/troubleshooting.md'],
+              fullContent: true,
+              title: 'Vantage CLI Troubleshooting Documentation',
+              description: 'Troubleshooting documentation for Vantage CLI'
+            },
+            {
+              filename: 'llms-installation.txt',
+              includePatterns: ['pages/installation.md'],
+              fullContent: true,
+              title: 'Vantage CLI Installation Documentation',
+              description: 'Installation documentation for Vantage CLI'
+            },
+            {
+              filename: 'llms-architecture.txt',
+              includePatterns: ['pages/architecture.md'],
+              fullContent: true,
+              title: 'Vantage CLI Architecture Documentation',
+              description: 'Architecture documentation for Vantage CLI'
+            },
+            {
+              filename: 'llms-configuration.txt',
+              includePatterns: ['pages/configuration.md'],
+              fullContent: true,
+              title: 'Vantage CLI Configuration Documentation',
+              description: 'Configuration documentation for Vantage CLI'
+            },
+            {
+              filename: 'llms-contact.txt',
+              includePatterns: ['pages/contact.md'],
+              fullContent: true,
+              title: 'Vantage CLI Contact Documentation',
+              description: 'Contact documentation for Vantage CLI'
+            },
+          ],
+        },
+    ],
+  ],
 
   customFields: {
     projectVersion: projectVersion,
@@ -80,6 +176,8 @@ const config: Config = {
         alt: 'Vantage Compute Logo',
         src: 'https://vantage-compute-public-assets.s3.us-east-1.amazonaws.com/branding/vantage-logo-text-white-horz.png',
         srcDark: 'https://vantage-compute-public-assets.s3.us-east-1.amazonaws.com/branding/vantage-logo-text-white-horz.png',
+        href: 'https://vantagecompute.ai',
+        target: '_blank',
       },
       items: [
         {
@@ -157,7 +255,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Vantage Compute.`,
+      copyright: 'Copyright &copy; ' + new Date().getFullYear() + ' Vantage Compute.',
     },
     prism: {
       theme: prismThemes.github,

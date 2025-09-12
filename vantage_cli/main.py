@@ -26,6 +26,7 @@ from vantage_cli.commands.alias import (
     federations_command,
     networks_command,
     notebooks_command,
+    profiles_command,
     teams_command,
 )
 from vantage_cli.commands.cloud import clouds_app
@@ -202,6 +203,7 @@ async def logout(ctx: typer.Context):
 
 
 @app.command()
+@handle_abort
 @with_cache
 @attach_settings
 async def whoami(ctx: typer.Context):
@@ -325,6 +327,7 @@ app.command("clusters", hidden=True)(clusters_command)
 app.command("federations", hidden=True)(federations_command)
 app.command("networks", hidden=True)(networks_command)
 app.command("notebooks", hidden=True)(notebooks_command)
+app.command("profiles", hidden=True)(profiles_command)
 app.command("teams", hidden=True)(teams_command)
 
 
