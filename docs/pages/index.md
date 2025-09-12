@@ -8,10 +8,6 @@ slug: /
 
 Vantage CLI is a modern async Python tool that unifies authentication, profile management, cluster operations and GraphQL querying against the Vantage Compute platform.
 
-- 🏗️ **Modern Architecture**: Built with Typer CLI framework and modular Python design
-- 📦 **Relocatable Packages**: Runtime path configuration for cross-environment deployment
-- 🔧 **Exception Handling**: Comprehensive error management with custom exception hierarchy
-- 🧪 **Tested**: 100% test coverage with +400 passing tests
 
 ### Quick Start
 

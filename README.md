@@ -7,6 +7,8 @@
 
 # Vantage CLI
 
+A modern Python CLI tool to interface to Vantage Compute.
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/vantage-cli.svg)](https://pypi.org/project/vantage-cli/)
@@ -16,11 +18,12 @@
 ![Pull Requests](https://img.shields.io/github/issues-pr/vantagecompute/vantage-cli?label=pull-requests&logo=github&style=plastic)
 ![GitHub Contributors](https://img.shields.io/github/contributors/vantagecompute/vantage-cli?logo=github&style=plastic)
 
-</div>
-
-A modern Python CLI tool to interface to Vantage Compute.
+</br>
 
 ## 🚀 Quick Start
+
+</div>
+
 
 ### Option 1: Install from PyPI (Recommended)
 

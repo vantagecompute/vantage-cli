@@ -87,6 +87,27 @@
   position: relative !important;
 }
 
+/* Hide logo on mobile/iPhone screens */
+@media (max-width: 768px) {
+  .navbar__logo {
+    display: none !important;
+  }
+}
+
+/* Additional media query for iPhone specific breakpoints */
+@media (max-width: 480px) {
+  .navbar__logo {
+    display: none !important;
+  }
+}
+
+/* iPhone X and newer specific breakpoint */
+@media (max-width: 414px) {
+  .navbar__logo {
+    display: none !important;
+  }
+}
+
 /* Hide the title that's generated within navbar__brand */
 .navbar__brand .navbar__title,
 .navbar__brand b.navbar__title,
