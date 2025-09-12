@@ -71,13 +71,13 @@ const config: Config = {
   plugins: [
     [ 
       'docusaurus-plugin-llms',
-        {
-          // Options here
-          generateLLMsTxt: true,
-          generateLLMsFullTxt: true,
-          docsDir: 'docs',
-          ignoreFiles: ['advanced/*', 'private/*'],
-          title: 'Vantage Compute CLI Documentation',
+      {
+        // Options here
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: 'pages',
+        ignoreFiles: ['advanced/*', 'private/*'],
+        title: 'Vantage Compute CLI Documentation',
           description: 'Complete platform, CLI documentation for Vantage Compute.',
           includeBlog: false,
           // Content cleaning options
@@ -145,13 +145,6 @@ const config: Config = {
               fullContent: true,
               title: 'Vantage CLI Architecture Documentation',
               description: 'Architecture documentation for Vantage CLI'
-            },
-            {
-              filename: 'llms-configuration.txt',
-              includePatterns: ['pages/configuration.md'],
-              fullContent: true,
-              title: 'Vantage CLI Configuration Documentation',
-              description: 'Configuration documentation for Vantage CLI'
             },
             {
               filename: 'llms-contact.txt',
