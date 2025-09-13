@@ -6,7 +6,7 @@ authors = [
     {name = "jamesbeedy", email = "james@vantagecompute.ai"}
 ]
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "GPL-3.0"}
 requires-python = ">=3.11"
 dependencies = [
     "juju ~= 3.6",

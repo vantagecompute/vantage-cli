@@ -39,7 +39,7 @@ vantage profile create vantage-example-com \
 │ API Base URL       │ https://apis.example.vantagecompute.ai             │
 │ OIDC Base URL      │ https://auth.example.vantagecompute.ai             │
 │ Tunnel Base URL    │ https://tunnel.example.vantagecompute.ai           │
-│ OIDC Domain        │ auth.dev.vantagecompute.ai                         │
+│ OIDC Domain        │ auth.example.vantagecompute.ai/auth/realms         │
 │ OIDC Client ID     │ default                                            │
 │ OIDC Max Poll Time │ 300 seconds                                        │
 │ Supported Clouds   │ maas, localhost, aws, gcp, azure, on-premises, k8s │
@@ -83,8 +83,10 @@ vantage whoami --json | jq '{email: .email, client_id: .client_id}'
 
 ```bash
 # Add cloud providers
-vantage cloud add --name aws-prod --provider aws
-vantage cloud add --name gcp-dev --provider gcp
+vantage cloud add aws-prod --provider aws
+vantage cloud add gcp-dev --provider gcp
+vantage cloud add gcp-dev --provider localhost
+
 
 # List configurations
 vantage clouds --json | jq '.clouds[] | {name, provider, status}'
@@ -109,10 +111,10 @@ vantage clusters
 vantage clusters --json | jq '.clusters | length'
 
 # Get specific cluster
-vantage cluster get --name demo --json | jq '.cluster | {name,id,status}'
+vantage cluster get demo --json | jq '.cluster | {name,id,status}'
 
 # Create new cluster
-vantage cluster create --name compute-01 --cloud aws-prod
+vantage cluster create compute-01 --cloud aws-prod
 ```
 
 ## 5. Application Deployment
@@ -122,7 +124,7 @@ vantage cluster create --name compute-01 --cloud aws-prod
 vantage apps
 
 # Deploy application
-vantage app deploy --app slurm-multipass-singlenode
+vantage app deploy --app slurm-multipass-singlenode --cluster compute-01
 ```
 
 ## 6. Network and Storage
