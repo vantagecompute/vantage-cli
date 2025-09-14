@@ -17,11 +17,12 @@ from typing_extensions import Annotated
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.commands.cluster.utils import get_cluster_by_name
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import Abort
+from vantage_cli.exceptions import Abort, handle_abort
 
 from .render import render_cluster_details
 
 
+@handle_abort
 @attach_settings
 async def get_cluster(
     ctx: typer.Context,

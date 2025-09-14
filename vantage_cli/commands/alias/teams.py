@@ -14,8 +14,10 @@
 import typer
 
 from vantage_cli.commands.team.list import list_teams
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 async def teams_command(
     ctx: typer.Context,
 ):

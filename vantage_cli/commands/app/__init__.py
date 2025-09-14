@@ -9,26 +9,19 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Application deployment commands for Vantage CLI."""
+"""App commands for the Vantage CLI."""
 
 from vantage_cli import AsyncTyper
 
-from .deploy import deploy_app
 from .list import list_apps
 
-# Create the apps command group
-apps_app = AsyncTyper(
+app_app = AsyncTyper(
     name="apps",
-    help="Deploy and manage applications on Vantage compute clusters.",
-    invoke_without_command=True,
+    help="Manage applications",
     no_args_is_help=True,
 )
 
-# Register subcommands directly
-apps_app.command("list")(list_apps)
-apps_app.command("deploy")(deploy_app)
+# Add the list command
+app_app.command("list", help="List available applications")(list_apps)
 
-# Add plural alias for list command
-apps_app.command("apps", help="List all applications (alias for 'list')")(list_apps)
-
-__all__ = ["apps_app"]
+__all__ = ["app_app"]

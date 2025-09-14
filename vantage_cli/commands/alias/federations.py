@@ -14,8 +14,10 @@
 import typer
 
 from vantage_cli.commands.federation.list import list_federations
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 async def federations_command(
     ctx: typer.Context,
 ):

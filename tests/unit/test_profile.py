@@ -15,6 +15,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import click
 import pytest
 import typer
 
@@ -28,7 +29,6 @@ try:
         use_profile,
     )
     from vantage_cli.config import Settings
-    from vantage_cli.exceptions import Abort
 except ImportError:
     # Handle import errors during testing
     pytest.skip("Profile module not available", allow_module_level=True)
@@ -171,15 +171,15 @@ class TestCreateProfile:
         mock_get_profiles.return_value = {"test-profile": {}}
         mock_json_output.return_value = False
 
-        # Call should raise Abort
-        with pytest.raises(Abort) as exc_info:
+        # Call should raise click.exceptions.Exit due to @handle_abort decorator
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             create_profile(
                 ctx=mock_context,
                 profile_name="test-profile",
                 **sample_settings,
             )
 
-        assert "already exists" in str(exc_info.value)
+        assert exc_info.value.exit_code == 1
 
     @patch("vantage_cli.commands.profile.crud._get_all_profiles")
     @patch("vantage_cli.commands.profile.crud.init_user_filesystem")
@@ -266,14 +266,14 @@ class TestDeleteProfile:
         mock_get_profiles.return_value = {}
         mock_json_output.return_value = False
 
-        # Call should raise Abort
-        with pytest.raises(Abort) as exc_info:
+        # Call should raise click.exceptions.Exit due to @handle_abort decorator
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             delete_profile(
                 ctx=mock_context,
                 profile_name="nonexistent",
             )
 
-        assert "does not exist" in str(exc_info.value)
+        assert exc_info.value.exit_code == 1
 
     @patch("vantage_cli.commands.profile.crud._get_all_profiles")
     @patch("vantage_cli.commands.profile.crud.get_effective_json_output")
@@ -316,14 +316,14 @@ class TestDeleteProfile:
         mock_get_profiles.return_value = {"default": {}}
         mock_json_output.return_value = False
 
-        # Call should raise Abort
-        with pytest.raises(Abort) as exc_info:
+        # Call should raise click.exceptions.Exit due to @handle_abort decorator
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             delete_profile(
                 ctx=mock_context,
                 profile_name="default",
             )
 
-        assert "Cannot delete 'default'" in str(exc_info.value)
+        assert exc_info.value.exit_code == 1
 
     @patch("vantage_cli.commands.profile.crud._get_all_profiles")
     @patch("vantage_cli.commands.profile.crud.get_effective_json_output")
@@ -436,14 +436,14 @@ class TestGetProfile:
         mock_get_profiles.return_value = {}
         mock_json_output.return_value = False
 
-        # Call should raise Abort
-        with pytest.raises(Abort) as exc_info:
+        # Call should raise click.exceptions.Exit due to @handle_abort decorator
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             get_profile(
                 ctx=mock_context,
                 profile_name="nonexistent",
             )
 
-        assert "does not exist" in str(exc_info.value)
+        assert exc_info.value.exit_code == 1
 
     @patch("vantage_cli.commands.profile.crud._get_all_profiles")
     @patch("vantage_cli.commands.profile.crud.get_effective_json_output")

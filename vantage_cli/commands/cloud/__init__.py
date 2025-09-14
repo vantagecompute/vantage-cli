@@ -19,15 +19,15 @@ from .get import get_command
 from .list import list_command
 from .update import update_command
 
-clouds_app = AsyncTyper(
+cloud_app = AsyncTyper(
     name="cloud",
     help="Manage cloud provider configurations and integrations for your Vantage infrastructure.",
     no_args_is_help=True,
 )
 
 # Register all commands
-clouds_app.command("add")(add_command)
-clouds_app.command("delete")(delete_command)
-clouds_app.command("get")(get_command)
-clouds_app.command("list")(list_command)
-clouds_app.command("update")(update_command)
+cloud_app.command("add")(add_command)
+cloud_app.command("delete")(delete_command)
+cloud_app.command("get")(get_command)
+cloud_app.command("list")(list_command)
+cloud_app.command("update")(update_command)

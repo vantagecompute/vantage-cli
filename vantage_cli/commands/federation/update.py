@@ -20,9 +20,11 @@ from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import handle_abort
 
 
 @attach_settings
+@handle_abort
 async def update_federation(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the federation to update")],

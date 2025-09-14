@@ -14,6 +14,7 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import click.exceptions
 import pytest
 import typer
 
@@ -266,7 +267,27 @@ class TestNotebookGet:
         """Test get notebook command with JSON output."""
         from vantage_cli.commands.notebook.get import get_notebook
 
-        mock_response = SimpleNamespace(errors=None, data={"notebookServer": {"id": "n1"}})
+        # Mock data in the proper format (edges/nodes structure)
+        mock_response_data = {
+            "notebookServers": {
+                "edges": [
+                    {
+                        "node": {
+                            "id": "n1",
+                            "name": "nb",
+                            "clusterName": "c",
+                            "partition": "gpu",
+                            "owner": "test",
+                            "serverUrl": "http://test",
+                            "slurmJobId": "12345",
+                            "createdAt": "2023-01-01T00:00:00Z",
+                            "updatedAt": "2023-01-01T00:00:00Z",
+                        }
+                    }
+                ],
+                "total": 1,
+            }
+        }
 
         ctx = MagicMock(spec=typer.Context)
         ctx.obj = MagicMock()
@@ -275,25 +296,44 @@ class TestNotebookGet:
 
         with patch("vantage_cli.commands.notebook.get.create_async_graphql_client") as factory:
             client = MagicMock()
-            client.execute_async = AsyncMock(return_value=mock_response.data)
+            client.execute_async = AsyncMock(return_value=mock_response_data)
             factory.return_value = client
 
             with patch(
                 "vantage_cli.commands.notebook.get.get_effective_json_output", return_value=True
             ):
-                with patch("vantage_cli.commands.notebook.get.print_json") as mock_print_json:
+                with patch(
+                    "vantage_cli.commands.notebook.get.render_notebook_details"
+                ) as mock_render:
                     await get_notebook(ctx=ctx, name="nb", cluster="c")
-                    mock_print_json.assert_called_once()
+                    mock_render.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_notebook_console(self):
         """Test get notebook command with console output."""
         from vantage_cli.commands.notebook.get import get_notebook
 
-        mock_response = SimpleNamespace(
-            errors=None,
-            data={"notebookServer": {"id": "n1", "name": "nb", "serverUrl": "http://test"}},
-        )
+        # Mock data in the proper format (edges/nodes structure)
+        mock_response_data = {
+            "notebookServers": {
+                "edges": [
+                    {
+                        "node": {
+                            "id": "n1",
+                            "name": "nb",
+                            "clusterName": "c",
+                            "partition": "gpu",
+                            "owner": "test",
+                            "serverUrl": "http://test",
+                            "slurmJobId": "12345",
+                            "createdAt": "2023-01-01T00:00:00Z",
+                            "updatedAt": "2023-01-01T00:00:00Z",
+                        }
+                    }
+                ],
+                "total": 1,
+            }
+        }
 
         ctx = MagicMock(spec=typer.Context)
         ctx.obj = MagicMock()
@@ -302,21 +342,22 @@ class TestNotebookGet:
 
         with patch("vantage_cli.commands.notebook.get.create_async_graphql_client") as factory:
             client = MagicMock()
-            client.execute_async = AsyncMock(return_value=mock_response.data)
+            client.execute_async = AsyncMock(return_value=mock_response_data)
             factory.return_value = client
 
             with patch(
                 "vantage_cli.commands.notebook.get.get_effective_json_output", return_value=False
             ):
-                with patch("vantage_cli.commands.notebook.get.console") as mock_console:
+                with patch(
+                    "vantage_cli.commands.notebook.get.render_notebook_details"
+                ) as mock_render:
                     await get_notebook(ctx=ctx, name="nb", cluster="c")
-                    mock_console.print.assert_called()
+                    mock_render.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_notebook_graphql_error(self):
         """Test get notebook command with GraphQL errors."""
         from vantage_cli.commands.notebook.get import get_notebook
-        from vantage_cli.exceptions import Abort
 
         mock_response = SimpleNamespace(errors=["Not found"], data=None)
 
@@ -333,8 +374,9 @@ class TestNotebookGet:
             cm.__aexit__ = AsyncMock(return_value=None)
             factory.return_value = cm
 
-            with pytest.raises(Abort):
+            with pytest.raises(click.exceptions.Exit) as exc_info:
                 await get_notebook(ctx=ctx, name="nb", cluster="c")
+            assert exc_info.value.exit_code == 1
 
 
 class TestNotebookDelete:
@@ -391,12 +433,12 @@ class TestNotebookDelete:
 
     @pytest.mark.asyncio
     async def test_delete_notebook_missing_cluster(self):
-        """Test delete notebook command raises Abort when cluster is missing."""
+        """Test delete notebook command raises Exit when cluster is missing."""
         from vantage_cli.commands.notebook.delete import delete_notebook
-        from vantage_cli.exceptions import Abort
 
         ctx_missing = MagicMock(spec=typer.Context)
         ctx_missing.obj = MagicMock()
         ctx_missing.obj.profile = "default"
-        with pytest.raises(Abort):
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             await delete_notebook(ctx=ctx_missing, name="nb", cluster=None, force=True)
+        assert exc_info.value.exit_code == 1

@@ -14,8 +14,10 @@
 import typer
 
 from vantage_cli.commands.profile.crud import list_profiles
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 def profiles_command(
     ctx: typer.Context,
 ):

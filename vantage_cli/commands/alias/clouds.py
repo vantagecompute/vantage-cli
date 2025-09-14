@@ -14,8 +14,10 @@
 import typer
 
 from vantage_cli.commands.cloud.list import list_command
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 def clouds_command(
     ctx: typer.Context,
 ) -> None:

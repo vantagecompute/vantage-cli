@@ -23,6 +23,8 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "channel": "edge",
             "num_units": 0,
             "options": {
+                "jobbergate-agent-base-api-url": "",
+                "jobbergate-agent-oidc-domain": "",
                 "jobbergate-agent-oidc-client-id": "",
                 "jobbergate-agent-oidc-client-secret": "",
             },
@@ -33,6 +35,8 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "channel": "edge",
             "num_units": 0,
             "options": {
+                "vantage-agent-base-api-url": "",
+                "vantage-agent-oidc-domain": "",
                 "vantage-agent-oidc-client-id": "",
                 "vantage-agent-oidc-client-secret": "",
                 "vantage-agent-cluster-name": "",

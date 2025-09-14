@@ -17,8 +17,10 @@ from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 @attach_settings
 async def list_federations(
     ctx: typer.Context,

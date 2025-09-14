@@ -14,8 +14,10 @@
 import typer
 
 from vantage_cli.commands.cluster.list import list_clusters
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 async def clusters_command(
     ctx: typer.Context,
 ):

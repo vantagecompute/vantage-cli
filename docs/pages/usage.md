@@ -3,7 +3,7 @@ title: Usage Examples
 description: Practical examples of using Vantage CLI
 ---
 
-The `vantage` cli comes preconfigured to work with [https://vantagecompute.ai](https://vantagecompute.ai) by default.
+The `vantage-cli` comes preconfigured to work with [https://vantagecompute.ai](https://vantagecompute.ai) by default.
 
 If you are connecting to a privately hosted Vantage instance you will need to set up your profile accordingly.
 
@@ -79,13 +79,40 @@ vantage whoami --json | jq '{email: .email, client_id: .client_id}'
 }
 ```
 
-## 3. Cloud Provider Management
+## 3. Cluster Management
+
+```bash
+# List clusters (using alias)
+vantage clusters
+vantage clusters --json | jq '.clusters | length'
+
+# Create new cluster using juju
+vantage cluster create compute-juju-00 --cloud localhost --app slurm-juju-localhost
+
+# Create new local vm singlenode cluster using multipass
+vantage cluster create compute-multipass-00 --cloud localhost --app slurm-multipass-localhost
+
+# Create new local vm singlenode cluster using microk8s
+vantage cluster create compute-microk8s-00 --cloud localhost --app slurm-microk8s-localhost
+
+# Get specific cluster
+vantage cluster get compute-juju-00 --json | jq '.cluster | {name,id,status}'
+```
+
+## 5. Vantage Applications (apps)
+
+```bash
+# List available applications
+vantage apps
+```
+
+## 4. Cloud Provider Management
 
 ```bash
 # Add cloud providers
 vantage cloud add aws-prod --provider aws
 vantage cloud add gcp-dev --provider gcp
-vantage cloud add gcp-dev --provider localhost
+vantage cloud add compute-a-on-site-us-east --provider on-premises
 
 
 # List configurations
@@ -101,30 +128,6 @@ vantage clouds --json | jq '.clouds[] | {name, provider, status}'
   "provider": "gcp",
   "status": "active"
 }
-```
-
-## 4. Cluster Management
-
-```bash
-# List clusters (using alias)
-vantage clusters
-vantage clusters --json | jq '.clusters | length'
-
-# Get specific cluster
-vantage cluster get demo --json | jq '.cluster | {name,id,status}'
-
-# Create new cluster
-vantage cluster create compute-01 --cloud aws-prod
-```
-
-## 5. Application Deployment
-
-```bash
-# List available applications
-vantage apps
-
-# Deploy application
-vantage app deploy --app slurm-multipass-singlenode --cluster compute-01
 ```
 
 ## 6. Network and Storage
@@ -168,11 +171,11 @@ vantage job submission get --id sub-789 --json | jq '.status'
 vantage team create ml-research --description "ML Research Team"
 
 # Add team members
-vantage team add-member --team team-123 --user alice@company.com --role admin
-vantage team add-member --team team-123 --user bob@company.com --role member
+vantage team member add --team ml-research --user alice@company.com --role admin
+vantage team member add --team ml-research --user bob@company.com --role member
 
 # List team members
-vantage team list-members --team team-123
+vantage team member list --team ml-research
 ```
 
 ## 9. Switch Profiles
@@ -237,7 +240,7 @@ If tokens are expired the CLI will attempt a refresh; if that fails re-run `vant
 ## 10. JSON Extraction Template
 
 ```bash
-vantage clusters list --json | jq '{count: (.clusters | length), names: [.clusters[].name]}'
+vantage clusters --json | jq '{count: (.clusters | length), names: [.clusters[].name]}'
 ```
 
 ---

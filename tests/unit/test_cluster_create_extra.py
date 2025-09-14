@@ -10,6 +10,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -165,3 +166,73 @@ async def test_deploy_app_to_cluster_paths(monkeypatch):
         lambda: {"boom-app": {"deploy_function": boom}},
     )
     await deploy_app_to_cluster(ctx, cluster, "boom-app")
+
+
+@pytest.mark.asyncio
+async def test_deploy_app_to_cluster_tracks_deployments():
+    """Test that deploy_app_to_cluster properly tracks deployments for both function and class-based apps."""
+    # Prepare ctx and cluster data
+    ctx = MagicMock()
+    cluster = {"name": "test-cluster", "clientId": "test-client"}
+
+    # Track calls to track_deployment
+    track_deployment_calls = []
+
+    def mock_track_deployment(**kwargs):
+        track_deployment_calls.append(kwargs)
+
+    # 1. Test function-based app deployment tracking
+    async def deploy_func(_ctx, _cluster):
+        pass
+
+    with (
+        patch("vantage_cli.commands.cluster.create.get_available_apps") as mock_get_apps,
+        patch(
+            "vantage_cli.commands.cluster.create.track_deployment",
+            side_effect=mock_track_deployment,
+        ),
+    ):
+        mock_get_apps.return_value = {"func-app": {"deploy_function": deploy_func}}
+        await deploy_app_to_cluster(ctx, cluster, "func-app")
+
+    # Verify function-based app was tracked
+    assert len(track_deployment_calls) == 1
+    func_call = track_deployment_calls[0]
+    assert func_call["app_name"] == "func-app"
+    assert func_call["cluster_name"] == "test-cluster"
+    assert func_call["cluster_data"] == cluster
+    assert "deployment_id" in func_call
+    assert "deployment_name" in func_call
+    assert func_call["additional_metadata"]["deployment_method"] == "vantage cluster create --app"
+    assert func_call["additional_metadata"]["app_type"] == "function-based"
+
+    # Reset for next test
+    track_deployment_calls.clear()
+
+    # 2. Test class-based app deployment tracking
+    class TestApp:
+        async def deploy(self, _ctx):
+            pass
+
+    app_instance = TestApp()
+
+    with (
+        patch("vantage_cli.commands.cluster.create.get_available_apps") as mock_get_apps,
+        patch(
+            "vantage_cli.commands.cluster.create.track_deployment",
+            side_effect=mock_track_deployment,
+        ),
+    ):
+        mock_get_apps.return_value = {"class-app": {"instance": app_instance}}
+        await deploy_app_to_cluster(ctx, cluster, "class-app")
+
+    # Verify class-based app was tracked
+    assert len(track_deployment_calls) == 1
+    class_call = track_deployment_calls[0]
+    assert class_call["app_name"] == "class-app"
+    assert class_call["cluster_name"] == "test-cluster"
+    assert class_call["cluster_data"] == cluster
+    assert "deployment_id" in class_call
+    assert "deployment_name" in class_call
+    assert class_call["additional_metadata"]["deployment_method"] == "vantage cluster create --app"
+    assert class_call["additional_metadata"]["app_type"] == "class-based"

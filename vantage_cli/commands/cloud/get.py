@@ -17,12 +17,14 @@ from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_utils import should_use_json
+from vantage_cli.exceptions import handle_abort
 
 from .render import render_cloud_operation_result
 
 console = Console()
 
 
+@handle_abort
 def get_command(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the cloud configuration to retrieve")],

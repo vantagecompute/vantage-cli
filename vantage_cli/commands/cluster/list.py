@@ -16,13 +16,14 @@ from loguru import logger
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import Abort
+from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
 from vantage_cli.render import render_quick_start_guide
 
 from .render import render_clusters_table
 
 
+@handle_abort
 @attach_settings
 async def list_clusters(
     ctx: typer.Context,

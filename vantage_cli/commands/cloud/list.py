@@ -14,12 +14,15 @@
 import typer
 from rich.console import Console
 
+from vantage_cli.exceptions import handle_abort
+
 # NO IMPORTS NEEDED! The --json option is auto-injected by AsyncTyper
 from .render import render_clouds_table
 
 console = Console()
 
 
+@handle_abort
 def list_command(
     ctx: typer.Context,
 ) -> None:

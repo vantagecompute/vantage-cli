@@ -18,9 +18,12 @@ from typing import Optional
 import typer
 from typing_extensions import Annotated
 
+from vantage_cli.exceptions import handle_abort
+
 logger = logging.getLogger(__name__)
 
 
+@handle_abort
 def add_command(
     ctx: typer.Context,
     cloud_name: Annotated[str, typer.Argument(help="Name of the cloud to add")],

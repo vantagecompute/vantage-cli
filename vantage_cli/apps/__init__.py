@@ -9,20 +9,8 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Applications management commands for Vantage CLI."""
+"""Applications management for Vantage CLI.
 
-from vantage_cli import AsyncTyper
-from vantage_cli.commands.app.deploy import deploy_app
-from vantage_cli.commands.app.list import list_apps
-
-# Create the apps command group
-apps_app = AsyncTyper(
-    name="app",
-    help="Deploy and manage applications on Vantage compute clusters.",
-    invoke_without_command=True,
-    no_args_is_help=True,
-)
-
-# Register commands
-apps_app.command("list")(list_apps)
-apps_app.command("deploy")(deploy_app)
+This package contains individual application implementations for deployment
+on various platforms (Juju, Multipass, MicroK8s, etc.).
+"""
