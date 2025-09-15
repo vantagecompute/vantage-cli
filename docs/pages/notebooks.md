@@ -33,7 +33,7 @@ vantage notebooks
 ```bash
 vantage notebook get mynote00
 
-╭───────────────────────────────── Notebook Server: asetaset ──────────────────────────────────╮
+╭───────────────────────────────── Notebook Server: mynote00 ──────────────────────────────────╮
 │ Name: mynote00                                                                               │
 │ ID: 361                                                                                      │
 │ Cluster: multipass-00                                                                        │
