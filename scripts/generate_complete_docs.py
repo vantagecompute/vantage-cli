@@ -23,6 +23,7 @@ import json
 import re
 import subprocess
 import signal
+import html
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union
 from types import FrameType
@@ -201,7 +202,9 @@ class CombinedDocumentationGenerator:
                     arg_name = arg_match.group(1)
                     arg_desc = arg_match.group(2).strip()
                     if arg_name and arg_name not in ['Arguments', '─', '╰']:
-                        info["arguments"].append(f"`{arg_name}` - {arg_desc}")
+                        # Escape HTML-like tags in description
+                        escaped_desc = self.escape_html_in_text(arg_desc)
+                        info["arguments"].append(f"`{arg_name}` - {escaped_desc}")
                         
             elif current_section == 'options' and line.startswith('│'):
                 # Extract option info
@@ -210,7 +213,9 @@ class CombinedDocumentationGenerator:
                     opt_flags = opt_match.group(1)
                     opt_desc = opt_match.group(2).strip()
                     if opt_flags and opt_flags not in ['Options', '─', '╰']:
-                        info["options"].append(f"`{opt_flags}` - {opt_desc}")
+                        # Escape HTML-like tags in description
+                        escaped_desc = self.escape_html_in_text(opt_desc)
+                        info["options"].append(f"`{opt_flags}` - {escaped_desc}")
         
         return info
 
@@ -229,6 +234,18 @@ class CombinedDocumentationGenerator:
         # Replace python module calls with 'vantage'
         usage = re.sub(r'python3? -m vantage_cli\.main', 'vantage', usage)
         return usage.strip()
+
+    def escape_html_in_text(self, text: str) -> str:
+        """Escape HTML-like tags in text to prevent MDX parsing issues.
+        
+        Args:
+            text: Text that may contain HTML-like content
+            
+        Returns:
+            Text with HTML tags escaped
+        """
+        # Escape angle brackets that could be interpreted as HTML tags
+        return html.escape(text, quote=False)
 
     def generate_header(self) -> str:
         """Generate the documentation header.
