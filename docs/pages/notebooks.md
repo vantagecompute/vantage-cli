@@ -11,6 +11,7 @@ The Vantage CLI supports Notebook Server lifecycle management subcommand `notebo
 
 ```bash
 vantage notebook create mynote00 --cluster multipass-00 --partition compute
+```
 
 ### List Notebooks
 
@@ -48,9 +49,9 @@ vantage notebook get mynote00
 ### Delete a Notebook
 
 ```bash
-vantage notebook delete asetaset
+vantage notebook delete mynote00
 
-Are you sure you want to delete notebook server 'asetaset'? [y/N]: y
+Are you sure you want to delete notebook server 'mynote00'? [y/N]: y
 ✓ Notebook Server has been deleted.
 ```
 
