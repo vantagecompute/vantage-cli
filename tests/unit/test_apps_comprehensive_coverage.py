@@ -85,21 +85,28 @@ class TestMicrok8sAppAdditionalCoverage:
                             new_callable=AsyncMock,
                             return_value="test-secret",
                         ):
+                            # Mock SSH key files with proper pathlib mocking
+                            mock_ssh_key_content = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDCXoCSZMeQTYccOrpmKk/PEVsv+9G4jECi8phLa8r6WZeh/glq7FikIhsSH1I7B5Lef2GXjc59fPr4fpl1Yi4faEmAE+bqQia0gciczClNXYuZzFUH7ynRIw5eauE44MKjy3c/Sy0hXO8DU6WuF72AahooUilVYia0r6ihnth7GJ6ngw1LYnI4zyRIc6mLY7dPGF71LcJfLaddBtuYOFDsMEICqA1M25ax3+Cdshl76DTwxypdGW9Ja/vNIioLQ2gcjjIInXSDYdGi8xCiM1/Iyzl4G/ZpV/pv7dgiryT73DxN5stma+kPUyx9AUub+NU1AOXoE+P2ehi9x1XNJI2dLl+d3y/6GNmuPNdZuOdbkNo3NV1cwTgJ1oaA2b06bBAWJOpm/qVgeZ8Z0ifBUyYdkvqNioVjaL1FpLiapA7MeAsgmCfPgDkMSvijCcgDWXkBBIn3jfUbVbOu1O/jUSc9naockPzxi63z43+YJ7u9PkbVEyhCCHW+q4Djj0xBkcE= bdx@ultra"
+
                             with patch("pathlib.Path.exists", return_value=True):
                                 with patch("pathlib.Path.write_text"):
                                     with patch("pathlib.Path.chmod"):
-                                        # Mock _run to return successful completions
-                                        mock_run.return_value = subprocess.CompletedProcess(
-                                            [], 0, stdout="success", stderr=""
-                                        )
-
-                                        import asyncio
-
-                                        asyncio.run(
-                                            microk8s_app.deploy(
-                                                mock_ctx, cluster_data=cluster_data
+                                        with patch(
+                                            "pathlib.Path.read_text",
+                                            return_value=mock_ssh_key_content,
+                                        ):
+                                            # Mock _run to return successful completions
+                                            mock_run.return_value = subprocess.CompletedProcess(
+                                                [], 0, stdout="success", stderr=""
                                             )
-                                        )
+
+                                            import asyncio
+
+                                            asyncio.run(
+                                                microk8s_app.deploy(
+                                                    mock_ctx, cluster_data=cluster_data
+                                                )
+                                            )
 
                                         # Verify validation functions were called
                                         mock_validate_cluster.assert_called_once_with(

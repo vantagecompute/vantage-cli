@@ -295,6 +295,27 @@ async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = No
         pass
 
     slurm_cluster_chart_values = get_chart_values_slurm_cluster()
+
+    user_ssh_rsa_pub_key = Path.home() / ".ssh" / "id_rsa.pub"
+    user_ssh_ed25519_pub_key = Path.home() / ".ssh" / "id_ed25519.pub"
+
+    ssh_authorized_keys = []
+
+    if user_ssh_rsa_pub_key.exists():
+        ssh_authorized_keys.append(user_ssh_rsa_pub_key.read_text().strip())
+        console.print(f"[blue]Found SSH RSA public key: {user_ssh_rsa_pub_key}[/blue]")
+    if user_ssh_ed25519_pub_key.exists():
+        ssh_authorized_keys.append(user_ssh_ed25519_pub_key.read_text().strip())
+        console.print(f"[blue]Found SSH ED25519 public key: {user_ssh_ed25519_pub_key}[/blue]")
+
+    if len(ssh_authorized_keys) > 0:
+        console.print("[blue]Using SSH public keys:[/blue]")
+        for key in ssh_authorized_keys:
+            console.print(f" - {key}")
+        slurm_cluster_chart_values["loginsets"]["slinky"]["rootSshAuthorizedKeys"] = "\n".join(
+            ssh_authorized_keys
+        )
+
     slurm_cluster_values_yaml = yaml.dump(slurm_cluster_chart_values)
     tmp_slurm_cluster_values = Path("/home/bdx/myslurmclusterchartvalues.yaml")
     tmp_slurm_cluster_values.write_text(slurm_cluster_values_yaml)

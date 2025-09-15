@@ -30,6 +30,12 @@ from gql.transport.exceptions import (
     TransportConnectionFailed,
     TransportServerError,
 )
+
+try:
+    from gql import GraphQLRequest
+except ImportError:
+    # Fallback for older versions of gql
+    GraphQLRequest = None
 from graphql import DocumentNode
 from graphql.language.ast import OperationDefinitionNode
 from jose import exceptions as jwt_exceptions
@@ -391,7 +397,15 @@ class VantageGraphQLClient:
                 parsed_query = gql_query(query)
 
                 async with self._async_session() as session:
-                    result = await session.execute(parsed_query, variable_values=variables or {})
+                    # Use the new GraphQLRequest API to avoid deprecation warning
+                    if GraphQLRequest is not None:
+                        request = GraphQLRequest(parsed_query, variable_values=variables or {})
+                        result = await session.execute(request)
+                    else:
+                        # Fallback for older versions
+                        result = await session.execute(
+                            parsed_query, variable_values=variables or {}
+                        )
 
                     # Result from gql is already a dict
                     if result:
