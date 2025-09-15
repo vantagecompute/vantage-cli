@@ -169,8 +169,8 @@ const config: Config = {
         alt: 'Vantage Compute Logo',
         src: 'https://vantage-compute-public-assets.s3.us-east-1.amazonaws.com/branding/vantage-logo-text-white-horz.png',
         srcDark: 'https://vantage-compute-public-assets.s3.us-east-1.amazonaws.com/branding/vantage-logo-text-white-horz.png',
-        href: 'https://vantagecompute.ai',
-        target: '_blank',
+        href: 'https://vantagecompute.github.io/vantage-cli/',
+        target: '_self',
       },
       items: [
         {
@@ -205,6 +205,18 @@ const config: Config = {
             {
               label: 'Usage Examples',
               to: '/usage',
+            },
+            {
+              label: 'Notebooks',
+              to: '/notebooks',
+            },
+            {
+              label: 'Deployment Applications',
+              to: '/deployment-applications',
+            },
+            {
+              label: 'Partner Vantage Installation',
+              to: '/private-vantage-installation',
             },
             {
               label: 'Commands',
