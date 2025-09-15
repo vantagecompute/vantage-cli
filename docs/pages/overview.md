@@ -64,40 +64,6 @@ All data operations route through an async GraphQL client with:
 | **Output** | Rich tables, panels, JSON (`--json`) for all commands |
 | **Resilience** | Retry logic, error panels, clear messaging |
 
-## Common Commands
-
-```bash
-# Setup and authentication
-vantage profile create --name dev --set-active
-vantage login
-vantage whoami
-
-# Cloud and cluster management
-vantage cloud add --name aws-prod --provider aws
-vantage cluster create --name compute-01 --cloud aws-prod
-vantage clusters  # List clusters (alias)
-
-# Application deployment
-vantage apps  # List available applications
-vantage app deploy --app slurm-multipass-singlenode
-
-# Job management
-vantage job script create --name analysis --file ./script.py
-vantage job submission create --script script-123
-
-# Resource management
-vantage storage create --name data-vol --size 100GB
-vantage networks  # List networks (alias)
-
-# Team collaboration
-vantage team create --name ml-research
-vantage teams  # List teams (alias)
-
-# Get details (JSON output)
-vantage cluster get --name demo --json
-vantage job submission get --id sub-123 --json
-```
-
 ## Use Cases
 
 - **Enterprise HPC Management**: Complete lifecycle management of compute clusters
@@ -112,8 +78,11 @@ vantage job submission get --id sub-123 --json
 
 ## Next Steps
 
-- [Installation Guide](/vantage-cli/installation/) – Install & configure
-- [Commands Reference](/vantage-cli/commands/) – Complete command catalogue
-- [Usage Examples](/vantage-cli/usage/) – Practical command patterns
-- [Architecture](/vantage-cli/architecture/) – Internals & module layout
-- [Troubleshooting](/vantage-cli/troubleshooting/) – Common issues and solutions
+- [Installation Guide](/vantage-cli/installation/) – Install & Configure
+- [Commands Reference](/vantage-cli/commands/) – Complete Command Reference
+- [Private Installation Configuration](/vantage-cli/private-vantage-installation/) – Partner Vantage Deployment CLI Profile Configuration
+- [Notebooks](/vantage-cli/notebooks/) – Jupyterhub Notebook Server Lifecycle
+- [Deployment Applications](/vantage-cli/deployment-applications/) – Slurm Deployment Automation
+- [Usage Examples](/vantage-cli/usage/) – Practical Command Patterns
+- [Architecture](/vantage-cli/architecture/) – Internals & Module Layout
+- [Troubleshooting](/vantage-cli/troubleshooting/) – Common Issues and Solutions

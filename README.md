@@ -73,7 +73,7 @@ vantage cluster create my-slurm-lxd-cluster \
 ```bash
 vantage cluster create my-slurm-microk8s-cluster \
     --cloud localhost \
-    --app slurm-microk8s-locahost
+    --app slurm-microk8s-localhost
 ```
 
 ## 📚 Documentation

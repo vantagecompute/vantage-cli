@@ -14,13 +14,16 @@ Vantage CLI is a modern async Python tool that unifies authentication, profile m
 Install from pypi:
 
 ```bash
-pip install vantage-cli
+uv venv
+source .venv/bin/activate
+
+uv pip install vantage-cli
 ```
 
 Or from source:
 
 ```bash
-git clone https://github.com/vantagecomputevantage-cli
+git clone https://github.com/vantagecompute/vantage-cli
 cd vantage-cli
 uv sync
 uv run vantage --help
@@ -55,5 +58,5 @@ vantage cluster create my-slurm-lxd-cluster \
 ```bash
 vantage cluster create my-slurm-microk8s-cluster \
     --cloud localhost \
-    --app slurm-microk8s-locahost
+    --app slurm-microk8s-localhost
 ```

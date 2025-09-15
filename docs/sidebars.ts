@@ -22,6 +22,9 @@ const sidebars: SidebarsConfig = {
       items: [
         'installation',
         'usage',
+        'private-vantage-installation',
+        'deployment-applications',
+        'notebooks',
       ],
     },
     {
