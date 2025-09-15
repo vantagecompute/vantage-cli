@@ -14,8 +14,10 @@
 import typer
 
 from vantage_cli.commands.network.list import list_networks
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 async def networks_command(
     ctx: typer.Context,
 ):

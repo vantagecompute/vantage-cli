@@ -18,6 +18,7 @@ from typing_extensions import Annotated
 
 from vantage_cli.command_base import JsonOption, VerboseOption
 from vantage_cli.command_utils import should_use_json
+from vantage_cli.exceptions import handle_abort
 
 # Define ForceOption locally since it's not in the main codebase
 ForceOption = Annotated[bool, typer.Option("--force", "-f", help="Force the operation")]
@@ -25,6 +26,7 @@ ForceOption = Annotated[bool, typer.Option("--force", "-f", help="Force the oper
 console = Console()
 
 
+@handle_abort
 async def example_command(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the resource")],

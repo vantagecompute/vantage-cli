@@ -19,12 +19,11 @@ import buzz
 import snick
 import typer
 from loguru import logger
-from rich import traceback
 from rich.console import Console
 from rich.panel import Panel
 
-# Enables prettified traceback printing via rich
-traceback.install()
+# Enables prettified traceback printing via rich - we'll install this conditionally
+# traceback.install()  # Commented out to avoid showing tracebacks in normal mode
 
 
 class VantageCliError(buzz.Buzz):
@@ -82,6 +81,41 @@ class Abort(buzz.Buzz):
         super().__init__(message, *args, **kwargs)
 
 
+def _handle_authentication_error(auth_err: AuthenticationError) -> None:
+    """Handle authentication errors with consistent messaging."""
+    message = (
+        "Authentication failed. Your token may be expired or invalid.\n\n"
+        "Please run 'vantage login' to authenticate again."
+    )
+    console = Console()
+    console.print()
+    console.print(Panel(message, title="[red]Authentication Required"))
+    console.print()
+    logger.error(f"Authentication error: {auth_err}")
+    raise typer.Exit(code=1)
+
+
+def _handle_abort_error(err: Abort) -> None:
+    """Handle abort errors with consistent messaging."""
+    if not err.warn_only:
+        if err.log_message is not None:
+            logger.error(err.log_message)
+
+        if err.original_error is not None:
+            logger.error(f"Original exception: {err.original_error}")
+
+    panel_kwargs = {}
+    if err.subject is not None:
+        panel_kwargs["title"] = f"[red]{err.subject}"
+    message = snick.dedent(err.message)
+
+    console = Console()
+    console.print()
+    console.print(Panel(message, **panel_kwargs))
+    console.print()
+    raise typer.Exit(code=1)
+
+
 def handle_abort(func):
     """Handle abort exceptions in decorated functions."""
     if inspect.iscoroutinefunction(func):
@@ -90,24 +124,10 @@ def handle_abort(func):
         async def async_wrapper(*args, **kwargs):
             try:
                 return await func(*args, **kwargs)
+            except AuthenticationError as auth_err:
+                _handle_authentication_error(auth_err)
             except Abort as err:
-                if not err.warn_only:
-                    if err.log_message is not None:
-                        logger.error(err.log_message)
-
-                    if err.original_error is not None:
-                        logger.error(f"Original exception: {err.original_error}")
-
-                panel_kwargs = {}
-                if err.subject is not None:
-                    panel_kwargs["title"] = f"[red]{err.subject}"
-                message = snick.dedent(err.message)
-
-                console = Console()
-                console.print()
-                console.print(Panel(message, **panel_kwargs))
-                console.print()
-                raise typer.Exit(code=1)
+                _handle_abort_error(err)
 
         return async_wrapper
     else:
@@ -116,23 +136,9 @@ def handle_abort(func):
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
+            except AuthenticationError as auth_err:
+                _handle_authentication_error(auth_err)
             except Abort as err:
-                if not err.warn_only:
-                    if err.log_message is not None:
-                        logger.error(err.log_message)
-
-                    if err.original_error is not None:
-                        logger.error(f"Original exception: {err.original_error}")
-
-                panel_kwargs = {}
-                if err.subject is not None:
-                    panel_kwargs["title"] = f"[red]{err.subject}"
-                message = snick.dedent(err.message)
-
-                console = Console()
-                console.print()
-                console.print(Panel(message, **panel_kwargs))
-                console.print()
-                raise typer.Exit(code=1)
+                _handle_abort_error(err)
 
         return wrapper

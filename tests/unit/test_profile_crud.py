@@ -18,6 +18,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import click
 import pytest
 import typer
 
@@ -30,7 +31,6 @@ from vantage_cli.commands.profile.crud import (
     list_profiles,
     use_profile,
 )
-from vantage_cli.exceptions import Abort
 
 
 class TestGetAllProfiles:
@@ -139,10 +139,10 @@ class TestCreateProfile:
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
-                with pytest.raises(Abort) as exc_info:
+                with pytest.raises(click.exceptions.Exit) as exc_info:
                     create_profile(ctx=mock_ctx, profile_name="test_profile", force=False)
 
-                assert "already exists" in str(exc_info.value)
+                assert exc_info.value.exit_code == 1
 
     def test_create_profile_with_force(self):
         """Test creating profile that already exists with force=True."""
@@ -204,10 +204,10 @@ class TestDeleteProfile:
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
-                with pytest.raises(Abort) as exc_info:
+                with pytest.raises(click.exceptions.Exit) as exc_info:
                     delete_profile(ctx=mock_ctx, profile_name="nonexistent")
 
-                assert "does not exist" in str(exc_info.value)
+                assert exc_info.value.exit_code == 1
 
     def test_delete_default_profile_without_force(self):
         """Test deleting default profile without force flag."""
@@ -220,10 +220,10 @@ class TestDeleteProfile:
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
-                with pytest.raises(Abort) as exc_info:
+                with pytest.raises(click.exceptions.Exit) as exc_info:
                     delete_profile(ctx=mock_ctx, profile_name="default", force=False)
 
-                assert "Cannot delete 'default' profile" in str(exc_info.value)
+                assert exc_info.value.exit_code == 1
 
 
 class TestGetProfile:
@@ -263,10 +263,10 @@ class TestGetProfile:
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
-                with pytest.raises(Abort) as exc_info:
+                with pytest.raises(click.exceptions.Exit) as exc_info:
                     get_profile(ctx=mock_ctx, profile_name="nonexistent")
 
-                assert "does not exist" in str(exc_info.value)
+                assert exc_info.value.exit_code == 1
 
 
 class TestListProfiles:

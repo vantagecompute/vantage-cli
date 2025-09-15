@@ -23,6 +23,7 @@ from types import SimpleNamespace
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
+import click
 import pytest
 
 from vantage_cli.commands.profile.crud import (
@@ -32,7 +33,6 @@ from vantage_cli.commands.profile.crud import (
     list_profiles,
     use_profile,
 )
-from vantage_cli.exceptions import Abort
 
 # ---------------------------------------------------------------------------
 # create_profile extra branches
@@ -128,8 +128,9 @@ def test_create_profile_exception_rich():
                     "vantage_cli.commands.profile.crud.get_effective_json_output",
                     return_value=False,
                 ):
-                    with pytest.raises(Abort):
+                    with pytest.raises(click.exceptions.Exit) as exc_info:
                         create_profile(mock_ctx, "errpr")
+                    assert exc_info.value.exit_code == 1
 
 
 # ---------------------------------------------------------------------------
@@ -340,8 +341,9 @@ def test_use_profile_exception_rich():
                 "vantage_cli.commands.profile.crud.set_active_profile",
                 side_effect=RuntimeError("oops"),
             ):
-                with pytest.raises(Abort):
+                with pytest.raises(click.exceptions.Exit) as exc_info:
                     use_profile(mock_ctx, "p")
+                assert exc_info.value.exit_code == 1
 
 
 # ---------------------------------------------------------------------------

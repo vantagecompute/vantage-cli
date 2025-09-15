@@ -24,6 +24,7 @@ from rich.panel import Panel
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
+    generate_dev_cluster_data,
     require_client_secret,
     validate_client_credentials,
     validate_cluster_data,
@@ -68,10 +69,14 @@ async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = No
     # Extract cluster name from cluster data
     cluster_name = cluster_data.get("name", "unknown-cluster")
 
-    # Get client secret (import locally to avoid circular import)
-    from vantage_cli.commands.cluster import utils as cluster_utils
+    # Get client secret - check if it's already in cluster_data (dev mode) or fetch it
+    client_secret = cluster_data.get("clientSecret")
+    if not client_secret:
+        # Get client secret from API (import locally to avoid circular import)
+        from vantage_cli.commands.cluster import utils as cluster_utils
 
-    client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
+        client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
+
     client_secret = require_client_secret(client_secret, console)
 
     logger.debug("Client secret obtained (or placeholder used).")
@@ -98,7 +103,11 @@ async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = No
         jupyterhub_token=jupyterhub_token,
     )
 
-    instance_name = f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
+    # Use deployment_name as instance name for easier cleanup
+    deployment_name = cluster_data.get(
+        "deployment_name", f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
+    )
+    instance_name = deployment_name
     console.print(f"Launching: {instance_name}")
 
     shared_dir = Path.home() / "multipass-singlenode" / "shared"
@@ -167,18 +176,94 @@ async def deploy_command(
         str,
         typer.Argument(help="Name of the cluster to deploy"),
     ],
+    dev_run: Annotated[
+        bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
+    ] = False,
 ) -> None:
     """Deploy a Vantage Multipass Singlenode SLURM cluster."""
     console = Console()
     console.print(Panel("Multipass Singlenode SLURM Application"))
     console.print("Deploying multipass singlenode slurm application...")
-    # Import locally to avoid circular import
-    from vantage_cli.commands.cluster import utils as cluster_utils
 
-    cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+    cluster_data = None
 
-    if not cluster_data:
-        console.print("[red]Error: No cluster data found.[/red]")
-        raise typer.Exit(code=1)
+    if dev_run:
+        console.print(
+            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
+        )
+        cluster_data = generate_dev_cluster_data(cluster_name)
+    else:
+        # Import locally to avoid circular import
+        from vantage_cli.commands.cluster import utils as cluster_utils
+
+        cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+
+        if not cluster_data:
+            console.print("[red]Error: No cluster data found.[/red]")
+            raise typer.Exit(code=1)
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
+
+
+async def cleanup_multipass_localhost(cluster_data: Dict[str, Any]) -> None:
+    """Clean up a Multipass SLURM deployment by deleting the instance.
+
+    Args:
+        cluster_data: Dictionary containing deployment information including deployment_name
+
+    Raises:
+        Exception: If cleanup fails (non-critical, logged and continued)
+    """
+    console = Console()
+
+    try:
+        # Extract deployment_name from cluster_data
+        deployment_name = cluster_data.get("deployment_name")
+        if not deployment_name:
+            # Fallback to old pattern for backward compatibility
+            client_id = cluster_data.get("client_id")
+            if client_id:
+                deployment_name = f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
+            else:
+                console.print(
+                    "[yellow]Warning: No deployment_name or client_id found in cluster_data for cleanup[/yellow]"
+                )
+                return
+
+        # Use deployment_name as instance name (matches deploy function)
+        instance_name = deployment_name
+
+        console.print(f"[blue]Cleaning up Multipass instance: {instance_name}[/blue]")
+
+        # Check if multipass is available
+        multipass = which("multipass")
+        if not multipass:
+            console.print(
+                "[yellow]Warning: multipass command not found, skipping cleanup[/yellow]"
+            )
+            return
+
+        # Delete the instance with purge flag (-p) to completely remove it
+        result = subprocess.run(
+            ["multipass", "delete", instance_name, "-p"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        if result.returncode == 0:
+            console.print(
+                f"[green]Successfully deleted Multipass instance: {instance_name}[/green]"
+            )
+        else:
+            # Instance might not exist or already deleted - not a critical error
+            console.print(
+                f"[yellow]Multipass delete returned code {result.returncode}: {result.stderr.strip()}[/yellow]"
+            )
+            console.print("[yellow]Instance may not exist or was already deleted[/yellow]")
+
+    except subprocess.TimeoutExpired:
+        console.print("[yellow]Warning: Multipass delete operation timed out[/yellow]")
+    except Exception as e:
+        console.print(f"[yellow]Warning: Error during Multipass cleanup: {e}[/yellow]")
+        logger.warning(f"Multipass cleanup failed: {e}")

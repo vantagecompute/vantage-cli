@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""List available applications for deployment."""
+"""List available applications."""
 
 import typer
 from rich.console import Console
@@ -17,11 +17,13 @@ from rich.table import Table
 
 from vantage_cli.commands.cluster.utils import get_available_apps
 from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import handle_abort
 from vantage_cli.format import render_json
 
 console = Console()
 
 
+@handle_abort
 @attach_settings
 async def list_apps(
     ctx: typer.Context,

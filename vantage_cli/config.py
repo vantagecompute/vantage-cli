@@ -51,7 +51,7 @@ class Settings(BaseModel):
     @property
     def oidc_domain(self) -> str:
         """Extract the domain from the OIDC base URL."""
-        return self.oidc_base_url.split("//")[-1]
+        return self.oidc_base_url.split("//")[-1] + "/realms/vantage"
 
     @computed_field
     @property
@@ -96,7 +96,7 @@ def attach_settings(func: Callable[..., Any]) -> Callable[..., Any]:
                 )
                 raise typer.Exit(1)
             logger.debug("Binding settings to CLI context")
-            ctx.obj.settings = init_settings(**settings_values)
+            ctx.obj.settings = init_settings(**(settings_values or {}))
             return await func(ctx, *args, **kwargs)
 
         return async_wrapper
@@ -119,7 +119,7 @@ def attach_settings(func: Callable[..., Any]) -> Callable[..., Any]:
                 )
                 raise typer.Exit(1)
             logger.debug("Binding settings to CLI context")
-            ctx.obj.settings = init_settings(**settings_values)
+            ctx.obj.settings = init_settings(**(settings_values or {}))
             return func(ctx, *args, **kwargs)
 
     return wrapper

@@ -4,26 +4,28 @@ This document provides a comprehensive reference for all available CLI commands 
 
 
 ```text
-                                                                                                       
- Usage: vantage [OPTIONS] COMMAND [ARGS]...                                         
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ version   Show version and exit.                                                                    │
-│ login     Authenticate against the Vantage CLI by obtaining an authentication token.                │
-│ logout    Log out of the vantage-cli and clear saved user credentials.                              │
-│ whoami    Display information about the currently authenticated user.                               │
-│ cloud     Manage cloud provider configurations and integrations for your Vantage infrastructure.    │
-│ cluster   Manage Vantage compute clusters for high-performance computing workloads.                 │
-│ config    Manage Vantage CLI configuration and settings.                                            │
-│ license   Manage software licenses, license servers, and licensing configurations.                  │
-│ network   Manage virtual networks, subnets, and network configurations for cloud infrastructure.    │
-│ profile   Manage Vantage CLI profiles to work with different environments and configurations.       │
-│ storage   Manage storage volumes, disks, and storage configurations for cloud infrastructure.       │
-│ app       Deploy and manage applications on Vantage compute clusters.                               │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ version      Show version and exit.                                                                                                                                                                                                                                                                                                                                                     │
+│ login        Authenticate against the Vantage CLI by obtaining an authentication token.                                                                                                                                                                                                                                                                                                 │
+│ logout       Log out of the vantage-cli and clear saved user credentials.                                                                                                                                                                                                                                                                                                               │
+│ whoami       Display information about the currently authenticated user.                                                                                                                                                                                                                                                                                                                │
+│ app          Manage applications                                                                                                                                                                                                                                                                                                                                                        │
+│ cloud        Manage cloud provider configurations and integrations for your Vantage infrastructure.                                                                                                                                                                                                                                                                                     │
+│ cluster      Manage Vantage compute clusters for high-performance computing workloads.                                                                                                                                                                                                                                                                                                  │
+│ config       Manage Vantage CLI configuration and settings.                                                                                                                                                                                                                                                                                                                             │
+│ license      Manage software licenses, license servers, and licensing configurations.                                                                                                                                                                                                                                                                                                   │
+│ network      Manage virtual networks, subnets, and network configurations for cloud infrastructure.                                                                                                                                                                                                                                                                                     │
+│ notebook     Manage Jupyter notebooks and computational notebooks for data science and research.                                                                                                                                                                                                                                                                                        │
+│ profile      Manage Vantage CLI profiles to work with different environments and configurations.                                                                                                                                                                                                                                                                                        │
+│ storage      Manage storage volumes, disks, and storage configurations for cloud infrastructure.                                                                                                                                                                                                                                                                                        │
+│ deployment   Create and manage application deployments on Vantage compute clusters.                                                                                                                                                                                                                                                                                                     │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -33,17 +35,17 @@ This document provides a comprehensive reference for all available CLI commands 
 ### Login
 
 ```text
-                                                                                                       
- Usage: vantage login [OPTIONS]                                                     
-                                                                                                       
- Authenticate against the Vantage CLI by obtaining an authentication token.                            
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     -j            Output in JSON format                                                      │
-│ --verbose  -v            Enable verbose terminal output                                             │
-│ --profile  -p      TEXT  Profile name to use [default: default]                                     │
-│ --help                   Show this message and exit.                                                │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage login [OPTIONS]                                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Authenticate against the Vantage CLI by obtaining an authentication token.                                                                                                                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --json     -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+│ --help                   Show this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -51,17 +53,17 @@ This document provides a comprehensive reference for all available CLI commands 
 ### Logout
 
 ```text
-                                                                                                       
- Usage: vantage logout [OPTIONS]                                                    
-                                                                                                       
- Log out of the vantage-cli and clear saved user credentials.                                          
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     -j            Output in JSON format                                                      │
-│ --verbose  -v            Enable verbose terminal output                                             │
-│ --profile  -p      TEXT  Profile name to use [default: default]                                     │
-│ --help                   Show this message and exit.                                                │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage logout [OPTIONS]                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Log out of the vantage-cli and clear saved user credentials.                                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --json     -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+│ --help                   Show this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -69,17 +71,17 @@ This document provides a comprehensive reference for all available CLI commands 
 ### Whoami
 
 ```text
-                                                                                                       
- Usage: vantage whoami [OPTIONS]                                                    
-                                                                                                       
- Display information about the currently authenticated user.                                           
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     -j            Output in JSON format                                                      │
-│ --verbose  -v            Enable verbose terminal output                                             │
-│ --profile  -p      TEXT  Profile name to use [default: default]                                     │
-│ --help                   Show this message and exit.                                                │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage whoami [OPTIONS]                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Display information about the currently authenticated user.                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --json     -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+│ --help                   Show this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -87,39 +89,73 @@ This document provides a comprehensive reference for all available CLI commands 
 ## Version Information
 
 ```text
-                                                                                                       
- Usage: vantage version [OPTIONS]                                                   
-                                                                                                       
- Show version and exit.                                                                                
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     -j            Output in JSON format                                                      │
-│ --verbose  -v            Enable verbose terminal output                                             │
-│ --profile  -p      TEXT  Profile name to use [default: default]                                     │
-│ --help                   Show this message and exit.                                                │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage version [OPTIONS]                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Show version and exit.                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --json     -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+│ --help                   Show this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
 
+## Application Management
+
+```text
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage app [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage applications                                                                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ list   List available applications                                                                                                                                                                                                                                                                                                                                                      │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+```
+
+<details markdown="1" id="app-list">
+<summary onclick="window.location.hash='app-list'">Show app list details</summary>
+
+```bash
+vantage app list [OPTIONS]
+```
+
+**Options:**
+
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+
+</details>
+
 ## Cloud Management
 
 ```text
-                                                                                                       
- Usage: vantage cloud [OPTIONS] COMMAND [ARGS]...                                   
-                                                                                                       
- Manage cloud provider configurations and integrations for your Vantage infrastructure.                
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ add      Add a new cloud configuration.                                                             │
-│ delete   Delete a cloud configuration.                                                              │
-│ get      Get details of a specific cloud configuration.                                             │
-│ list     List all configured cloud providers.                                                       │
-│ update   Update an existing cloud configuration.                                                    │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage cloud [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage cloud provider configurations and integrations for your Vantage infrastructure.                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ add      Add a new cloud configuration.                                                                                                                                                                                                                                                                                                                                                 │
+│ delete   Delete a cloud configuration.                                                                                                                                                                                                                                                                                                                                                  │
+│ get      Get details of a specific cloud configuration.                                                                                                                                                                                                                                                                                                                                 │
+│ list     List all configured cloud providers.                                                                                                                                                                                                                                                                                                                                           │
+│ update   Update an existing cloud configuration.                                                                                                                                                                                                                                                                                                                                        │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -133,17 +169,17 @@ vantage cloud add [OPTIONS] CLOUD_NAME
 
 **Arguments:**
 
-- `*` - cloud_name      TEXT  Name of the cloud to add [required]                                      │
+- `*` - cloud_name      TEXT  Name of the cloud to add [required]                                                                                                                                                                                                                                                                                                                          │
 
 **Options:**
 
-- `--region` - -r      TEXT  Default region for the cloud                                   │
-- `--config-file               FILE` - Path to cloud configuration file                               │
-- `--credentials-file          FILE` - Path to credentials file                                       │
-- `--json` - -j            Output in JSON format                                          │
-- `--verbose` - -v            Enable verbose terminal output                                 │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                         │
-- `--help                            Show` - this message and exit.                                    │
+- `--region` - -r      TEXT  Default region for the cloud                                                                                                                                                                                                                                                                                                                       │
+- `--config-file               FILE` - Path to cloud configuration file                                                                                                                                                                                                                                                                                                                   │
+- `--credentials-file          FILE` - Path to credentials file                                                                                                                                                                                                                                                                                                                           │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                              │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                     │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                             │
+- `--help                            Show` - this message and exit.                                                                                                                                                                                                                                                                                                                        │
 
 </details>
 
@@ -156,16 +192,16 @@ vantage cloud delete [OPTIONS] CLOUD_NAME
 
 **Arguments:**
 
-- `*` - cloud_name      TEXT  Name of the cloud to delete [required]                                   │
+- `*` - cloud_name      TEXT  Name of the cloud to delete [required]                                                                                                                                                                                                                                                                                                                       │
 
 **Options:**
 
-- `--force                             Force` - deletion without confirmation                             │
-- `--remove-credentials                Also` - remove stored credentials                                  │
-- `--json` - -j            Output in JSON format                                           │
-- `--verbose` - -v            Enable verbose terminal output                                  │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                          │
-- `--help                              Show` - this message and exit.                                     │
+- `--force                             Force` - deletion without confirmation                                                                                                                                                                                                                                                                                                                 │
+- `--remove-credentials                Also` - remove stored credentials                                                                                                                                                                                                                                                                                                                      │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                               │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                      │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                              │
+- `--help                              Show` - this message and exit.                                                                                                                                                                                                                                                                                                                         │
 
 </details>
 
@@ -178,14 +214,14 @@ vantage cloud get [OPTIONS] NAME
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the cloud configuration to retrieve [required]                         │
+- `*` - name      TEXT  Name of the cloud configuration to retrieve [required]                                                                                                                                                                                                                                                                                                             │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -198,10 +234,10 @@ vantage cloud list [OPTIONS]
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -214,40 +250,40 @@ vantage cloud update [OPTIONS] CLOUD_NAME
 
 **Arguments:**
 
-- `*` - cloud_name      TEXT  Name of the cloud to update [required]                                   │
+- `*` - cloud_name      TEXT  Name of the cloud to update [required]                                                                                                                                                                                                                                                                                                                       │
 
 **Options:**
 
-- `--provider` - -p      TEXT  Update cloud provider                                             │
-- `--region` - -r      TEXT  Update default region                                             │
-- `--config-file               FILE` - Path to updated configuration file                                │
-- `--credentials-file          FILE` - Path to updated credentials file                                  │
-- `--description               TEXT` - Update cloud description                                          │
-- `--json` - -j            Output in JSON format                                             │
-- `--verbose` - -v            Enable verbose terminal output                                    │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                            │
-- `--help                            Show` - this message and exit.                                       │
+- `--provider` - -p      TEXT  Update cloud provider                                                                                                                                                                                                                                                                                                                                 │
+- `--region` - -r      TEXT  Update default region                                                                                                                                                                                                                                                                                                                                 │
+- `--config-file               FILE` - Path to updated configuration file                                                                                                                                                                                                                                                                                                                    │
+- `--credentials-file          FILE` - Path to updated credentials file                                                                                                                                                                                                                                                                                                                      │
+- `--description               TEXT` - Update cloud description                                                                                                                                                                                                                                                                                                                              │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                 │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                        │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                │
+- `--help                            Show` - this message and exit.                                                                                                                                                                                                                                                                                                                           │
 
 </details>
 
 ## Cluster Management
 
 ```text
-                                                                                                       
- Usage: vantage cluster [OPTIONS] COMMAND [ARGS]...                                 
-                                                                                                       
- Manage Vantage compute clusters for high-performance computing workloads.                             
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ create       Create a new Vantage cluster.                                                          │
-│ delete       Delete a Vantage cluster.                                                              │
-│ get          Get details of a specific Vantage cluster.                                             │
-│ list         List all Vantage clusters.                                                             │
-│ federation   Manage Vantage compute federations for distributed workloads.                          │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage cluster [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage Vantage compute clusters for high-performance computing workloads.                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create       Create a new Vantage cluster.                                                                                                                                                                                                                                                                                                                                              │
+│ delete       Delete a Vantage cluster.                                                                                                                                                                                                                                                                                                                                                  │
+│ get          Get details of a specific Vantage cluster.                                                                                                                                                                                                                                                                                                                                 │
+│ list         List all Vantage clusters.                                                                                                                                                                                                                                                                                                                                                 │
+│ federation   Manage Vantage compute federations for distributed workloads.                                                                                                                                                                                                                                                                                                              │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -261,16 +297,16 @@ vantage cluster create [OPTIONS] CLUSTER_NAME
 
 **Arguments:**
 
-- `*` - cluster_name      TEXT  Name of the cluster to create [required]                               │
+- `*` - cluster_name      TEXT  Name of the cluster to create [required]                                                                                                                                                                                                                                                                                                                   │
 
 **Options:**
 
-- `--config-file          FILE` - Path to configuration file for       │
-- `--deploy` - [slurm-juju-localhost|slurm-microk8  Deploy an application after cluster  │
-- `--json` - -j                                           Output in JSON format                │
-- `--verbose` - -v                                           Enable verbose terminal output       │
-- `--profile` - -p      TEXT                                 Profile name to use                  │
-- `--help                                                      Show` - this message and exit.          │
+- `--config-file          FILE` - Path to configuration file for cluster creation.                                                                                                                                                                                                                                   │
+- `--app` - [slurm-juju-localhost|slurm-microk8s-localhost|slurm-multipass-localhost]  Deploy an application after cluster creation.                                                                                                                                                                                                                                      │
+- `--json` - -j                                                                                 Output in JSON format                                                                                                                                                                                                                                                              │
+- `--verbose` - -v                                                                                 Enable verbose terminal output                                                                                                                                                                                                                                                     │
+- `--profile` - -p      TEXT                                                                       Profile name to use [default: default]                                                                                                                                                                                                                                             │
+- `--help                                                                                            Show` - this message and exit.                                                                                                                                                                                                                                                        │
 
 </details>
 
@@ -283,15 +319,16 @@ vantage cluster delete [OPTIONS] CLUSTER_NAME
 
 **Arguments:**
 
-- `*` - cluster_name      TEXT  Name of the cluster to delete [required]                               │
+- `*` - cluster_name      TEXT  Name of the cluster to delete [required]                                                                                                                                                                                                                                                                                                                   │
 
 **Options:**
 
-- `--force` - -f            Skip confirmation prompt                                                   │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Skip confirmation prompt                                                                                                                                                                                                                                                                                                                                       │
+- `--app              TEXT` - Cleanup the specified app deployment (e.g., slurm-juju-localhost, slurm-multipass-localhost, slurm-microk8s-localhost)                                                                                                                                                                                                                                         │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -304,14 +341,14 @@ vantage cluster get [OPTIONS] CLUSTER_NAME
 
 **Arguments:**
 
-- `*` - cluster_name      TEXT  Name of the cluster to get details for [required]                      │
+- `*` - cluster_name      TEXT  Name of the cluster to get details for [required]                                                                                                                                                                                                                                                                                                          │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -324,10 +361,10 @@ vantage cluster list [OPTIONS]
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -339,22 +376,22 @@ vantage cluster federation --help
 ```
 
 ```text
-                                                                                                       
- Usage: vantage cluster federation [OPTIONS] COMMAND                                
-                                                      [ARGS]...                                        
-                                                                                                       
- Manage Vantage compute federations for distributed workloads.                                         
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ create   Create a new Vantage federation.                                                           │
-│ delete   Delete a Vantage federation.                                                               │
-│ get      Get details of a specific Vantage federation.                                              │
-│ list     List all Vantage federations.                                                              │
-│ update   Update a Vantage federation.                                                               │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage cluster federation [OPTIONS] COMMAND                                                                                                                                                                                                                                                                                                                    
+                                                      [ARGS]...                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage Vantage compute federations for distributed workloads.                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create   Create a new Vantage federation.                                                                                                                                                                                                                                                                                                                                               │
+│ delete   Delete a Vantage federation.                                                                                                                                                                                                                                                                                                                                                   │
+│ get      Get details of a specific Vantage federation.                                                                                                                                                                                                                                                                                                                                  │
+│ list     List all Vantage federations.                                                                                                                                                                                                                                                                                                                                                  │
+│ update   Update a Vantage federation.                                                                                                                                                                                                                                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -370,15 +407,15 @@ vantage cluster federation create
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the federation to create [required]                                    │
+- `*` - name      TEXT  Name of the federation to create [required]                                                                                                                                                                                                                                                                                                                        │
 
 **Options:**
 
-- `--description` - -d      TEXT  Description of the federation                                          │
-- `--json` - -j            Output in JSON format                                                  │
-- `--verbose` - -v            Enable verbose terminal output                                         │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                 │
-- `--help                       Show` - this message and exit.                                            │
+- `--description` - -d      TEXT  Description of the federation                                                                                                                                                                                                                                                                                                                              │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                      │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                             │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                     │
+- `--help                       Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                │
 
 </details>
 
@@ -391,15 +428,15 @@ vantage cluster federation delete
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the federation to delete [required]                                    │
+- `*` - name      TEXT  Name of the federation to delete [required]                                                                                                                                                                                                                                                                                                                        │
 
 **Options:**
 
-- `--force` - -f            Force deletion without confirmation                                        │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Force deletion without confirmation                                                                                                                                                                                                                                                                                                                            │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -412,14 +449,14 @@ vantage cluster federation get [OPTIONS] NAME
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the federation to retrieve [required]                                  │
+- `*` - name      TEXT  Name of the federation to retrieve [required]                                                                                                                                                                                                                                                                                                                      │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -432,10 +469,10 @@ vantage cluster federation list [OPTIONS]
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -448,37 +485,37 @@ vantage cluster federation update
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the federation to update [required]                                    │
+- `*` - name      TEXT  Name of the federation to update [required]                                                                                                                                                                                                                                                                                                                        │
 
 **Options:**
 
-- `--description` - -d      TEXT  New description for the federation                                  │
-- `--add-cluster             TEXT` - Add a cluster to the federation                                     │
-- `--remove-cluster          TEXT` - Remove a cluster from the federation                                │
-- `--json` - -j            Output in JSON format                                               │
-- `--verbose` - -v            Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                              │
-- `--help                          Show` - this message and exit.                                         │
+- `--description` - -d      TEXT  New description for the federation                                                                                                                                                                                                                                                                                                                      │
+- `--add-cluster             TEXT` - Add a cluster to the federation                                                                                                                                                                                                                                                                                                                         │
+- `--remove-cluster          TEXT` - Remove a cluster from the federation                                                                                                                                                                                                                                                                                                                    │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
 ## License Management
 
 ```text
-                                                                                                       
- Usage: vantage license [OPTIONS] COMMAND [ARGS]...                                 
-                                                                                                       
- Manage software licenses, license servers, and licensing configurations.                              
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ server          Manage license servers for software licensing and compliance.                       │
-│ product         Manage license products and software licensing definitions.                         │
-│ configuration   Manage license configurations and policy settings.                                  │
-│ deployment      Manage license deployments for software distribution and activation.                │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage license [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage software licenses, license servers, and licensing configurations.                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ server          Manage license servers for software licensing and compliance.                                                                                                                                                                                                                                                                                                           │
+│ product         Manage license products and software licensing definitions.                                                                                                                                                                                                                                                                                                             │
+│ configuration   Manage license configurations and policy settings.                                                                                                                                                                                                                                                                                                                      │
+│ deployment      Manage license deployments for software distribution and activation.                                                                                                                                                                                                                                                                                                    │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -491,21 +528,21 @@ vantage license server --help
 ```
 
 ```text
-                                                                                                       
- Usage: vantage license server [OPTIONS] COMMAND [ARGS]...                          
-                                                                                                       
- Manage license servers for software licensing and compliance.                                         
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ create   Create a new license server.                                                               │
-│ delete   Delete a license server.                                                                   │
-│ get      Get details of a specific license server.                                                  │
-│ list     List all license servers.                                                                  │
-│ update   Update an existing license server.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage license server [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                              
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage license servers for software licensing and compliance.                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create   Create a new license server.                                                                                                                                                                                                                                                                                                                                                   │
+│ delete   Delete a license server.                                                                                                                                                                                                                                                                                                                                                       │
+│ get      Get details of a specific license server.                                                                                                                                                                                                                                                                                                                                      │
+│ list     List all license servers.                                                                                                                                                                                                                                                                                                                                                      │
+│ update   Update an existing license server.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -521,16 +558,16 @@ vantage license server create [OPTIONS] NAME
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the license server to create [required]                                │
+- `*` - name      TEXT  Name of the license server to create [required]                                                                                                                                                                                                                                                                                                                    │
 
 **Options:**
 
-- `--port` - -p      INTEGER  License server port [default: 27000]                             │
-- `--description` - -d      TEXT     Description of the license server                                │
-- `--json` - -j               Output in JSON format                                            │
-- `--verbose` - -v               Enable verbose terminal output                                   │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                           │
-- `--help                          Show` - this message and exit.                                      │
+- `--port` - -p      INTEGER  License server port [default: 27000]                                                                                                                                                                                                                                                                                                                 │
+- `--description` - -d      TEXT     Description of the license server                                                                                                                                                                                                                                                                                                                    │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                       │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                               │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                          │
 
 </details>
 
@@ -543,15 +580,15 @@ vantage license server delete [OPTIONS] SERVER_ID
 
 **Arguments:**
 
-- `*` - server_id      TEXT  ID of the license server to delete [required]                             │
+- `*` - server_id      TEXT  ID of the license server to delete [required]                                                                                                                                                                                                                                                                                                                 │
 
 **Options:**
 
-- `--force` - -f            Force delete without confirmation                                          │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Force delete without confirmation                                                                                                                                                                                                                                                                                                                              │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -564,14 +601,14 @@ vantage license server get [OPTIONS] SERVER_ID
 
 **Arguments:**
 
-- `*` - server_id      TEXT  ID of the license server to get [required]                                │
+- `*` - server_id      TEXT  ID of the license server to get [required]                                                                                                                                                                                                                                                                                                                    │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -584,10 +621,10 @@ vantage license server list [OPTIONS]
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -600,18 +637,18 @@ vantage license server update [OPTIONS] SERVER_ID
 
 **Arguments:**
 
-- `*` - server_id      TEXT  ID of the license server to update [required]                             │
+- `*` - server_id      TEXT  ID of the license server to update [required]                                                                                                                                                                                                                                                                                                                 │
 
 **Options:**
 
-- `--name` - -n      TEXT     New name for the license server                                     │
-- `--host` - -h      TEXT     New hostname or IP address                                          │
-- `--port` - -p      INTEGER  New port number                                                     │
-- `--description` - -d      TEXT     New description                                                     │
-- `--json` - -j               Output in JSON format                                               │
-- `--verbose` - -v               Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                              │
-- `--help                          Show` - this message and exit.                                         │
+- `--name` - -n      TEXT     New name for the license server                                                                                                                                                                                                                                                                                                                         │
+- `--host` - -h      TEXT     New hostname or IP address                                                                                                                                                                                                                                                                                                                              │
+- `--port` - -p      INTEGER  New port number                                                                                                                                                                                                                                                                                                                                         │
+- `--description` - -d      TEXT     New description                                                                                                                                                                                                                                                                                                                                         │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
@@ -623,21 +660,21 @@ vantage license product --help
 ```
 
 ```text
-                                                                                                       
- Usage: vantage license product [OPTIONS] COMMAND [ARGS]...                         
-                                                                                                       
- Manage license products and software licensing definitions.                                           
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ create   Create a new license product.                                                              │
-│ delete   Delete a license product.                                                                  │
-│ get      Get details of a specific license product.                                                 │
-│ list     List all license products.                                                                 │
-│ update   Update an existing license product.                                                        │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage license product [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage license products and software licensing definitions.                                                                                                                                                                                                                                                                                                                               
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create   Create a new license product.                                                                                                                                                                                                                                                                                                                                                  │
+│ delete   Delete a license product.                                                                                                                                                                                                                                                                                                                                                      │
+│ get      Get details of a specific license product.                                                                                                                                                                                                                                                                                                                                     │
+│ list     List all license products.                                                                                                                                                                                                                                                                                                                                                     │
+│ update   Update an existing license product.                                                                                                                                                                                                                                                                                                                                            │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -653,16 +690,16 @@ vantage license product create [OPTIONS] NAME
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the license product to create [required]                               │
+- `*` - name      TEXT  Name of the license product to create [required]                                                                                                                                                                                                                                                                                                                   │
 
 **Options:**
 
-- `--description` - -d      TEXT  Description of the license product                                  │
-- `--type` - -t      TEXT  Type of license (concurrent, node-locked, etc.)                     │
-- `--json` - -j            Output in JSON format                                               │
-- `--verbose` - -v            Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                              │
-- `--help                       Show` - this message and exit.                                         │
+- `--description` - -d      TEXT  Description of the license product                                                                                                                                                                                                                                                                                                                      │
+- `--type` - -t      TEXT  Type of license (concurrent, node-locked, etc.) [default: concurrent]                                                                                                                                                                                                                                                                                   │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                       Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
@@ -675,15 +712,15 @@ vantage license product delete [OPTIONS] PRODUCT_ID
 
 **Arguments:**
 
-- `*` - product_id      TEXT  ID of the license product to delete [required]                           │
+- `*` - product_id      TEXT  ID of the license product to delete [required]                                                                                                                                                                                                                                                                                                               │
 
 **Options:**
 
-- `--force` - -f            Force delete without confirmation                                          │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Force delete without confirmation                                                                                                                                                                                                                                                                                                                              │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -696,14 +733,14 @@ vantage license product get [OPTIONS] PRODUCT_ID
 
 **Arguments:**
 
-- `*` - product_id      TEXT  ID of the license product to get [required]                              │
+- `*` - product_id      TEXT  ID of the license product to get [required]                                                                                                                                                                                                                                                                                                                  │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -716,10 +753,10 @@ vantage license product list [OPTIONS]
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -732,18 +769,18 @@ vantage license product update [OPTIONS] PRODUCT_ID
 
 **Arguments:**
 
-- `*` - product_id      TEXT  ID of the license product to update [required]                           │
+- `*` - product_id      TEXT  ID of the license product to update [required]                                                                                                                                                                                                                                                                                                               │
 
 **Options:**
 
-- `--name` - -n      TEXT  New name for the license product                                       │
-- `--version` - -v      TEXT  New version                                                            │
-- `--description` - -d      TEXT  New description                                                        │
-- `--type` - -t      TEXT  New license type                                                       │
-- `--json` - -j            Output in JSON format                                                  │
-- `--verbose` - -v            Enable verbose terminal output                                         │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                 │
-- `--help                       Show` - this message and exit.                                            │
+- `--name` - -n      TEXT  New name for the license product                                                                                                                                                                                                                                                                                                                           │
+- `--version` - -v      TEXT  New version                                                                                                                                                                                                                                                                                                                                                │
+- `--description` - -d      TEXT  New description                                                                                                                                                                                                                                                                                                                                            │
+- `--type` - -t      TEXT  New license type                                                                                                                                                                                                                                                                                                                                           │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                      │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                             │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                     │
+- `--help                       Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                │
 
 </details>
 
@@ -755,22 +792,22 @@ vantage license configuration --help
 ```
 
 ```text
-                                                                                                       
- Usage: vantage license configuration [OPTIONS] COMMAND                             
-                                                         [ARGS]...                                     
-                                                                                                       
- Manage license configurations and policy settings.                                                    
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ create   Create a new license configuration.                                                        │
-│ delete   Delete a license configuration.                                                            │
-│ get      Get details of a specific license configuration.                                           │
-│ list     List all license configurations.                                                           │
-│ update   Update an existing license configuration.                                                  │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage license configuration [OPTIONS] COMMAND                                                                                                                                                                                                                                                                                                                 
+                                                         [ARGS]...                                                                                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage license configurations and policy settings.                                                                                                                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create   Create a new license configuration.                                                                                                                                                                                                                                                                                                                                            │
+│ delete   Delete a license configuration.                                                                                                                                                                                                                                                                                                                                                │
+│ get      Get details of a specific license configuration.                                                                                                                                                                                                                                                                                                                               │
+│ list     List all license configurations.                                                                                                                                                                                                                                                                                                                                               │
+│ update   Update an existing license configuration.                                                                                                                                                                                                                                                                                                                                      │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -786,16 +823,16 @@ vantage license configuration create
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the license configuration to create [required]                         │
+- `*` - name      TEXT  Name of the license configuration to create [required]                                                                                                                                                                                                                                                                                                             │
 
 **Options:**
 
-- `--max-users` - -m      INTEGER  Maximum number of users                                          │
-- `--description` - -d      TEXT     Description of the license configuration                         │
-- `--json` - -j               Output in JSON format                                            │
-- `--verbose` - -v               Enable verbose terminal output                                   │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                           │
-- `--help                          Show` - this message and exit.                                      │
+- `--max-users` - -m      INTEGER  Maximum number of users                                                                                                                                                                                                                                                                                                                              │
+- `--description` - -d      TEXT     Description of the license configuration                                                                                                                                                                                                                                                                                                             │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                       │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                               │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                          │
 
 </details>
 
@@ -808,15 +845,15 @@ vantage license configuration delete
 
 **Arguments:**
 
-- `*` - config_id      TEXT  ID of the license configuration to delete [required]                      │
+- `*` - config_id      TEXT  ID of the license configuration to delete [required]                                                                                                                                                                                                                                                                                                          │
 
 **Options:**
 
-- `--force` - -f            Force delete without confirmation                                          │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Force delete without confirmation                                                                                                                                                                                                                                                                                                                              │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -829,14 +866,14 @@ vantage license configuration get
 
 **Arguments:**
 
-- `*` - config_id      TEXT  ID of the license configuration to get [required]                         │
+- `*` - config_id      TEXT  ID of the license configuration to get [required]                                                                                                                                                                                                                                                                                                             │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -849,10 +886,10 @@ vantage license configuration list
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -865,18 +902,18 @@ vantage license configuration update
 
 **Arguments:**
 
-- `*` - config_id      TEXT  ID of the license configuration to update [required]                      │
+- `*` - config_id      TEXT  ID of the license configuration to update [required]                                                                                                                                                                                                                                                                                                          │
 
 **Options:**
 
-- `--name` - -n      TEXT     New name for the license configuration                              │
-- `--type` - -t      TEXT     New license type                                                    │
-- `--max-users` - -m      INTEGER  New maximum number of users                                         │
-- `--description` - -d      TEXT     New description                                                     │
-- `--json` - -j               Output in JSON format                                               │
-- `--verbose` - -v               Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                              │
-- `--help                          Show` - this message and exit.                                         │
+- `--name` - -n      TEXT     New name for the license configuration                                                                                                                                                                                                                                                                                                                  │
+- `--type` - -t      TEXT     New license type                                                                                                                                                                                                                                                                                                                                        │
+- `--max-users` - -m      INTEGER  New maximum number of users                                                                                                                                                                                                                                                                                                                             │
+- `--description` - -d      TEXT     New description                                                                                                                                                                                                                                                                                                                                         │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
@@ -888,22 +925,22 @@ vantage license deployment --help
 ```
 
 ```text
-                                                                                                       
- Usage: vantage license deployment [OPTIONS] COMMAND                                
-                                                      [ARGS]...                                        
-                                                                                                       
- Manage license deployments for software distribution and activation.                                  
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ create   Create a new license deployment.                                                           │
-│ delete   Delete a license deployment.                                                               │
-│ get      Get details of a specific license deployment.                                              │
-│ list     List all license deployments.                                                              │
-│ update   Update a license deployment.                                                               │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage license deployment [OPTIONS] COMMAND                                                                                                                                                                                                                                                                                                                    
+                                                      [ARGS]...                                                                                                                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage license deployments for software distribution and activation.                                                                                                                                                                                                                                                                                                                      
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create   Create a new license deployment.                                                                                                                                                                                                                                                                                                                                               │
+│ delete   Delete a license deployment.                                                                                                                                                                                                                                                                                                                                                   │
+│ get      Get details of a specific license deployment.                                                                                                                                                                                                                                                                                                                                  │
+│ list     List all license deployments.                                                                                                                                                                                                                                                                                                                                                  │
+│ update   Update a license deployment.                                                                                                                                                                                                                                                                                                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -919,17 +956,17 @@ vantage license deployment create
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the license deployment to create [required]                            │
+- `*` - name      TEXT  Name of the license deployment to create [required]                                                                                                                                                                                                                                                                                                                │
 
 **Options:**
 
-- `--environment` - -e      TEXT     Deployment environment (dev, test, prod) [default: dev]          │
-- `--nodes` - -n      INTEGER  Number of nodes in the deployment [default: 1]                   │
-- `--description` - -d      TEXT     Description of the license deployment                            │
-- `--json` - -j               Output in JSON format                                            │
-- `--verbose` - -v               Enable verbose terminal output                                   │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                           │
-- `--help                          Show` - this message and exit.                                      │
+- `--environment` - -e      TEXT     Deployment environment (dev, test, prod) [default: dev]                                                                                                                                                                                                                                                                                              │
+- `--nodes` - -n      INTEGER  Number of nodes in the deployment [default: 1]                                                                                                                                                                                                                                                                                                       │
+- `--description` - -d      TEXT     Description of the license deployment                                                                                                                                                                                                                                                                                                                │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                       │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                               │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                          │
 
 </details>
 
@@ -942,15 +979,15 @@ vantage license deployment delete
 
 **Arguments:**
 
-- `*` - deployment_id      TEXT  ID of the license deployment to delete [required]                     │
+- `*` - deployment_id      TEXT  ID of the license deployment to delete [required]                                                                                                                                                                                                                                                                                                         │
 
 **Options:**
 
-- `--force` - -f            Skip confirmation prompt                                                   │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Skip confirmation prompt                                                                                                                                                                                                                                                                                                                                       │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -963,14 +1000,14 @@ vantage license deployment get [OPTIONS]
 
 **Arguments:**
 
-- `*` - deployment_id      TEXT  ID of the license deployment to retrieve [required]                   │
+- `*` - deployment_id      TEXT  ID of the license deployment to retrieve [required]                                                                                                                                                                                                                                                                                                       │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -983,13 +1020,13 @@ vantage license deployment list [OPTIONS]
 
 **Options:**
 
-- `--environment` - -e      TEXT     Filter by environment                                               │
-- `--status` - -s      TEXT     Filter by status                                                    │
-- `--limit` - -l      INTEGER  Maximum number of deployments to return [default: 10]               │
-- `--json` - -j               Output in JSON format                                               │
-- `--verbose` - -v               Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                              │
-- `--help                          Show` - this message and exit.                                         │
+- `--environment` - -e      TEXT     Filter by environment                                                                                                                                                                                                                                                                                                                                   │
+- `--status` - -s      TEXT     Filter by status                                                                                                                                                                                                                                                                                                                                        │
+- `--limit` - -l      INTEGER  Maximum number of deployments to return [default: 10]                                                                                                                                                                                                                                                                                                   │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
@@ -1002,42 +1039,42 @@ vantage license deployment update
 
 **Arguments:**
 
-- `*` - deployment_id      TEXT  ID of the license deployment to update [required]                     │
+- `*` - deployment_id      TEXT  ID of the license deployment to update [required]                                                                                                                                                                                                                                                                                                         │
 
 **Options:**
 
-- `--name` - -n      TEXT     New name for the deployment                                         │
-- `--environment` - -e      TEXT     New environment for the deployment                                  │
-- `--nodes                INTEGER` - New number of nodes                                                 │
-- `--description` - -d      TEXT     New description                                                     │
-- `--status` - -s      TEXT     New status (active, inactive, suspended)                            │
-- `--json` - -j               Output in JSON format                                               │
-- `--verbose` - -v               Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                              │
-- `--help                          Show` - this message and exit.                                         │
+- `--name` - -n      TEXT     New name for the deployment                                                                                                                                                                                                                                                                                                                             │
+- `--environment` - -e      TEXT     New environment for the deployment                                                                                                                                                                                                                                                                                                                      │
+- `--nodes                INTEGER` - New number of nodes                                                                                                                                                                                                                                                                                                                                     │
+- `--description` - -d      TEXT     New description                                                                                                                                                                                                                                                                                                                                         │
+- `--status` - -s      TEXT     New status (active, inactive, suspended)                                                                                                                                                                                                                                                                                                                │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
 ## Network Management
 
 ```text
-                                                                                                       
- Usage: vantage network [OPTIONS] COMMAND [ARGS]...                                 
-                                                                                                       
- Manage virtual networks, subnets, and network configurations for cloud infrastructure.                
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ attach   Attach a network interface to an instance.                                                 │
-│ create   Create a new virtual network.                                                              │
-│ delete   Delete a virtual network.                                                                  │
-│ detach   Detach a network interface from an instance.                                               │
-│ get      Get details of a specific virtual network.                                                 │
-│ list     List all virtual networks.                                                                 │
-│ update   Update a virtual network configuration.                                                    │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage network [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage virtual networks, subnets, and network configurations for cloud infrastructure.                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ attach   Attach a network interface to an instance.                                                                                                                                                                                                                                                                                                                                     │
+│ create   Create a new virtual network.                                                                                                                                                                                                                                                                                                                                                  │
+│ delete   Delete a virtual network.                                                                                                                                                                                                                                                                                                                                                      │
+│ detach   Detach a network interface from an instance.                                                                                                                                                                                                                                                                                                                                   │
+│ get      Get details of a specific virtual network.                                                                                                                                                                                                                                                                                                                                     │
+│ list     List all virtual networks.                                                                                                                                                                                                                                                                                                                                                     │
+│ update   Update a virtual network configuration.                                                                                                                                                                                                                                                                                                                                        │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -1051,17 +1088,17 @@ vantage network attach [OPTIONS] NETWORK_ID
 
 **Arguments:**
 
-- `*` - network_id       TEXT  ID of the network to attach [required]                                  │
-- `*` - instance_id      TEXT  ID of the instance to attach network to [required]                      │
+- `*` - network_id       TEXT  ID of the network to attach [required]                                                                                                                                                                                                                                                                                                                      │
+- `*` - instance_id      TEXT  ID of the instance to attach network to [required]                                                                                                                                                                                                                                                                                                          │
 
 **Options:**
 
-- `--subnet-id` - -s      TEXT  Specific subnet ID to attach                                      │
-- `--assign-public-ip                Assign` - a public IP address                                        │
-- `--json` - -j            Output in JSON format                                             │
-- `--verbose` - -v            Enable verbose terminal output                                    │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                            │
-- `--help                            Show` - this message and exit.                                       │
+- `--subnet-id` - -s      TEXT  Specific subnet ID to attach                                                                                                                                                                                                                                                                                                                          │
+- `--assign-public-ip                Assign` - a public IP address                                                                                                                                                                                                                                                                                                                            │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                 │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                        │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                │
+- `--help                            Show` - this message and exit.                                                                                                                                                                                                                                                                                                                           │
 
 </details>
 
@@ -1074,18 +1111,18 @@ vantage network create [OPTIONS] NAME
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the network to create [required]                                       │
+- `*` - name      TEXT  Name of the network to create [required]                                                                                                                                                                                                                                                                                                                           │
 
 **Options:**
 
-- `--cidr` - -c      TEXT  CIDR block for the network [default: 10.0.0.0/16]                      │
-- `--region` - -r      TEXT  Region for the network                                                 │
-- `--enable-dns                 Enable` - DNS resolution [default: True]                                  │
-- `--description` - -d      TEXT  Description of the network                                             │
-- `--json` - -j            Output in JSON format                                                  │
-- `--verbose` - -v            Enable verbose terminal output                                         │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                 │
-- `--help                       Show` - this message and exit.                                            │
+- `--cidr` - -c      TEXT  CIDR block for the network [default: 10.0.0.0/16]                                                                                                                                                                                                                                                                                                          │
+- `--region` - -r      TEXT  Region for the network                                                                                                                                                                                                                                                                                                                                     │
+- `--enable-dns                 Enable` - DNS resolution [default: True]                                                                                                                                                                                                                                                                                                                      │
+- `--description` - -d      TEXT  Description of the network                                                                                                                                                                                                                                                                                                                                 │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                      │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                             │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                     │
+- `--help                       Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                │
 
 </details>
 
@@ -1098,15 +1135,15 @@ vantage network delete [OPTIONS] NETWORK_ID
 
 **Arguments:**
 
-- `*` - network_id      TEXT  ID of the network to delete [required]                                   │
+- `*` - network_id      TEXT  ID of the network to delete [required]                                                                                                                                                                                                                                                                                                                       │
 
 **Options:**
 
-- `--force` - -f            Skip confirmation prompt                                                   │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Skip confirmation prompt                                                                                                                                                                                                                                                                                                                                       │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -1119,16 +1156,16 @@ vantage network detach [OPTIONS] NETWORK_ID
 
 **Arguments:**
 
-- `*` - network_id       TEXT  ID of the network to detach [required]                                  │
-- `*` - instance_id      TEXT  ID of the instance to detach network from [required]                    │
+- `*` - network_id       TEXT  ID of the network to detach [required]                                                                                                                                                                                                                                                                                                                      │
+- `*` - instance_id      TEXT  ID of the instance to detach network from [required]                                                                                                                                                                                                                                                                                                        │
 
 **Options:**
 
-- `--force` - -f            Force detachment without graceful shutdown                                 │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Force detachment without graceful shutdown                                                                                                                                                                                                                                                                                                                     │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -1141,14 +1178,14 @@ vantage network get [OPTIONS] NETWORK_ID
 
 **Arguments:**
 
-- `*` - network_id      TEXT  ID of the network to retrieve [required]                                 │
+- `*` - network_id      TEXT  ID of the network to retrieve [required]                                                                                                                                                                                                                                                                                                                     │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -1161,13 +1198,13 @@ vantage network list [OPTIONS]
 
 **Options:**
 
-- `--region` - -r      TEXT     Filter by region                                                        │
-- `--status` - -s      TEXT     Filter by status                                                        │
-- `--limit` - -l      INTEGER  Maximum number of networks to return [default: 10]                      │
-- `--json` - -j               Output in JSON format                                                   │
-- `--verbose` - -v               Enable verbose terminal output                                          │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                                  │
-- `--help                      Show` - this message and exit.                                             │
+- `--region` - -r      TEXT     Filter by region                                                                                                                                                                                                                                                                                                                                            │
+- `--status` - -s      TEXT     Filter by status                                                                                                                                                                                                                                                                                                                                            │
+- `--limit` - -l      INTEGER  Maximum number of networks to return [default: 10]                                                                                                                                                                                                                                                                                                          │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                       │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                              │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                      │
+- `--help                      Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                 │
 
 </details>
 
@@ -1180,38 +1217,169 @@ vantage network update [OPTIONS] NETWORK_ID
 
 **Arguments:**
 
-- `*` - network_id      TEXT  ID of the network to update [required]                                   │
+- `*` - network_id      TEXT  ID of the network to update [required]                                                                                                                                                                                                                                                                                                                       │
 
 **Options:**
 
-- `--name` - -n                   TEXT  New name for the network                                  │
-- `--description` - -d                   TEXT  New description                                           │
-- `--enable-dns` - --disable-dns          Enable or disable DNS resolution                          │
-- `--json` - -j                         Output in JSON format                                     │
-- `--verbose` - -v                         Enable verbose terminal output                            │
-- `--profile` - -p                   TEXT  Profile name to use [default: default]                    │
-- `--help                                    Show` - this message and exit.                               │
+- `--name` - -n                   TEXT  New name for the network                                                                                                                                                                                                                                                                                                                      │
+- `--description` - -d                   TEXT  New description                                                                                                                                                                                                                                                                                                                               │
+- `--enable-dns` - --disable-dns          Enable or disable DNS resolution                                                                                                                                                                                                                                                                                                              │
+- `--json` - -j                         Output in JSON format                                                                                                                                                                                                                                                                                                                         │
+- `--verbose` - -v                         Enable verbose terminal output                                                                                                                                                                                                                                                                                                                │
+- `--profile` - -p                   TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                        │
+- `--help                                    Show` - this message and exit.                                                                                                                                                                                                                                                                                                                   │
+
+</details>
+
+## Notebook Commands
+
+```text
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage notebook [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage Jupyter notebooks and computational notebooks for data science and research.                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create   Create a new Jupyter notebook server.                                                                                                                                                                                                                                                                                                                                          │
+│ delete   Delete notebook server.                                                                                                                                                                                                                                                                                                                                                        │
+│ get      Get notebook server details.                                                                                                                                                                                                                                                                                                                                                   │
+│ list     List notebook servers.                                                                                                                                                                                                                                                                                                                                                         │
+│ update   Update a Jupyter notebook configuration.                                                                                                                                                                                                                                                                                                                                       │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+```
+
+<details markdown="1" id="notebook-create">
+<summary onclick="window.location.hash='notebook-create'">Show notebook create details</summary>
+
+```bash
+vantage notebook create [OPTIONS] NAME
+```
+
+**Arguments:**
+
+- `*` - name      TEXT  Name of the notebook server [required]                                                                                                                                                                                                                                                                                                                             │
+
+**Options:**
+
+- `--cpu                INTEGER` - Number of CPU cores                                                                                                                                                                                                                                                                                                                                    │
+- `--memory             FLOAT` - Memory in MB                                                                                                                                                                                                                                                                                                                                           │
+- `--gpus               INTEGER` - Number of GPUs                                                                                                                                                                                                                                                                                                                                         │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                  │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                         │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                 │
+- `--help                        Show` - this message and exit.                                                                                                                                                                                                                                                                                                                            │
+
+</details>
+
+<details markdown="1" id="notebook-delete">
+<summary onclick="window.location.hash='notebook-delete'">Show notebook delete details</summary>
+
+```bash
+vantage notebook delete [OPTIONS] NAME
+```
+
+**Arguments:**
+
+- `*` - name      TEXT  Notebook server name [required]                                                                                                                                                                                                                                                                                                                                    │
+
+**Options:**
+
+- `--cluster` - -c      TEXT  Cluster name                                                                                                                                                                                                                                                                                                                                                   │
+- `--force` - -f            Force deletion without confirmation                                                                                                                                                                                                                                                                                                                            │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+
+</details>
+
+<details markdown="1" id="notebook-get">
+<summary onclick="window.location.hash='notebook-get'">Show notebook get details</summary>
+
+```bash
+vantage notebook get [OPTIONS] NAME
+```
+
+**Arguments:**
+
+- `*` - name      TEXT  Notebook server name [required]                                                                                                                                                                                                                                                                                                                                    │
+
+**Options:**
+
+- `--cluster` - -c      TEXT  Cluster name                                                                                                                                                                                                                                                                                                                                                   │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+
+</details>
+
+<details markdown="1" id="notebook-list">
+<summary onclick="window.location.hash='notebook-list'">Show notebook list details</summary>
+
+```bash
+vantage notebook list [OPTIONS]
+```
+
+**Options:**
+
+- `--cluster` - -c      TEXT     Filter by cluster name                                                                                                                                                                                                                                                                                                                                      │
+- `--status` - -s      TEXT     Filter by notebook status                                                                                                                                                                                                                                                                                                                                   │
+- `--kernel` - -k      TEXT     Filter by kernel type                                                                                                                                                                                                                                                                                                                                       │
+- `--limit` - -l      INTEGER  Maximum number of notebooks to return                                                                                                                                                                                                                                                                                                                       │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                       │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                              │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                      │
+- `--help                      Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                 │
+
+</details>
+
+<details markdown="1" id="notebook-update">
+<summary onclick="window.location.hash='notebook-update'">Show notebook update details</summary>
+
+```bash
+vantage notebook update [OPTIONS] NOTEBOOK_ID
+```
+
+**Arguments:**
+
+- `*` - notebook_id      TEXT  ID of the notebook to update [required]                                                                                                                                                                                                                                                                                                                     │
+
+**Options:**
+
+- `--name` - -n      TEXT  New name for the notebook                                                                                                                                                                                                                                                                                                                                  │
+- `--description` - -d      TEXT  New description                                                                                                                                                                                                                                                                                                                                            │
+- `--kernel` - -k      TEXT  New kernel type                                                                                                                                                                                                                                                                                                                                            │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                      │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                             │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                     │
+- `--help                       Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                │
 
 </details>
 
 ## Profile Management
 
 ```text
-                                                                                                       
- Usage: vantage profile [OPTIONS] COMMAND [ARGS]...                                 
-                                                                                                       
- Manage Vantage CLI profiles to work with different environments and configurations.                   
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ create   Create a new Vantage CLI profile.                                                          │
-│ delete   Delete a Vantage CLI profile.                                                              │
-│ get      Get details of a specific Vantage CLI profile.                                             │
-│ list     List all Vantage CLI profiles.                                                             │
-│ use      Activate a profile for use in the current session.                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage profile [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage Vantage CLI profiles to work with different environments and configurations.                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ create   Create a new Vantage CLI profile.                                                                                                                                                                                                                                                                                                                                              │
+│ delete   Delete a Vantage CLI profile.                                                                                                                                                                                                                                                                                                                                                  │
+│ get      Get details of a specific Vantage CLI profile.                                                                                                                                                                                                                                                                                                                                 │
+│ list     List all Vantage CLI profiles.                                                                                                                                                                                                                                                                                                                                                 │
+│ use      Activate a profile for use in the current session.                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -1225,18 +1393,20 @@ vantage profile create [OPTIONS] PROFILE_NAME
 
 **Arguments:**
 
-- `*` - profile_name      TEXT  Name of the profile to create [required]                               │
+- `*` - profile_name      TEXT  Name of the profile to create [required]                                                                                                                                                                                                                                                                                                                   │
 
 **Options:**
 
-- `--api-url                TEXT` - API base URL [default: https://apis.vantagecompute.ai]            │
-- `--tunnel-url             TEXT` - Tunnel API URL [default: https://tunnel.vantagecompute.ai]        │
-- `--oidc-url               TEXT` - OIDC base URL [default: https://auth.vantagecompute.ai]           │
-- `--client-id              TEXT` - OIDC client ID [default: default]                                 │
-- `--max-poll-time          INTEGER` - OIDC max poll time in seconds [default: 300]                      │
-- `--force` - -f               Overwrite existing profile                                        │
-- `--activate                        Activate` - this profile after creation                              │
-- `--help                            Show` - this message and exit.                                       │
+- `--api-url                TEXT` - API base URL [default: https://apis.vantagecompute.ai]                                                                                                                                                                                                                                                                                                │
+- `--tunnel-url             TEXT` - Tunnel API URL [default: https://tunnel.vantagecompute.ai]                                                                                                                                                                                                                                                                                            │
+- `--oidc-url               TEXT` - OIDC base URL [default: https://auth.vantagecompute.ai]                                                                                                                                                                                                                                                                                               │
+- `--client-id              TEXT` - OIDC client ID [default: default]                                                                                                                                                                                                                                                                                                                     │
+- `--max-poll-time          INTEGER` - OIDC max poll time in seconds [default: 300]                                                                                                                                                                                                                                                                                                          │
+- `--force` - -f               Overwrite existing profile                                                                                                                                                                                                                                                                                                                            │
+- `--activate                        Activate` - this profile after creation                                                                                                                                                                                                                                                                                                                  │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                 │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                        │
+- `--help                            Show` - this message and exit.                                                                                                                                                                                                                                                                                                                           │
 
 </details>
 
@@ -1249,12 +1419,14 @@ vantage profile delete [OPTIONS] PROFILE_NAME
 
 **Arguments:**
 
-- `*` - profile_name      TEXT  Name of the profile to delete [required]                               │
+- `*` - profile_name      TEXT  Name of the profile to delete [required]                                                                                                                                                                                                                                                                                                                   │
 
 **Options:**
 
-- `--force` - -f        Skip confirmation prompt                                                         │
-- `--help             Show` - this message and exit.                                                      │
+- `--force` - -f        Skip confirmation prompt                                                                                                                                                                                                                                                                                                                                           │
+- `--json` - -j        Output in JSON format                                                                                                                                                                                                                                                                                                                                              │
+- `--verbose` - -v        Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                     │
+- `--help               Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                        │
 
 </details>
 
@@ -1267,11 +1439,13 @@ vantage profile get [OPTIONS] PROFILE_NAME
 
 **Arguments:**
 
-- `*` - profile_name      TEXT  Name of the profile to get details for [required]                      │
+- `*` - profile_name      TEXT  Name of the profile to get details for [required]                                                                                                                                                                                                                                                                                                          │
 
 **Options:**
 
-- `--help          Show` - this message and exit.                                                         │
+- `--json` - -j        Output in JSON format                                                                                                                                                                                                                                                                                                                                              │
+- `--verbose` - -v        Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                     │
+- `--help               Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                        │
 
 </details>
 
@@ -1284,7 +1458,9 @@ vantage profile list [OPTIONS]
 
 **Options:**
 
-- `--help          Show` - this message and exit.                                                         │
+- `--json` - -j        Output in JSON format                                                                                                                                                                                                                                                                                                                                              │
+- `--verbose` - -v        Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                     │
+- `--help               Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                        │
 
 </details>
 
@@ -1297,34 +1473,36 @@ vantage profile use [OPTIONS] PROFILE_NAME
 
 **Arguments:**
 
-- `*` - profile_name      TEXT  Name of the profile to activate [required]                             │
+- `*` - profile_name      TEXT  Name of the profile to activate [required]                                                                                                                                                                                                                                                                                                                 │
 
 **Options:**
 
-- `--help          Show` - this message and exit.                                                         │
+- `--json` - -j        Output in JSON format                                                                                                                                                                                                                                                                                                                                              │
+- `--verbose` - -v        Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                     │
+- `--help               Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                        │
 
 </details>
 
 ## Storage Management
 
 ```text
-                                                                                                       
- Usage: vantage storage [OPTIONS] COMMAND [ARGS]...                                 
-                                                                                                       
- Manage storage volumes, disks, and storage configurations for cloud infrastructure.                   
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ attach   Attach a storage volume to an instance.                                                    │
-│ create   Create a new storage volume.                                                               │
-│ delete   Delete a storage volume.                                                                   │
-│ detach   Detach a storage volume from an instance.                                                  │
-│ get      Get details of a specific storage volume.                                                  │
-│ list     List all storage volumes.                                                                  │
-│ update   Update a storage volume configuration.                                                     │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage storage [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Manage storage volumes, disks, and storage configurations for cloud infrastructure.                                                                                                                                                                                                                                                                                                       
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ attach   Attach a storage volume to an instance.                                                                                                                                                                                                                                                                                                                                        │
+│ create   Create a new storage volume.                                                                                                                                                                                                                                                                                                                                                   │
+│ delete   Delete a storage volume.                                                                                                                                                                                                                                                                                                                                                       │
+│ detach   Detach a storage volume from an instance.                                                                                                                                                                                                                                                                                                                                      │
+│ get      Get details of a specific storage volume.                                                                                                                                                                                                                                                                                                                                      │
+│ list     List all storage volumes.                                                                                                                                                                                                                                                                                                                                                      │
+│ update   Update a storage volume configuration.                                                                                                                                                                                                                                                                                                                                         │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
@@ -1338,17 +1516,17 @@ vantage storage attach [OPTIONS] STORAGE_ID
 
 **Arguments:**
 
-- `*` - storage_id       TEXT  ID of the storage volume to attach [required]                           │
-- `*` - instance_id      TEXT  ID of the instance to attach storage to [required]                      │
+- `*` - storage_id       TEXT  ID of the storage volume to attach [required]                                                                                                                                                                                                                                                                                                               │
+- `*` - instance_id      TEXT  ID of the instance to attach storage to [required]                                                                                                                                                                                                                                                                                                          │
 
 **Options:**
 
-- `--mount-point` - -m      TEXT  Mount point for the storage [default: /data]                           │
-- `--read-only` - -r            Attach storage in read-only mode                                       │
-- `--json` - -j            Output in JSON format                                                  │
-- `--verbose` - -v            Enable verbose terminal output                                         │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                 │
-- `--help                       Show` - this message and exit.                                            │
+- `--mount-point` - -m      TEXT  Mount point for the storage [default: /data]                                                                                                                                                                                                                                                                                                               │
+- `--read-only` - -r            Attach storage in read-only mode                                                                                                                                                                                                                                                                                                                           │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                      │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                             │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                     │
+- `--help                       Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                │
 
 </details>
 
@@ -1361,18 +1539,18 @@ vantage storage create [OPTIONS] NAME
 
 **Arguments:**
 
-- `*` - name      TEXT  Name of the storage volume to create [required]                                │
+- `*` - name      TEXT  Name of the storage volume to create [required]                                                                                                                                                                                                                                                                                                                    │
 
 **Options:**
 
-- `--size` - -s      INTEGER  Size of the storage volume in GB [default: 10]                      │
-- `--type` - -t      TEXT     Storage type (ssd, hdd, nvme) [default: ssd]                        │
-- `--zone` - -z      TEXT     Availability zone for the storage                                   │
-- `--description` - -d      TEXT     Description of the storage volume                                   │
-- `--json` - -j               Output in JSON format                                               │
-- `--verbose` - -v               Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                              │
-- `--help                          Show` - this message and exit.                                         │
+- `--size` - -s      INTEGER  Size of the storage volume in GB [default: 10]                                                                                                                                                                                                                                                                                                          │
+- `--type` - -t      TEXT     Storage type (ssd, hdd, nvme) [default: ssd]                                                                                                                                                                                                                                                                                                            │
+- `--zone` - -z      TEXT     Availability zone for the storage                                                                                                                                                                                                                                                                                                                       │
+- `--description` - -d      TEXT     Description of the storage volume                                                                                                                                                                                                                                                                                                                       │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
@@ -1385,15 +1563,15 @@ vantage storage delete [OPTIONS] STORAGE_ID
 
 **Arguments:**
 
-- `*` - storage_id      TEXT  ID of the storage volume to delete [required]                            │
+- `*` - storage_id      TEXT  ID of the storage volume to delete [required]                                                                                                                                                                                                                                                                                                                │
 
 **Options:**
 
-- `--force` - -f            Skip confirmation prompt                                                   │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Skip confirmation prompt                                                                                                                                                                                                                                                                                                                                       │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -1406,15 +1584,15 @@ vantage storage detach [OPTIONS] STORAGE_ID
 
 **Arguments:**
 
-- `*` - storage_id      TEXT  ID of the storage volume to detach [required]                            │
+- `*` - storage_id      TEXT  ID of the storage volume to detach [required]                                                                                                                                                                                                                                                                                                                │
 
 **Options:**
 
-- `--force` - -f            Force detachment without graceful unmounting                               │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Force detachment without graceful unmounting                                                                                                                                                                                                                                                                                                                   │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -1427,14 +1605,14 @@ vantage storage get [OPTIONS] STORAGE_ID
 
 **Arguments:**
 
-- `*` - storage_id      TEXT  ID of the storage volume to retrieve [required]                          │
+- `*` - storage_id      TEXT  ID of the storage volume to retrieve [required]                                                                                                                                                                                                                                                                                                              │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -1447,14 +1625,14 @@ vantage storage list [OPTIONS]
 
 **Options:**
 
-- `--zone` - -z      TEXT     Filter by availability zone                                             │
-- `--type` - -t      TEXT     Filter by storage type                                                  │
-- `--status` - -s      TEXT     Filter by status                                                        │
-- `--limit` - -l      INTEGER  Maximum number of storage volumes to return [default: 10]               │
-- `--json` - -j               Output in JSON format                                                   │
-- `--verbose` - -v               Enable verbose terminal output                                          │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                                  │
-- `--help                      Show` - this message and exit.                                             │
+- `--zone` - -z      TEXT     Filter by availability zone                                                                                                                                                                                                                                                                                                                                 │
+- `--type` - -t      TEXT     Filter by storage type                                                                                                                                                                                                                                                                                                                                      │
+- `--status` - -s      TEXT     Filter by status                                                                                                                                                                                                                                                                                                                                            │
+- `--limit` - -l      INTEGER  Maximum number of storage volumes to return [default: 10]                                                                                                                                                                                                                                                                                                   │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                       │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                              │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                      │
+- `--help                      Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                 │
 
 </details>
 
@@ -1467,74 +1645,98 @@ vantage storage update [OPTIONS] STORAGE_ID
 
 **Arguments:**
 
-- `*` - storage_id      TEXT  ID of the storage volume to update [required]                            │
+- `*` - storage_id      TEXT  ID of the storage volume to update [required]                                                                                                                                                                                                                                                                                                                │
 
 **Options:**
 
-- `--name` - -n      TEXT     New name for the storage volume                                     │
-- `--size` - -s      INTEGER  New size in GB (expansion only)                                     │
-- `--description` - -d      TEXT     New description                                                     │
-- `--iops                 INTEGER` - New IOPS setting                                                    │
-- `--json` - -j               Output in JSON format                                               │
-- `--verbose` - -v               Enable verbose terminal output                                      │
-- `--profile` - -p      TEXT     Profile name to use [default: default]                              │
-- `--help                          Show` - this message and exit.                                         │
+- `--name` - -n      TEXT     New name for the storage volume                                                                                                                                                                                                                                                                                                                         │
+- `--size` - -s      INTEGER  New size in GB (expansion only)                                                                                                                                                                                                                                                                                                                         │
+- `--description` - -d      TEXT     New description                                                                                                                                                                                                                                                                                                                                         │
+- `--iops                 INTEGER` - New IOPS setting                                                                                                                                                                                                                                                                                                                                        │
+- `--json` - -j               Output in JSON format                                                                                                                                                                                                                                                                                                                                   │
+- `--verbose` - -v               Enable verbose terminal output                                                                                                                                                                                                                                                                                                                          │
+- `--profile` - -p      TEXT     Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                  │
+- `--help                          Show` - this message and exit.                                                                                                                                                                                                                                                                                                                             │
 
 </details>
 
-## Application Management
+## Deployment Commands
 
 ```text
-                                                                                                       
- Usage: vantage app [OPTIONS] COMMAND [ARGS]...                                     
-                                                                                                       
- Deploy and manage applications on Vantage compute clusters.                                           
-                                                                                                       
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────╮
-│ list     List all available applications for deployment.                                            │
-│ deploy   Deploy a slurm cluster and link it to a cluster entity in Vantage.                         │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Usage: vantage deployment [OPTIONS] COMMAND [ARGS]...                                                                                                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                                                                                                                                           
+ Create and manage application deployments on Vantage compute clusters.                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                           
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                                                                                                                                                                                                             │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ list     List all active deployments from ~/.vantage-cli/deployments.yaml.                                                                                                                                                                                                                                                                                                              │
+│ create   Create a slurm cluster deployment and link it to a cluster entity in Vantage.                                                                                                                                                                                                                                                                                                  │
+│ delete   Delete a deployment and clean up its resources.                                                                                                                                                                                                                                                                                                                                │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
 ```
 
-<details markdown="1" id="app-list">
-<summary onclick="window.location.hash='app-list'">Show app list details</summary>
+<details markdown="1" id="deployment-list">
+<summary onclick="window.location.hash='deployment-list'">Show deployment list details</summary>
 
 ```bash
-vantage app list [OPTIONS]
+vantage deployment list [OPTIONS]
 ```
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
-<details markdown="1" id="app-deploy">
-<summary onclick="window.location.hash='app-deploy'">Show app deploy details</summary>
+<details markdown="1" id="deployment-create">
+<summary onclick="window.location.hash='deployment-create'">Show deployment create details</summary>
 
 ```bash
-vantage app deploy [OPTIONS] APP_NAME CLUSTER_NAME
+vantage deployment create [OPTIONS] APP_NAME
 ```
 
 **Arguments:**
 
-- `*` - app_name          TEXT  Name of the cluster infrastructure application to deploy [required]    │
-- `*` - cluster_name      TEXT  Name of the cluster in Vantage you would like to link to [required]    │
+- `*` - app_name          TEXT  Name of the cluster infrastructure application to deploy [required]                                                                                                                                                                                                                                                                                        │
+- `*` - cluster_name      TEXT  Name of the cluster in Vantage you would like to link to [required]                                                                                                                                                                                                                                                                                        │
 
 **Options:**
 
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--name             TEXT` - Custom name for the deployment (default: <app>-<cluster>-<timestamp>)                                                                                                                                                                                                                                                                                          │
+- `--dev-run                Use` - dummy cluster data for local development                                                                                                                                                                                                                                                                                                                   │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
+
+</details>
+
+<details markdown="1" id="deployment-delete">
+<summary onclick="window.location.hash='deployment-delete'">Show deployment delete details</summary>
+
+```bash
+vantage deployment delete [OPTIONS] DEPLOYMENT_ID
+```
+
+**Arguments:**
+
+- `*` - deployment_id      TEXT  Deployment ID to delete [required]                                                                                                                                                                                                                                                                                                                        │
+
+**Options:**
+
+- `--force` - -f            Skip confirmation prompt                                                                                                                                                                                                                                                                                                                                       │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>
 
@@ -1549,10 +1751,10 @@ vantage config clear [OPTIONS]
 
 **Options:**
 
-- `--force` - -f            Skip confirmation prompt                                                   │
-- `--json` - -j            Output in JSON format                                                      │
-- `--verbose` - -v            Enable verbose terminal output                                             │
-- `--profile` - -p      TEXT  Profile name to use [default: default]                                     │
-- `--help                   Show` - this message and exit.                                                │
+- `--force` - -f            Skip confirmation prompt                                                                                                                                                                                                                                                                                                                                       │
+- `--json` - -j            Output in JSON format                                                                                                                                                                                                                                                                                                                                          │
+- `--verbose` - -v            Enable verbose terminal output                                                                                                                                                                                                                                                                                                                                 │
+- `--profile` - -p      TEXT  Profile name to use [default: default]                                                                                                                                                                                                                                                                                                                         │
+- `--help                   Show` - this message and exit.                                                                                                                                                                                                                                                                                                                                    │
 
 </details>

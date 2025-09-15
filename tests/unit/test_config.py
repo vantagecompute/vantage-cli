@@ -75,7 +75,7 @@ class TestSettings:
         settings = Settings(oidc_base_url="https://auth.example.com")
 
         # Execute & Verify
-        assert settings.oidc_domain == "auth.example.com"
+        assert settings.oidc_domain == "auth.example.com/realms/vantage"
 
     def test_oidc_domain_no_protocol(self):
         """Test oidc_domain with URL without protocol."""
@@ -83,7 +83,7 @@ class TestSettings:
         settings = Settings(oidc_base_url="auth.example.com")
 
         # Execute & Verify
-        assert settings.oidc_domain == "auth.example.com"
+        assert settings.oidc_domain == "auth.example.com/realms/vantage"
 
     def test_oidc_token_url_computed_field(self):
         """Test oidc_token_url computed field."""
@@ -243,9 +243,11 @@ class TestAttachSettings:
                 {"other_profile": {"api_base_url": "https://other.com"}}
             )
 
-            # Execute & Verify
-            with pytest.raises(TypeError):
-                test_func(ctx)
+            # Execute & Verify - should now work gracefully with empty settings
+            result = test_func(ctx)
+            # Verify that default settings are used when profile is missing
+            assert isinstance(result, Settings)
+            assert result.api_base_url == "https://apis.vantagecompute.ai"  # default value
 
     def test_attach_settings_json_decode_error(self):
         """Test attach_settings with JSON decode error."""

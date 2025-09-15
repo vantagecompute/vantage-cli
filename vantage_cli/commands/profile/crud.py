@@ -31,9 +31,10 @@ from vantage_cli.config import (
     set_active_profile,
 )
 from vantage_cli.constants import USER_CONFIG_FILE, USER_TOKEN_CACHE_DIR
-from vantage_cli.exceptions import Abort
+from vantage_cli.exceptions import Abort, handle_abort
 
 
+@handle_abort
 def create_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to create")],
@@ -147,6 +148,7 @@ def create_profile(
             )
 
 
+@handle_abort
 def delete_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to delete")],
@@ -265,6 +267,7 @@ def delete_profile(
             )
 
 
+@handle_abort
 def get_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to get details for")],
@@ -327,6 +330,7 @@ def get_profile(
             )
 
 
+@handle_abort
 def list_profiles(
     ctx: typer.Context,
     json_output: Annotated[
@@ -391,6 +395,7 @@ def list_profiles(
             )
 
 
+@handle_abort
 def use_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to activate")],

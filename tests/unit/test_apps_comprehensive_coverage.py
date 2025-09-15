@@ -70,11 +70,8 @@ class TestMicrok8sAppAdditionalCoverage:
             "creationParameters": {"cloud": "localhost"},
         }
 
-        def mock_run(*args, **kwargs):
-            return subprocess.CompletedProcess(args[0], 0, stdout="success")
-
-        with patch("subprocess.run", side_effect=mock_run):
-            with patch("shutil.which", return_value="/usr/bin/microk8s"):
+        with patch("shutil.which", return_value="/usr/bin/microk8s"):
+            with patch("vantage_cli.apps.slurm_microk8s_localhost.app._run") as mock_run:
                 with patch(
                     "vantage_cli.apps.slurm_microk8s_localhost.app.validate_cluster_data",
                     return_value=cluster_data,
@@ -88,13 +85,31 @@ class TestMicrok8sAppAdditionalCoverage:
                             new_callable=AsyncMock,
                             return_value="test-secret",
                         ):
-                            import asyncio
+                            with patch("pathlib.Path.exists", return_value=True):
+                                with patch("pathlib.Path.write_text"):
+                                    with patch("pathlib.Path.chmod"):
+                                        # Mock _run to return successful completions
+                                        mock_run.return_value = subprocess.CompletedProcess(
+                                            [], 0, stdout="success", stderr=""
+                                        )
 
-                            asyncio.run(microk8s_app.deploy(mock_ctx, cluster_data=cluster_data))
+                                        import asyncio
 
-                            # Verify validation functions were called
-                            mock_validate_cluster.assert_called_once_with(cluster_data, ANY)
-                            mock_validate_creds.assert_called_once_with(cluster_data, ANY)
+                                        asyncio.run(
+                                            microk8s_app.deploy(
+                                                mock_ctx, cluster_data=cluster_data
+                                            )
+                                        )
+
+                                        # Verify validation functions were called
+                                        mock_validate_cluster.assert_called_once_with(
+                                            cluster_data, ANY
+                                        )
+                                        mock_validate_creds.assert_called_once_with(
+                                            cluster_data, ANY
+                                        )
+                                        # Verify that _run was called (indicating deployment steps were executed but mocked)
+                                        assert mock_run.called
 
     def test_run_function_with_custom_env(self):
         """Test _run function with custom environment."""

@@ -8,7 +8,7 @@
 # Vantage CLI
 A modern Python CLI tool to interface to Vantage Compute.
 
-[![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/vantage-cli.svg)](https://pypi.org/project/vantage-cli/)
 
@@ -57,7 +57,7 @@ uv run vantage login
 ```bash
 vantage cluster create my-slurm-multipass-cluster \
     --cloud localhost \
-    --deploy slurm-multipass-localhost
+    --app slurm-multipass-localhost
 ```
 
 #### Create a Slurm Cluster on LXD
@@ -65,7 +65,7 @@ vantage cluster create my-slurm-multipass-cluster \
 ```bash
 vantage cluster create my-slurm-lxd-cluster \
     --cloud localhost \
-    --deploy slurm-juju-localhost
+    --app slurm-juju-localhost
 ```
 
 #### Create a Slurm Cluster on MicroK8S
@@ -73,7 +73,7 @@ vantage cluster create my-slurm-lxd-cluster \
 ```bash
 vantage cluster create my-slurm-microk8s-cluster \
     --cloud localhost \
-    --deploy slurm-microk8s-locahost
+    --app slurm-microk8s-locahost
 ```
 
 ## 📚 Documentation

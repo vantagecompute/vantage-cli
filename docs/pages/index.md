@@ -39,7 +39,7 @@ vantage login
 ```bash
 vantage cluster create my-slurm-multipass-cluster \
     --cloud localhost \
-    --deploy slurm-multipass-localhost
+    --app slurm-multipass-localhost
 ```
 
 #### Create a Slurm Cluster in LXD Containers using Juju
@@ -47,7 +47,7 @@ vantage cluster create my-slurm-multipass-cluster \
 ```bash
 vantage cluster create my-slurm-lxd-cluster \
     --cloud localhost \
-    --deploy slurm-juju-localhost
+    --app slurm-juju-localhost
 ```
 
 #### Create a Slurm Cluster on MicroK8S
@@ -55,5 +55,5 @@ vantage cluster create my-slurm-lxd-cluster \
 ```bash
 vantage cluster create my-slurm-microk8s-cluster \
     --cloud localhost \
-    --deploy slurm-microk8s-locahost
+    --app slurm-microk8s-locahost
 ```

@@ -24,7 +24,6 @@ from rich.panel import Panel
 from rich.table import Table
 
 from vantage_cli import AsyncTyper, __version__
-from vantage_cli.apps import apps_app
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
 from vantage_cli.cache import clear_token_cache, load_tokens_from_cache, with_cache
 from vantage_cli.client import attach_client
@@ -32,17 +31,21 @@ from vantage_cli.commands.alias import (
     apps_command,
     clouds_command,
     clusters_command,
+    deployments_command,
     federations_command,
     networks_command,
     notebooks_command,
     profiles_command,
     teams_command,
 )
-from vantage_cli.commands.cloud import clouds_app
+from vantage_cli.commands.app import app_app
+from vantage_cli.commands.cloud import cloud_app
 from vantage_cli.commands.cluster import cluster_app
 from vantage_cli.commands.config import config_app
+from vantage_cli.commands.deployment import deployment_app
 from vantage_cli.commands.license import license_app
 from vantage_cli.commands.network import network_app
+from vantage_cli.commands.notebook import notebook_app
 from vantage_cli.commands.profile import profile_app
 from vantage_cli.commands.storage import storage_app
 from vantage_cli.config import (
@@ -63,6 +66,7 @@ app = AsyncTyper(
 
 
 @app.command()
+@handle_abort
 def version(ctx: typer.Context):
     """Show version and exit."""
     if hasattr(ctx.obj, "json_output") and ctx.obj and ctx.obj.json_output:
@@ -73,14 +77,16 @@ def version(ctx: typer.Context):
         typer.echo(__version__)
 
 
-app.add_typer(clouds_app, name="cloud")
+app.add_typer(app_app, name="app")
+app.add_typer(cloud_app, name="cloud")
 app.add_typer(cluster_app, name="cluster")
 app.add_typer(config_app, name="config")
 app.add_typer(license_app, name="license")
 app.add_typer(network_app, name="network")
+app.add_typer(notebook_app, name="notebook")
 app.add_typer(profile_app, name="profile")
 app.add_typer(storage_app, name="storage")
-app.add_typer(apps_app, name="app")
+app.add_typer(deployment_app, name="deployment")
 
 
 def setup_logging(verbose: bool = False):
@@ -89,11 +95,20 @@ def setup_logging(verbose: bool = False):
 
     if verbose:
         logger.add(sys.stdout, level="DEBUG")
+        # Enable rich tracebacks only in verbose mode
+        from rich import traceback
+
+        traceback.install()
+    else:
+        # Disable rich tracebacks in normal mode
+        # Reset exception handler to default
+        sys.excepthook = sys.__excepthook__
 
     logger.debug("Logging initialized")
 
 
 @app.callback(invoke_without_command=True)
+@handle_abort
 def main(
     ctx: typer.Context,
 ):
@@ -331,6 +346,7 @@ async def whoami(ctx: typer.Context):
 
 # Register alias commands
 app.command("apps", hidden=True)(apps_command)
+app.command("deployments", hidden=True)(deployments_command)
 app.command("clouds", hidden=True)(clouds_command)
 app.command("clusters", hidden=True)(clusters_command)
 app.command("federations", hidden=True)(federations_command)

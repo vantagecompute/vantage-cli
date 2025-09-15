@@ -9,8 +9,9 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Create cluster command for Vantage CLI."""
+"""Create new clusters and register them in Vantage."""
 
+import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -20,16 +21,19 @@ from loguru import logger
 from rich.console import Console
 from typing_extensions import Annotated
 
+from vantage_cli.apps.common import track_deployment
+from vantage_cli.commands.cluster.utils import get_available_apps
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import Abort
+from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
 
 from .render import render_cluster_details
-from .utils import get_app_choices, get_available_apps, get_cloud_choices
+from .utils import get_app_choices, get_cloud_choices
 
 console = Console()
 
 
+@handle_abort
 @attach_settings
 async def create_cluster(
     ctx: typer.Context,
@@ -55,10 +59,10 @@ async def create_cluster(
             readable=True,
         ),
     ] = None,
-    deploy: Annotated[
+    app: Annotated[
         Optional[str],
         typer.Option(
-            "--deploy",
+            "--app",
             help="Deploy an application after cluster creation.",
             case_sensitive=False,
             click_type=click.Choice(get_app_choices(), case_sensitive=False),
@@ -201,9 +205,9 @@ async def create_cluster(
             # Display detailed cluster information
             render_cluster_details(create_result, json_output=False)
 
-            # Deploy application if --deploy option was provided
-            if deploy:
-                await deploy_app_to_cluster(ctx, create_result, deploy)
+            # Deploy application if --app option was provided
+            if app:
+                await deploy_app_to_cluster(ctx, create_result, app)
 
         else:
             console.print(
@@ -243,7 +247,29 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
         if "deploy_function" in app_info:
             # Function-based app
             deploy_function = app_info["deploy_function"]
+
+            # Generate a unique deployment ID and deployment name
+            deployment_id = str(uuid.uuid4())
+            deployment_name = f"{app_name}-{cluster_data['name']}-{uuid.uuid4().hex[:8]}"
+
+            # Add deployment_name to cluster_data so apps can use it
+            cluster_data["deployment_name"] = deployment_name
+
             await deploy_function(ctx, cluster_data)
+
+            track_deployment(
+                deployment_id=deployment_id,
+                app_name=app_name,
+                cluster_name=cluster_data["name"],
+                cluster_data=cluster_data,
+                deployment_name=deployment_name,
+                additional_metadata={
+                    "deployment_method": "vantage cluster create --app",
+                    "cluster_created": True,
+                    "app_type": "function-based",
+                },
+            )
+
             console.print(f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]")
         elif "instance" in app_info:
             # Class-based app
@@ -251,8 +277,29 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
 
             # Check if the app has a deploy method
             if hasattr(app_instance, "deploy"):
+                # Generate a unique deployment ID and deployment name
+                deployment_id = str(uuid.uuid4())
+                deployment_name = f"{app_name}-{cluster_data['name']}-{uuid.uuid4().hex[:8]}"
+
+                # Add deployment_name to cluster_data so apps can use it
+                cluster_data["deployment_name"] = deployment_name
+
                 # Call the app's deploy method
                 await app_instance.deploy(ctx)
+
+                track_deployment(
+                    deployment_id=deployment_id,
+                    app_name=app_name,
+                    cluster_name=cluster_data["name"],
+                    cluster_data=cluster_data,
+                    deployment_name=deployment_name,
+                    additional_metadata={
+                        "deployment_method": "vantage cluster create --app",
+                        "cluster_created": True,
+                        "app_type": "class-based",
+                    },
+                )
+
                 console.print(
                     f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
                 )

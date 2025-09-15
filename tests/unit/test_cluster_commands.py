@@ -14,6 +14,7 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+import click.exceptions
 import pytest
 import typer
 
@@ -29,7 +30,6 @@ try:
     )
 
     # Removed unused Settings import
-    from vantage_cli.exceptions import Abort
 except ImportError:
     # Handle import errors during testing
     pytest.skip("Cluster module not available", allow_module_level=True)
@@ -127,12 +127,13 @@ class TestClusterCreate:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute & Assert
-        with pytest.raises(Abort):
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             await create_cluster(
                 ctx=mock_context,
                 cluster_name="test-cluster",
                 cloud="localhost",
             )
+        assert exc_info.value.exit_code == 1
 
 
 class TestClusterList:
@@ -254,8 +255,9 @@ class TestClusterList:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute & Assert
-        with pytest.raises(Abort):
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             await list_clusters(ctx=mock_context)
+        assert exc_info.value.exit_code == 1
 
 
 class TestClusterDelete:
@@ -373,8 +375,133 @@ class TestClusterDelete:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute & Assert
-        with pytest.raises(Abort):
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             await delete_cluster(ctx=mock_context, cluster_name="test-cluster", force=True)
+        assert exc_info.value.exit_code == 1
+
+    @pytest.mark.asyncio
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.list_deployments_by_cluster")
+    @patch("vantage_cli.commands.cluster.delete.remove_deployment")
+    async def test_delete_cluster_with_app_cleanup(
+        self,
+        mock_remove_deployment,
+        mock_list_deployments,
+        mock_graphql_client_factory,
+        mock_context,
+        sample_deletion_response,
+    ):
+        """Test cluster deletion with app cleanup."""
+        # Setup
+        mock_client = AsyncMock()
+        mock_client.execute_async.return_value = sample_deletion_response
+        mock_graphql_client_factory.return_value = mock_client
+
+        # Mock deployment data
+        mock_deployments = {
+            "deployment-123": {
+                "app_name": "slurm-juju-localhost",
+                "cluster_name": "test-cluster",
+                "cluster_data": {"id": "cluster-123", "clientId": "client-123"},
+                "status": "active",
+            }
+        }
+        mock_list_deployments.return_value = mock_deployments
+        mock_remove_deployment.return_value = True
+
+        # Mock the cleanup function
+        with patch(
+            "vantage_cli.apps.slurm_juju_localhost.app.cleanup_juju_localhost"
+        ) as mock_cleanup:
+            mock_cleanup.return_value = None
+
+            # Execute
+            await delete_cluster(
+                ctx=mock_context,
+                cluster_name="test-cluster",
+                force=True,
+                app="slurm-juju-localhost",
+            )
+
+            # Verify GraphQL was called
+            mock_client.execute_async.assert_called_once()
+
+            # Verify deployments were queried
+            mock_list_deployments.assert_called_once_with("test-cluster")
+
+            # Verify cleanup was called
+            mock_cleanup.assert_called_once_with({"id": "cluster-123", "clientId": "client-123"})
+
+            # Verify deployment was removed
+            mock_remove_deployment.assert_called_once_with("deployment-123")
+
+    @pytest.mark.asyncio
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.list_deployments_by_cluster")
+    async def test_delete_cluster_with_app_no_deployments(
+        self,
+        mock_list_deployments,
+        mock_graphql_client_factory,
+        mock_context,
+        sample_deletion_response,
+    ):
+        """Test cluster deletion with app cleanup when no deployments exist."""
+        # Setup
+        mock_client = AsyncMock()
+        mock_client.execute_async.return_value = sample_deletion_response
+        mock_graphql_client_factory.return_value = mock_client
+
+        # Mock no deployments found
+        mock_list_deployments.return_value = {}
+
+        # Execute
+        await delete_cluster(
+            ctx=mock_context, cluster_name="test-cluster", force=True, app="slurm-juju-localhost"
+        )
+
+        # Verify GraphQL was called
+        mock_client.execute_async.assert_called_once()
+
+        # Verify deployments were queried
+        mock_list_deployments.assert_called_once_with("test-cluster")
+
+    @pytest.mark.asyncio
+    @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
+    @patch("vantage_cli.commands.cluster.delete.list_deployments_by_cluster")
+    async def test_delete_cluster_with_app_wrong_type(
+        self,
+        mock_list_deployments,
+        mock_graphql_client_factory,
+        mock_context,
+        sample_deletion_response,
+    ):
+        """Test cluster deletion with app cleanup when deployment has different app type."""
+        # Setup
+        mock_client = AsyncMock()
+        mock_client.execute_async.return_value = sample_deletion_response
+        mock_graphql_client_factory.return_value = mock_client
+
+        # Mock deployment with different app type
+        mock_deployments = {
+            "deployment-123": {
+                "app_name": "slurm-multipass-localhost",  # Different from requested app
+                "cluster_name": "test-cluster",
+                "cluster_data": {"id": "cluster-123"},
+                "status": "active",
+            }
+        }
+        mock_list_deployments.return_value = mock_deployments
+
+        # Execute - request cleanup for juju but deployment is multipass
+        await delete_cluster(
+            ctx=mock_context, cluster_name="test-cluster", force=True, app="slurm-juju-localhost"
+        )
+
+        # Verify GraphQL was called
+        mock_client.execute_async.assert_called_once()
+
+        # Verify deployments were queried
+        mock_list_deployments.assert_called_once_with("test-cluster")
 
 
 class TestClusterGet:
@@ -456,8 +583,9 @@ class TestClusterGet:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute & Assert
-        with pytest.raises(Abort):
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             await get_cluster(ctx=mock_context, cluster_name="nonexistent-cluster")
+        assert exc_info.value.exit_code == 1
 
     @pytest.mark.asyncio
     @pytest.mark.asyncio
@@ -488,8 +616,9 @@ class TestClusterGet:
         mock_graphql_client_factory.return_value = mock_client
 
         # Execute & Assert
-        with pytest.raises(Abort):
+        with pytest.raises(click.exceptions.Exit) as exc_info:
             await get_cluster(ctx=mock_context, cluster_name="test-cluster")
+        assert exc_info.value.exit_code == 1
 
 
 class TestClusterRender:

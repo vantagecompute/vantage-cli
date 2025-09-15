@@ -19,11 +19,13 @@ from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import handle_abort
 
 console = Console()
 
 
 @attach_settings
+@handle_abort
 async def remove_team_member(
     ctx: typer.Context,
     team_id: Annotated[str, typer.Argument(help="ID of the team")],

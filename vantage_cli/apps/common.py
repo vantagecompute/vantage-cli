@@ -11,9 +11,12 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Common validation utilities for deployment apps."""
 
-from typing import Any, Dict, Optional
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import typer
+import yaml
 from rich.console import Console
 
 from vantage_cli.constants import (
@@ -85,3 +88,232 @@ def require_client_secret(client_secret: Optional[str], console: Console) -> str
         console.print(ERROR_NO_CLIENT_SECRET)
         raise typer.Exit(code=1)
     return client_secret
+
+
+def generate_dev_cluster_data(cluster_name: str) -> Dict[str, Any]:
+    """Generate dummy cluster data for development/testing purposes.
+
+    Args:
+        cluster_name: Name of the cluster for development
+
+    Returns:
+        Dictionary containing dummy cluster data with all required fields
+    """
+    return {
+        "name": cluster_name,
+        "clientId": "dev-client-12345-abcde-fghij-klmno",
+        "clientSecret": "dev-secret-67890-pqrst-uvwxy-zabcd",
+        "creationParameters": {"jupyterhub_token": "dev-jupyter-token-98765"},
+        # Additional dummy metadata
+        "id": f"dev-cluster-{cluster_name}",
+        "status": "dev",
+        "region": "localhost",
+        "provider": "dev",
+    }
+
+
+def generate_default_deployment_name(app_name: str, cluster_name: str) -> str:
+    """Generate a default deployment name with timestamp.
+
+    Args:
+        app_name: Name of the app being deployed
+        cluster_name: Name of the cluster
+
+    Returns:
+        Default deployment name in format: <app-name>-<cluster-name>-<timestamp-string>
+    """
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    return f"{app_name}-{cluster_name}-{timestamp}"
+
+
+def get_deployments_file_path() -> Path:
+    """Get the path to the deployments tracking file.
+
+    Returns:
+        Path to ~/.vantage-cli/deployments.yaml
+    """
+    vantage_dir = Path.home() / ".vantage-cli"
+    vantage_dir.mkdir(exist_ok=True)
+    return vantage_dir / "deployments.yaml"
+
+
+def load_deployments() -> Dict[str, Any]:
+    """Load deployment tracking data from ~/.vantage-cli/deployments.yaml.
+
+    Returns:
+        Dictionary containing deployments data with 'deployments' key
+    """
+    deployments_file = get_deployments_file_path()
+    if not deployments_file.exists():
+        return {"deployments": {}}
+
+    try:
+        with open(deployments_file, "r") as f:
+            data = yaml.safe_load(f) or {}
+            # Ensure the structure exists
+            if "deployments" not in data:
+                data["deployments"] = {}
+            return data
+    except Exception as e:
+        console = Console()
+        console.print(f"[yellow]Warning: Could not load deployments file: {e}[/yellow]")
+        return {"deployments": {}}
+
+
+def save_deployments(deployments_data: Dict[str, Any]) -> None:
+    """Save deployment tracking data to ~/.vantage-cli/deployments.yaml.
+
+    Args:
+        deployments_data: Dictionary containing deployments data
+    """
+    deployments_file = get_deployments_file_path()
+    try:
+        with open(deployments_file, "w") as f:
+            yaml.dump(deployments_data, f, default_flow_style=False, indent=2)
+    except Exception as e:
+        console = Console()
+        console.print(f"[red]Error: Could not save deployments file: {e}[/red]")
+
+
+def track_deployment(
+    deployment_id: str,
+    app_name: str,
+    cluster_name: str,
+    cluster_data: Dict[str, Any],
+    deployment_name: Optional[str] = None,
+    additional_metadata: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Track a new deployment in the deployments file.
+
+    Args:
+        deployment_id: Unique identifier for the deployment
+        app_name: Name of the app being deployed (e.g., 'slurm-microk8s-localhost')
+        cluster_name: Name of the cluster
+        cluster_data: Cluster configuration data
+        deployment_name: Human-readable name for the deployment (optional)
+        additional_metadata: Additional app-specific metadata to store
+    """
+    deployments_data = load_deployments()
+
+    deployment_record = {
+        "deployment_name": deployment_name or f"{app_name}-{cluster_name}",
+        "app_name": app_name,
+        "cluster_name": cluster_name,
+        "cluster_id": cluster_data.get("id", "unknown"),
+        "client_id": cluster_data.get("clientId", "unknown"),
+        "created_at": datetime.now().isoformat(),
+        "status": "active",
+        "cluster_data": cluster_data,  # Store full cluster_data for cleanup
+        "metadata": additional_metadata or {},
+    }
+
+    deployments_data["deployments"][deployment_id] = deployment_record
+    save_deployments(deployments_data)
+
+    console = Console()
+    console.print(
+        f"[green]✓ Deployment '{deployment_id}' tracked in ~/.vantage-cli/deployments.yaml[/green]"
+    )
+
+
+def get_deployment(deployment_id: str) -> Optional[Dict[str, Any]]:
+    """Get deployment information by ID.
+
+    Args:
+        deployment_id: Unique identifier for the deployment
+
+    Returns:
+        Deployment record dictionary or None if not found
+    """
+    deployments_data = load_deployments()
+    return deployments_data["deployments"].get(deployment_id)
+
+
+def get_deployments() -> List[Dict[str, Any]]:
+    """Get all deployments with their IDs included.
+
+    Returns:
+        List of deployment records with deployment_id field added
+    """
+    deployments_data = load_deployments()
+    deployments_list = []
+
+    for deployment_id, deployment_data in deployments_data["deployments"].items():
+        # Add the deployment_id to the deployment data
+        deployment_record = deployment_data.copy()
+        deployment_record["deployment_id"] = deployment_id
+        # Add cluster_data for cleanup functions (stored as metadata in old format)
+        if "cluster_data" not in deployment_record and "metadata" in deployment_record:
+            deployment_record["cluster_data"] = deployment_record["metadata"]
+        deployments_list.append(deployment_record)
+
+    return deployments_list
+
+
+def list_deployments_by_app(app_name: str) -> Dict[str, Dict[str, Any]]:
+    """List all deployments for a specific app.
+
+    Args:
+        app_name: Name of the app to filter by
+
+    Returns:
+        Dictionary of deployment_id -> deployment_record
+    """
+    deployments_data = load_deployments()
+    return {
+        dep_id: dep_data
+        for dep_id, dep_data in deployments_data["deployments"].items()
+        if dep_data.get("app_name") == app_name and dep_data.get("status") == "active"
+    }
+
+
+def list_deployments_by_cluster(cluster_name: str) -> Dict[str, Dict[str, Any]]:
+    """List all active deployments for a specific cluster.
+
+    Args:
+        cluster_name: Name of the cluster to filter by
+
+    Returns:
+        Dictionary of deployment_id -> deployment_record for active deployments
+    """
+    deployments_data = load_deployments()
+    return {
+        dep_id: dep_data
+        for dep_id, dep_data in deployments_data["deployments"].items()
+        if dep_data.get("cluster_name") == cluster_name and dep_data.get("status") == "active"
+    }
+
+
+def mark_deployment_deleted(deployment_id: str) -> bool:
+    """Mark a deployment as deleted in the tracking file.
+
+    Args:
+        deployment_id: Unique identifier for the deployment
+
+    Returns:
+        True if deployment was found and marked as deleted, False otherwise
+    """
+    deployments_data = load_deployments()
+    if deployment_id in deployments_data["deployments"]:
+        deployments_data["deployments"][deployment_id]["status"] = "deleted"
+        deployments_data["deployments"][deployment_id]["deleted_at"] = datetime.now().isoformat()
+        save_deployments(deployments_data)
+        return True
+    return False
+
+
+def remove_deployment(deployment_id: str) -> bool:
+    """Remove a deployment entry completely from the tracking file.
+
+    Args:
+        deployment_id: Unique identifier for the deployment
+
+    Returns:
+        True if deployment was found and removed, False otherwise
+    """
+    deployments_data = load_deployments()
+    if deployment_id in deployments_data["deployments"]:
+        del deployments_data["deployments"][deployment_id]
+        save_deployments(deployments_data)
+        return True
+    return False

@@ -20,12 +20,13 @@ from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import Abort
+from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
 
 console = Console()
 
 
+@handle_abort
 @attach_settings
 async def delete_notebook(
     ctx: typer.Context,
@@ -43,30 +44,21 @@ async def delete_notebook(
             console.print("[yellow]Deletion cancelled[/yellow]")
             return
 
+    # The API only needs the notebook server name for deletion
     mutation = """
-    mutation DeleteJupyterServer($name: String!, $clusterName: String!) {
-        deleteJupyterServer(name: $name, clusterName: $clusterName) {
-            ... on NotebookServer {
-                id
-                name
-                clusterName
-                partition
-                owner
-            }
-            ... on NotebookServerNotFound {
+    mutation DeleteJupyterServer($notebookServerName: String!) {
+        deleteJupyterServer(notebookServerName: $notebookServerName) {
+            ... on NotebookServerDeleted {
                 message
             }
-            ... on ClusterNotFound {
+            ... on NotebookServerNotFound {
                 message
             }
         }
     }
     """
 
-    if not cluster:
-        raise Abort("Cluster name is required for deleting notebook servers")
-
-    variables: Dict[str, Any] = {"name": name, "clusterName": cluster}
+    variables: Dict[str, Any] = {"notebookServerName": name}
 
     try:
         # Create async GraphQL client
@@ -91,22 +83,28 @@ async def delete_notebook(
         # Cast to help type checker
         delete_response_dict = cast(Dict[str, Any], delete_response)
 
-        # Handle union response - check if it's an error
-        if "message" in delete_response_dict and "id" not in delete_response_dict:
-            raise Abort(f"Failed to delete notebook server: {delete_response_dict['message']}")
+        # Handle union response - both types have message field
+        message = delete_response_dict.get("message", "")
+
+        # Check if it's a "not found" error by looking at the message content
+        if "not found" in message.lower() or "does not exist" in message.lower():
+            raise Abort(f"Notebook server not found: {message}")
 
         if get_effective_json_output(ctx):
             result = {
-                "name": delete_response_dict.get("name"),
-                "cluster": delete_response_dict.get("clusterName"),
+                "name": name,
+                "cluster": cluster,
                 "status": "deleted",
-                "message": f"Notebook server '{delete_response_dict.get('name')}' has been deleted successfully",
+                "message": message or f"Notebook server '{name}' has been deleted successfully",
             }
             print_json(data=result)
         else:
-            console.print(
-                f"[green]✓[/green] Notebook server '{delete_response_dict.get('name')}' has been deleted successfully"
-            )
+            if message:
+                console.print(f"[green]✓[/green] {message}")
+            else:
+                console.print(
+                    f"[green]✓[/green] Notebook server '{name}' has been deleted successfully"
+                )
 
     except Exception as e:
         if "GraphQL errors:" in str(e) or "Failed to delete notebook server:" in str(e):

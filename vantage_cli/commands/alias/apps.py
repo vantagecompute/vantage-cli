@@ -14,10 +14,12 @@
 import typer
 
 from vantage_cli.commands.app.list import list_apps
+from vantage_cli.exceptions import handle_abort
 
 
+@handle_abort
 async def apps_command(
     ctx: typer.Context,
 ):
-    """List all applications (alias for 'vantage app list')."""
+    """List all available apps (alias for 'vantage app list')."""
     await list_apps(ctx)
