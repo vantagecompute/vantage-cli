@@ -208,11 +208,15 @@ class CombinedDocumentationGenerator:
                         
             elif current_section == 'options' and line.startswith('│'):
                 # Extract option info
-                opt_match = re.match(r'│\s+((?:--?\w+(?:\s+\w+)?(?:,\s*)?)+)\s+(.*)', line)
+                # Pattern matches: │ --profile  -p      TEXT  Profile name to use [default: default]                │
+                opt_match = re.match(r'│\s+(--?\w+(?:[\s-]+\w+)*)\s+(.*)', line)
                 if opt_match:
-                    opt_flags = opt_match.group(1)
+                    opt_flags_raw = opt_match.group(1)
                     opt_desc = opt_match.group(2).strip()
-                    if opt_flags and opt_flags not in ['Options', '─', '╰']:
+                    if opt_flags_raw and opt_flags_raw not in ['Options', '─', '╰']:
+                        # Clean up the flags - replace multiple spaces/dashes with proper format
+                        # Convert "--profile  -p" to "--profile -p"
+                        opt_flags = re.sub(r'\s+(-\w+)', r' \1', opt_flags_raw.strip())
                         # Escape HTML-like tags in description
                         escaped_desc = self.escape_html_in_text(opt_desc)
                         info["options"].append(f"`{opt_flags}` - {escaped_desc}")

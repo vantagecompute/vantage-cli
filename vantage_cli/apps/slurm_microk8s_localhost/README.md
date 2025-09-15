@@ -56,8 +56,8 @@ microk8s.kubectl --namespace=slurm get pods -l helm.sh/chart=slurm-0.4.0 --watch
 
 Access the login node
 ```bash
-SLURM_LOGIN_IP="$(kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
-SLURM_LOGIN_PORT="$(kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.status.loadBalancer.ingress[0].ports[0].port}')"
+SLURM_LOGIN_IP="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+SLURM_LOGIN_PORT="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.status.loadBalancer.ingress[0].ports[0].port}')"
 ## Assuming your public SSH key was configured in `login.rootSshAuthorizedKeys`.
 ssh -p ${SLURM_LOGIN_PORT:-22} root@${SLURM_LOGIN_IP}
 ## Assuming SSSD is configured.
