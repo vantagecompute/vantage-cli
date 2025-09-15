@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright (C) 2025 Vantage Compute Corporation
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -77,11 +78,47 @@ class CombinedDocumentationGenerator:
         except Exception as e:
             return f"Error running command: {e}", 1
 
-    def discover_commands_recursive(self, command_path: Optional[List[str]] = None) -> Dict[str, Any]:
+    def run_command_with_env(self, cmd_args: List[str], env: dict) -> Tuple[str, int]:
+        """Run a command with custom environment and return output and exit code.
+        
+        Args:
+            cmd_args: Command arguments list
+            env: Environment variables dictionary
+            
+        Returns:
+            Tuple of (output, exit_code)
+        """
+        try:
+            def timeout_handler(signum: int, frame: Optional[FrameType]) -> None:
+                raise TimeoutError("Command timed out")
+            
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(self.timeout)
+            
+            result = subprocess.run(
+                cmd_args,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                env=env
+            )
+            
+            signal.alarm(0)  # Cancel the alarm
+            return result.stdout, result.returncode
+            
+        except subprocess.TimeoutExpired:
+            return f"Command timed out: {' '.join(cmd_args)}", 1
+        except TimeoutError:
+            return f"Command timed out: {' '.join(cmd_args)}", 1
+        except Exception as e:
+            return f"Error running command: {e}", 1
+
+    def discover_commands_recursive(self, command_path: Optional[List[str]] = None, max_depth: int = 2) -> Dict[str, Any]:
         """Recursively discover all commands and subcommands.
         
         Args:
             command_path: Current command path (None for root)
+            max_depth: Maximum recursion depth to prevent infinite loops
             
         Returns:
             Nested dictionary of commands and subcommands
@@ -89,22 +126,42 @@ class CombinedDocumentationGenerator:
         if command_path is None:
             command_path = []
         
+        # Limit recursion depth to prevent excessive calls
+        if len(command_path) >= max_depth:
+            return {}
+        
         print(f"Discovering commands at path: {' '.join(command_path) if command_path else 'root'}")
         
         # Get help for current path
-        cmd_args = ["python3", "-m", self.module_path] + command_path + ["--help"]
-        help_output, code = self.run_command(cmd_args)
+        cmd_args = ["uv", "run", "python3", "-m", self.module_path] + command_path + ["--help"]
+        
+        # Set environment to disable colors
+        import os
+        env = os.environ.copy()
+        env['NO_COLOR'] = '1'
+        env['PY_COLORS'] = '0'
+        
+        help_output, code = self.run_command_with_env(cmd_args, env)
+        
+        # Strip ANSI escape sequences from the output
+        import re
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        help_output = ansi_escape.sub('', help_output)
         
         if code != 0:
             print(f"Failed to get help for {' '.join(command_path)}: {help_output}")
+            print(f"Command was: {' '.join(cmd_args)}")
             return {}
         
         # Parse commands from help output
         commands: Dict[str, Any] = {}
         in_commands_section = False
         
+        print(f"Help output length: {len(help_output)}")
+        print(f"First 200 chars: {repr(help_output[:200])}")
+        
         for line in help_output.split('\n'):
-            if '─ Commands ─' in line:
+            if '─ Commands ─' in line or 'Commands' in line:
                 in_commands_section = True
                 continue
             elif '╰─' in line and in_commands_section:
@@ -133,11 +190,22 @@ class CombinedDocumentationGenerator:
         Returns:
             Help output or None if failed
         """
-        cmd_args = ["python3", "-m", self.module_path] + command_path + ["--help"]
+        cmd_args = ["uv", "run", "python3", "-m", self.module_path] + command_path + ["--help"]
         cmd_str = " ".join(command_path)
         
+        # Set environment to disable colors
+        import os
+        env = os.environ.copy()
+        env['NO_COLOR'] = '1'
+        env['PY_COLORS'] = '0'
+        
         print(f"Extracting help for: {cmd_str}")
-        output, code = self.run_command(cmd_args)
+        output, code = self.run_command_with_env(cmd_args, env)
+        
+        # Strip ANSI escape sequences from the output
+        import re
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        output = ansi_escape.sub('', output)
         
         if code == 0:
             return output
@@ -519,7 +587,7 @@ def main():
     import sys
     
     # Parse command line arguments
-    output_file = "docs/commands.md"
+    output_file = "docs/pages/commands.md"
     module_path = "vantage_cli.main"
     
     if len(sys.argv) > 1:
