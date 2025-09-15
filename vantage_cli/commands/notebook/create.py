@@ -33,9 +33,7 @@ async def create_notebook(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the notebook server")],
     cluster_name: Annotated[str, typer.Option("--cluster", "-c", help="Name of the cluster")],
-    partition_name: Annotated[
-        str, typer.Option("--partition", "-p", help="Name of the partition")
-    ],
+    partition_name: Annotated[str, typer.Option("--partition", help="Name of the partition")],
     cpu_cores: Annotated[Optional[int], typer.Option("--cpu", help="Number of CPU cores")] = None,
     memory: Annotated[Optional[float], typer.Option("--memory", help="Memory in MB")] = None,
     gpus: Annotated[Optional[int], typer.Option("--gpus", help="Number of GPUs")] = None,
@@ -43,7 +41,7 @@ async def create_notebook(
     """Create a new Jupyter notebook server."""
     # GraphQL mutation to create notebook
     mutation = """
-    mutation createJupyterServer($input: CreateNotebookInput!) {
+    mutation CreateNotebookServer($input: CreateNotebookInput!) {
         createJupyterServer(createNotebookInput: $input) {
             ... on NotebookServer {
                 id
@@ -78,7 +76,7 @@ async def create_notebook(
         }
     }
 
-    # Add optional parameters
+    # Add optional parameters if provided
     if cpu_cores is not None:
         variables["input"]["cpuCores"] = cpu_cores
     if memory is not None:

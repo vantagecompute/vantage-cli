@@ -1,0 +1,149 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      TEST_ENV: ${TEST_ENV:-false}
+      SENTRY_DSN: "${SENTRY_DSN}"
+      AWS_DEFAULT_REGION: us-west-2
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      ARMASEC_DOMAIN: "${ARMASEC_DOMAIN}"
+      STAGE: local
+      DB_USERNAME: omnivector
+      DB_PASSWORD: rats
+      DB_HOST: pgsql
+      DB_PORT: 5432
+      MANAGEMENT_CLIENT_ID: "${MANAGEMENT_CLIENT_ID}"
+      MANAGEMENT_CLIENT_SECRET: "${MANAGEMENT_CLIENT_SECRET}"
+      MANAGEMENT_ENDPOINT: "${MANAGEMENT_ENDPOINT}"
+      MANAGEMENT_AUDIENCE: "${MANAGEMENT_AUDIENCE}"
+      KC_DB_HOST: "${KC_DB_HOST}"
+      KC_DB_USERNAME: "${KC_DB_USERNAME}"
+      KC_DB_PASSWORD: "${KC_DB_PASSWORD}"
+      KC_DB_DATABASE: "${KC_DB_DATABASE}"
+      KC_DB_PORT: "${KC_DB_PORT:-5432}"
+      MQ_HOST: rabbitmq
+      MQ_USERNAME: omnivector
+      MQ_PASSWORD: strongpassword
+      MQ_VIRTUAL_HOST: "/"
+      MQ_EXCHANGE: ${DB_NAME:-rats}
+      AWS_ENDPOINT_URL: "${AWS_ENDPOINT_URL}"
+      AWS_ROLE_NAME_MKT: ${AWS_ROLE_NAME_MKT:-"arn:aws:iam::000000000000:role/BasicMarketplaceUsage"}
+      AWS_MKT_NOTIFICATION_TOPIC: ${AWS_MKT_NOTIFICATION_TOPIC:-"arn:aws:sns:us-west-2:000000000000:marketplace-notification"}
+      AWS_MKT_SUBSCRIPTION_TOPIC: ${AWS_MKT_SUBSCRIPTION_TOPIC:-"arn:aws:sns:us-west-2:000000000000:marketplace-subscription"}
+    depends_on:
+      pgsql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+    ports: ["8080:80"]
+    volumes:
+      - ~/.aws/:/root/.aws:ro
+      - ./api:/app/api
+    command: "uvicorn api.main:app --reload --host 0.0.0.0 --port 80"
+
+  create-migration:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      DB_USERNAME: omnivector
+      DB_PASSWORD: rats
+      DB_HOST: pgsql
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-rats}
+      ARMASEC_DOMAIN: armasec.dev
+      MANAGEMENT_CLIENT_ID: abcdefghijklmn
+      MANAGEMENT_CLIENT_SECRET: abcdefghijklmn
+      MANAGEMENT_ENDPOINT: https://testenv.omnivector.solutions
+      KC_DB_HOST: "dummy"
+      KC_DB_USERNAME: "dummy"
+      KC_DB_PASSWORD: "dummy"
+      KC_DB_DATABASE: "dummy"
+      MQ_HOST: "dummy"
+      MQ_USERNAME: "dumy"
+      MQ_PASSWORD: "dummy"
+      MQ_VIRTUAL_HOST: "dummy"
+      MQ_EXCHANGE: "dummy"
+      AWS_DEFAULT_REGION: us-west-2
+      STAGE: LOCAL
+      SENTRY_DSN: https://omnivector.sentry.com
+      TEST_ENV: "true"
+      AWS_MKT_NOTIFICATION_TOPIC: ${AWS_MKT_NOTIFICATION_TOPIC:-"arn:aws:sns:us-west-2:000000000000:marketplace-notification"}
+      AWS_MKT_SUBSCRIPTION_TOPIC: ${AWS_MKT_SUBSCRIPTION_TOPIC:-"arn:aws:sns:us-west-2:000000000000:marketplace-subscription"}
+    command: >
+      sh -c  "/usr/local/bin/pip install alembic==1.8.1 psycopg2==2.9.5 && alembic -c alembic/alembic.ini revision --autogenerate -m \"${MIGRATION_MESSAGE}\""
+    depends_on:
+      pgsql:
+        condition: service_healthy
+    volumes:
+      - ./alembic:/app/alembic
+
+  migration:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      TEST_ENV: "true"
+      AWS_DEFAULT_REGION: us-west-2
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      ARMASEC_DOMAIN: armasec.dev
+      STAGE: local
+      DB_USERNAME: omnivector
+      DB_PASSWORD: rats
+      DB_HOST: pgsql
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-rats}
+      SENTRY_DSN: https://omnivector.sentry.com
+      MANAGEMENT_CLIENT_ID: abcdefghijklmn
+      MANAGEMENT_CLIENT_SECRET: abcdefghijklmn
+      MANAGEMENT_ENDPOINT: https://testenv.omnivector.solutions
+      KC_DB_HOST: "dummy"
+      KC_DB_USERNAME: "dummy"
+      KC_DB_PASSWORD: "dummy"
+      KC_DB_DATABASE: "dummy"
+      MQ_HOST: "dummy"
+      MQ_USERNAME: "dumy"
+      MQ_PASSWORD: "dummy"
+      MQ_VIRTUAL_HOST: "dummy"
+      MQ_EXCHANGE: "dummy"
+      AWS_MKT_NOTIFICATION_TOPIC: ${AWS_MKT_NOTIFICATION_TOPIC:-"arn:aws:sns:us-west-2:000000000000:marketplace-notification"}
+      AWS_MKT_SUBSCRIPTION_TOPIC: ${AWS_MKT_SUBSCRIPTION_TOPIC:-"arn:aws:sns:us-west-2:000000000000:marketplace-subscription"}
+    depends_on:
+      pgsql:
+        condition: service_healthy
+    command: >
+      sh -c  "alembic -c alembic/alembic.ini upgrade head"
+
+  pgsql:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: omnivector
+      POSTGRES_PASSWORD: rats
+      POSTGRES_DB: ${DB_NAME:-rats}
+    ports: ["5432:5432"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.8-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=omnivector
+      - RABBITMQ_DEFAULT_PASS=strongpassword
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3

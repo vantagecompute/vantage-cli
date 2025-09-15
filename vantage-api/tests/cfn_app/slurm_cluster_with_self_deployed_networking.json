@@ -1,0 +1,1847 @@
+{
+  "Parameters": {
+    "ClientId": {
+      "Type": "String",
+      "Description": "Client ID of the OIDC application"
+    },
+    "ClientSecret": {
+      "Type": "String",
+      "Description": "Client secret of the OIDC application"
+    },
+    "JupyterHubToken": {
+      "Type": "String",
+      "Description": "Default Jupyter Hub Token"
+    },
+    "JupyterHubDns": {
+      "Type": "String",
+      "Description": "Default Jupyter Hub Dns"
+    },
+    "HeadNodeAmiId": {
+      "Type": "String",
+      "AllowedValues": [
+        "ami-09a28eb8052cce8bf",
+        "ami-042c2d59d317752f3",
+        "ami-068845a1734d462b9",
+        "ami-006649f9900c5cc5c",
+        "ami-03eab31576b53b9ed",
+        "ami-01a0eced486a52892",
+        "ami-003bb51d95ead9ca7",
+        "ami-0b00b18e8b9c49aa1",
+        "ami-08fff735ffcbe6a6d",
+        "ami-0e3f6719f7253f301",
+        "ami-01affc050231d727c",
+        "ami-0eb5866904c027735",
+        "ami-068bc4aa996560e73",
+        "ami-0754f58d1d6cfcdc9",
+        "ami-094cba580fa1ec900",
+        "ami-021457647f758a537",
+        "ami-06383279ce3b05703",
+        "ami-0606ff0af4de5b5a7",
+        "ami-0e15cd745ade97bdd",
+        "ami-03ac9962065f03176",
+        "ami-02c14c2bf3aee7e09",
+        "ami-07a554dd355f13a83",
+        "ami-01b1ce23fb7150454",
+        "ami-08631e9f5f109f00c",
+        "ami-009ea2ef8ea245476",
+        "ami-0aad44795ce3519b4",
+        "ami-0ed803c774c79f4dd",
+        "ami-04b302d458fcb5f39",
+        "ami-01a66443930f7f94b",
+        "ami-0f650f7e6111900f6",
+        "ami-0b27201f6cf89d5d5",
+        "ami-01bf2ca9c8d13c9a6"
+      ],
+      "Description": "AMI ID of the head node"
+    },
+    "VantageAgentsBaseApiUrl": {
+      "Type": "String",
+      "Description": "Base API URL for the Vantage Agents"
+    },
+    "VantageAgentsOidcDomain": {
+      "Type": "String",
+      "Description": "OIDC domain of the agents"
+    },
+    "SlurmdbdPassword": {
+      "Type": "String",
+      "Description": "Slurmdbd database password"
+    },
+    "InfluxdbPassword": {
+      "Type": "String",
+      "Description": "InfluxDB password"
+    },
+    "AcctGatherNodeFreq": {
+      "Type": "Number",
+      "Default": 10,
+      "Description": "Acct gather node frequency"
+    },
+    "ClusterName": {
+      "Type": "String",
+      "AllowedPattern": "^[0-9a-z-]+$",
+      "Description": "Name of the cluster to be created",
+      "MaxLength": 64,
+      "MinLength": 1
+    },
+    "ApiClusterName": {
+      "Type": "String",
+      "Description": "Name of the the cluster in the API level."
+    },
+    "KeyPair": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "Description": "Key pair to be used to SSH in the machines"
+    },
+    "HeadNodeInstanceType": {
+      "Type": "String",
+      "Description": "Head node instance type"
+    },
+    "SnapChannel": {
+      "Type": "String",
+      "Default": "stable",
+      "AllowedValues": [
+        "stable",
+        "candidate",
+        "beta",
+        "edge"
+      ],
+      "Description": "Snap channel to install the agents"
+    },
+    "PublicAvailabilityZone": {
+      "Type": "AWS::EC2::AvailabilityZone::Name",
+      "Description": "Availability zone for the public subnet"
+    },
+    "PrivateAvailabilityZone": {
+      "Type": "AWS::EC2::AvailabilityZone::Name",
+      "Description": "Availability zone for the private subnet"
+    }
+  },
+  "Resources": {
+    "Vpc8378EB38": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsHostnames": true,
+        "EnableDnsSupport": true,
+        "InstanceTenancy": "default",
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "ClusterName"
+            }
+          }
+        ]
+      }
+    },
+    "PublicSubnet1C95672B": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": {
+          "Ref": "PublicAvailabilityZone"
+        },
+        "CidrBlock": "10.0.0.0/24",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Ref": "ClusterName"
+                  },
+                  "-public-1"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "PublicSubnetRouteTable568ED6F0": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Ref": "ClusterName"
+                  },
+                  "-public-1"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "PublicSubnetRouteTableAssociation0984B11D": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicSubnetRouteTable568ED6F0"
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1C95672B"
+        }
+      }
+    },
+    "PublicSubnetDefaultRoute704519E9": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Fn::GetAtt": [
+            "InternetGateway",
+            "InternetGatewayId"
+          ]
+        },
+        "RouteTableId": {
+          "Ref": "PublicSubnetRouteTable568ED6F0"
+        }
+      },
+      "DependsOn": [
+        "VpcGatewayAttachment"
+      ]
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "ClusterName"
+            }
+          }
+        ]
+      }
+    },
+    "VpcGatewayAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "InternetGatewayId": {
+          "Fn::GetAtt": [
+            "InternetGateway",
+            "InternetGatewayId"
+          ]
+        },
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "PrivateSubnetEIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc",
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "ClusterName"
+            }
+          }
+        ]
+      }
+    },
+    "PrivateSubnetNATGateway": {
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "PrivateSubnetEIP",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnet1C95672B"
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "ClusterName"
+            }
+          }
+        ]
+      }
+    },
+    "PrivateSubnetD9FAAE02": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "AvailabilityZone": {
+          "Ref": "PrivateAvailabilityZone"
+        },
+        "CidrBlock": "10.0.1.0/24",
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Ref": "ClusterName"
+                  },
+                  "-private-1"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "PrivateSubnetRouteTable127A80FD": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          },
+          {
+            "Key": "Name",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Ref": "ClusterName"
+                  },
+                  "-private-1"
+                ]
+              ]
+            }
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "PrivateSubnetRouteTableAssociationBBDCBC09": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PrivateSubnetRouteTable127A80FD"
+        },
+        "SubnetId": {
+          "Ref": "PrivateSubnetD9FAAE02"
+        }
+      }
+    },
+    "PrivateSubnetDefaultRouteB3EB7CCA": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Fn::GetAtt": [
+            "PrivateSubnetNATGateway",
+            "NatGatewayId"
+          ]
+        },
+        "RouteTableId": {
+          "Ref": "PrivateSubnetRouteTable127A80FD"
+        }
+      }
+    },
+    "ComputeNodeRole7A9ECFBB": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          }
+        ]
+      }
+    },
+    "ComputeNodeRoleDefaultPolicy59B79C82": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "ec2:DescribeTags",
+                "ec2:DescribeInstances"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:GetSecretValue"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "ComputeNodeRoleDefaultPolicy59B79C82",
+        "Roles": [
+          {
+            "Ref": "ComputeNodeRole7A9ECFBB"
+          }
+        ]
+      }
+    },
+    "HeadNodeRole2BC929EE": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "ec2.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/AmazonSSMFullAccess"
+              ]
+            ]
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          }
+        ]
+      }
+    },
+    "HeadNodeRoleDefaultPolicy715CAF0F": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "ec2:CreateFleet",
+                "ec2:RunInstances",
+                "ec2:TerminateInstances",
+                "ec2:CreateTags",
+                "ec2:DescribeInstances",
+                "ec2:DescribeTags",
+                "iam:CreateServiceLinkedRole"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": "iam:PassRole",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "ComputeNodeRole7A9ECFBB",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "secretsmanager:CreateSecret",
+                "secretsmanager:DeleteSecret",
+                "secretsmanager:DescribeSecret",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:PutSecretValue"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "elasticfilesystem:DescribeMountTargets",
+                "elasticfilesystem:CreateMountTarget",
+                "elasticfilesystem:DeleteMountTarget"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "HeadNodeRoleDefaultPolicy715CAF0F",
+        "Roles": [
+          {
+            "Ref": "HeadNodeRole2BC929EE"
+          }
+        ]
+      }
+    },
+    "HeadNodeInstaceProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "InstanceProfileName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "ClusterName"
+              },
+              "-hn-instance-profile"
+            ]
+          ]
+        },
+        "Roles": [
+          {
+            "Ref": "HeadNodeRole2BC929EE"
+          }
+        ]
+      }
+    },
+    "HeadNodeSecurityGroup15CAA070": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Enable access to the head node",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1"
+          }
+        ],
+        "SecurityGroupIngress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow SSH connection",
+            "FromPort": 22,
+            "IpProtocol": "tcp",
+            "ToPort": 22
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow Http Connection",
+            "FromPort": 80,
+            "IpProtocol": "tcp",
+            "ToPort": 80
+          },
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow Https Connection",
+            "FromPort": 443,
+            "IpProtocol": "tcp",
+            "ToPort": 443
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "HeadNodeSecurityGroupfromClusterWithSelfDeployedNetworkingComputeSecurityGroupC74AAF3CALLTRAFFICA8A9CEFD": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "Description": "from ClusterWithSelfDeployedNetworkingComputeSecurityGroupC74AAF3C:ALL TRAFFIC",
+        "GroupId": {
+          "Fn::GetAtt": [
+            "HeadNodeSecurityGroup15CAA070",
+            "GroupId"
+          ]
+        },
+        "IpProtocol": "-1",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [
+            "ComputeSecurityGroupF0F5C976",
+            "GroupId"
+          ]
+        }
+      }
+    },
+    "ComputeSecurityGroupF0F5C976": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Allow access to compute nodes",
+        "SecurityGroupEgress": [
+          {
+            "CidrIp": "0.0.0.0/0",
+            "Description": "Allow all outbound traffic by default",
+            "IpProtocol": "-1"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          }
+        ],
+        "VpcId": {
+          "Ref": "Vpc8378EB38"
+        }
+      }
+    },
+    "ComputeSecurityGroupfromClusterWithSelfDeployedNetworkingHeadNodeSecurityGroup146AEAC6ALLTRAFFIC428754BF": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "Description": "from ClusterWithSelfDeployedNetworkingHeadNodeSecurityGroup146AEAC6:ALL TRAFFIC",
+        "GroupId": {
+          "Fn::GetAtt": [
+            "ComputeSecurityGroupF0F5C976",
+            "GroupId"
+          ]
+        },
+        "IpProtocol": "-1",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [
+            "HeadNodeSecurityGroup15CAA070",
+            "GroupId"
+          ]
+        }
+      }
+    },
+    "ComputeSecurityGroupfromClusterWithSelfDeployedNetworkingComputeSecurityGroupC74AAF3CALLTRAFFICF0AF6F02": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "Description": "from ClusterWithSelfDeployedNetworkingComputeSecurityGroupC74AAF3C:ALL TRAFFIC",
+        "GroupId": {
+          "Fn::GetAtt": [
+            "ComputeSecurityGroupF0F5C976",
+            "GroupId"
+          ]
+        },
+        "IpProtocol": "-1",
+        "SourceSecurityGroupId": {
+          "Fn::GetAtt": [
+            "ComputeSecurityGroupF0F5C976",
+            "GroupId"
+          ]
+        }
+      }
+    },
+    "HeadNodeNetworkInterface": {
+      "Type": "AWS::EC2::NetworkInterface",
+      "Properties": {
+        "GroupSet": [
+          {
+            "Fn::GetAtt": [
+              "HeadNodeSecurityGroup15CAA070",
+              "GroupId"
+            ]
+          }
+        ],
+        "SubnetId": {
+          "Ref": "PublicSubnet1C95672B"
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          }
+        ]
+      }
+    },
+    "ComputeNodeLaunchTemplateProfile4B86350C": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Roles": [
+          {
+            "Ref": "ComputeNodeRole7A9ECFBB"
+          }
+        ]
+      }
+    },
+    "ComputeNodeLaunchTemplateE8D45573": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "Properties": {
+        "LaunchTemplateData": {
+          "BlockDeviceMappings": [
+            {
+              "DeviceName": "/dev/sda1",
+              "Ebs": {
+                "DeleteOnTermination": true,
+                "VolumeSize": 100,
+                "VolumeType": "gp3"
+              }
+            }
+          ],
+          "IamInstanceProfile": {
+            "Arn": {
+              "Fn::GetAtt": [
+                "ComputeNodeLaunchTemplateProfile4B86350C",
+                "Arn"
+              ]
+            }
+          },
+          "ImageId": {
+            "Fn::FindInMap": [
+              "ComputeNodeLaunchTemplateAmiMap45558237",
+              {
+                "Ref": "AWS::Region"
+              },
+              "ami"
+            ]
+          },
+          "KeyName": {
+            "Ref": "KeyPair"
+          },
+          "SecurityGroupIds": [
+            {
+              "Fn::GetAtt": [
+                "ComputeSecurityGroupF0F5C976",
+                "GroupId"
+              ]
+            }
+          ],
+          "TagSpecifications": [
+            {
+              "ResourceType": "instance",
+              "Tags": [
+                {
+                  "Key": "ManagedBy",
+                  "Value": "Vantage"
+                },
+                {
+                  "Key": "Name",
+                  "Value": "ClusterWithSelfDeployedNetworking/ComputeNodeLaunchTemplate"
+                }
+              ]
+            },
+            {
+              "ResourceType": "volume",
+              "Tags": [
+                {
+                  "Key": "ManagedBy",
+                  "Value": "Vantage"
+                },
+                {
+                  "Key": "Name",
+                  "Value": "ClusterWithSelfDeployedNetworking/ComputeNodeLaunchTemplate"
+                }
+              ]
+            }
+          ],
+          "UserData": {
+            "Fn::Base64": {
+              "Fn::Join": [
+                "",
+                [
+                  "#!/bin/bash -x\nexec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\n\nnvidia-smi || true\n\nmkdir -p /nfs || true\nmount -t nfs ",
+                  {
+                    "Fn::GetAtt": [
+                      "HeadNodeNetworkInterface",
+                      "PrimaryPrivateIpAddress"
+                    ]
+                  },
+                  ":/nfs /nfs\nexport SLURM_HOME=/nfs/slurm\n\n# configure munge\ncp /nfs/munge.key /etc/munge\nchown munge:munge /etc/munge/munge.key\nchmod 600 /etc/munge/munge.key\nchown -R munge /etc/munge/ /var/log/munge/\nchmod 0700 /etc/munge/ /var/log/munge/\nsystemctl enable munge\nsystemctl start munge\nsleep 15\n\nINSTANCE_ID=`curl http://instance-data/latest/meta-data/instance-id`\nINSTANCE_NAME=$(aws ec2 describe-tags --filter Name=resource-id,Values=$INSTANCE_ID --output text --query 'Tags[?Key==`Name`].Value | [0]')\n\ncat > /tmp/mount-volumes_cron.sh <<'EOF'\n#!/bin/bash\n# Fetch instance and VPC ID\nINSTANCE_ID=$(curl http://instance-data/latest/meta-data/instance-id)\nVPC_ID=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query \"Reservations[].Instances[].VpcId\" --output text)\n\n# Fetch target instance ID based on the private IP\nTARGET_INSTANCE_ID=$(aws ec2 describe-instances --filters \"Name=network-interface.addresses.private-ip-address,Values='",
+                  {
+                    "Fn::GetAtt": [
+                      "HeadNodeNetworkInterface",
+                      "PrimaryPrivateIpAddress"
+                    ]
+                  },
+                  "'\" \"Name=vpc-id,Values=$VPC_ID\" --query \"Reservations[].Instances[].InstanceId\" --output text)\n\n# Fetch mount targets from tags\nMOUNT_POINT_OBJ=$(aws ec2 describe-tags --filters \"Name=resource-id,Values=$TARGET_INSTANCE_ID\" --query 'Tags[?contains(Key, `mount-target`)].{Key: Key, Value: Value}' | jq '[.[] | {FSID: (.Key | split(\"/\")[1]), Value: .Value}]')\n\n# Loop over the mount points and mount them\necho \"$MOUNT_POINT_OBJ\" | jq -c '.[]' | while read -r obj; do\n    # Extract FSID and Value for each object\n    FSID=$(echo \"$obj\" | jq -r '.FSID')\n    MOUNT_POINT=$(echo \"$obj\" | jq -r '.Value')\n\n    # Loop over the currently mounted EFS points and check if the current FSID is already mounted\n    # If not, mount the FSID at the specified mount point\n    if ! df --output=target | grep -q \"^$MOUNT_POINT$\"; then\n        echo \"Mounting $FSID at $MOUNT_POINT\"\n        mkdir -p $MOUNT_POINT\n        mount -t efs -o tls $FSID:/ $MOUNT_POINT\n        chown -R ubuntu:ubuntu $MOUNT_POINT\n\n        if [ $? -eq 0 ]; then\n            echo \"Mounted $FSID successfully.\"\n        else\n            echo \"Failed to mount $FSID.\"\n        fi\n    else\n        echo \"$MOUNT_POINT is already mounted.\"\n    fi\ndone\nEOF\nchmod +x /tmp/mount-volumes_cron.sh\ncrontab -l | { cat; echo \"*/2 * * * * /bin/bash /tmp/mount-volumes_cron.sh\"; } | crontab -\n\ncat > /tmp/unmount-volumes_cron.sh <<'EOF'\n#!/bin/bash\n\n# Fetch all NFS mount points dynamically. Adjust this line if you're using a different filesystem type.\nMOUNT_POINTS=$(mount -t nfs4 -l | awk '{print $3}')\n\n# Timeout duration in seconds\nTIMEOUT_DURATION=2\n\nfor MOUNT_POINT in $MOUNT_POINTS; do\n    # Use the `stat` command with a timeout to check each mount's health\n    if ! timeout \"${TIMEOUT_DURATION}s\" stat \"$MOUNT_POINT\" > /dev/null 2>&1; then\n        echo \"Mount point $MOUNT_POINT is not responsive. Attempting to unmount.\"\n\n        # Attempt lazy unmount\n        umount -l \"$MOUNT_POINT\"\n    else\n        echo \"Mount point $MOUNT_POINT is responsive.\"\n    fi\ndone\nEOF\nchmod +x /tmp/unmount-volumes_cron.sh\ncrontab -l | { cat; echo \"*/2 * * * * /bin/bash /tmp/unmount-volumes_cron.sh\"; } | crontab -\n\nmkdir -p /var/spool/slurm || true\ncat > /lib/systemd/system/slurmd.service <<EOF\n[Unit]\nDescription=Slurm node daemon\nAfter=munge.service network.target remote-fs.target\n\n[Service]\nType=simple\nEnvironmentFile=-/etc/sysconfig/slurmd\nExecStart=/usr/sbin/slurmd -D -s --conf-server ",
+                  {
+                    "Fn::GetAtt": [
+                      "HeadNodeNetworkInterface",
+                      "PrimaryPrivateIpAddress"
+                    ]
+                  },
+                  ":6817 \\$SLURMD_OPTIONS -vvvv -N $INSTANCE_NAME\nExecReload=/bin/kill -HUP \\$MAINPID\nKillMode=process\nLimitNOFILE=131072\nLimitMEMLOCK=infinity\nLimitSTACK=infinity\nDelegate=yes\n\n[Install]\nWantedBy=multi-user.target\nEOF\nsystemctl restart munge\nsystemctl enable slurmd.service\nsystemctl start slurmd.service"
+                ]
+              ]
+            }
+          }
+        },
+        "TagSpecifications": [
+          {
+            "ResourceType": "launch-template",
+            "Tags": [
+              {
+                "Key": "ManagedBy",
+                "Value": "Vantage"
+              },
+              {
+                "Key": "Name",
+                "Value": "ClusterWithSelfDeployedNetworking/ComputeNodeLaunchTemplate"
+              }
+            ]
+          }
+        ]
+      },
+      "DependsOn": [
+        "ComputeNodeRoleDefaultPolicy59B79C82",
+        "ComputeNodeRole7A9ECFBB"
+      ]
+    },
+    "HeadNodeLaunchTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "Properties": {
+        "LaunchTemplateData": {
+          "BlockDeviceMappings": [
+            {
+              "DeviceName": "/dev/sda1",
+              "Ebs": {
+                "DeleteOnTermination": true,
+                "VolumeSize": 100,
+                "VolumeType": "gp2"
+              }
+            }
+          ],
+          "IamInstanceProfile": {
+            "Name": {
+              "Fn::Join": [
+                "",
+                [
+                  {
+                    "Ref": "ClusterName"
+                  },
+                  "-hn-instance-profile"
+                ]
+              ]
+            }
+          },
+          "ImageId": {
+            "Ref": "HeadNodeAmiId"
+          },
+          "InstanceType": {
+            "Ref": "HeadNodeInstanceType"
+          },
+          "KeyName": {
+            "Ref": "KeyPair"
+          },
+          "NetworkInterfaces": [
+            {
+              "DeviceIndex": 0,
+              "NetworkInterfaceId": {
+                "Fn::GetAtt": [
+                  "HeadNodeNetworkInterface",
+                  "Id"
+                ]
+              }
+            }
+          ],
+          "TagSpecifications": [
+            {
+              "ResourceType": "instance",
+              "Tags": [
+                {
+                  "Key": "Name",
+                  "Value": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        {
+                          "Ref": "ClusterName"
+                        },
+                        "/head-node"
+                      ]
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "UserData": {
+            "Fn::Base64": {
+              "Fn::Join": [
+                "",
+                [
+                  "#!/bin/bash -x\nexec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1\ncurl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -\n\nDEBIAN_FRONTEND=noninteractive apt update\nDEBIAN_FRONTEND=noninteractive apt install python3-pip nodejs -y\npip3 install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz\npip3 install boto3\nnpm install -g configurable-http-proxy@4.6.3\n/usr/local/bin/cfn-init --stack ",
+                  {
+                    "Ref": "AWS::StackName"
+                  },
+                  " --resource HeadNodeLaunchTemplate --region ",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  " --configsets setup\n/usr/local/bin/cfn-init --stack ",
+                  {
+                    "Ref": "AWS::StackName"
+                  },
+                  " --resource HeadNodeLaunchTemplate --region ",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  " --configsets run\n\n/usr/local/bin/cfn-signal -e 0 --stack ",
+                  {
+                    "Ref": "AWS::StackName"
+                  },
+                  " --resource HeadNodeInstance --region ",
+                  {
+                    "Ref": "AWS::Region"
+                  }
+                ]
+              ]
+            }
+          }
+        }
+      },
+      "Metadata": {
+        "AWS::CloudFormation::Init": {
+          "configSets": {
+            "setup": [
+              "a",
+              "b",
+              "c",
+              "d",
+              "e",
+              "f",
+              "g"
+            ],
+            "run": [
+              "h",
+              "i",
+              "j",
+              "k",
+              "l",
+              "m",
+              "n"
+            ]
+          },
+          "a": {
+            "commands": {
+              "a": {
+                "command": "mkdir -p /nfs/slurm/etc/aws"
+              },
+              "b": {
+                "command": "mkdir -p /nfs/slurm/etc/agents/services"
+              },
+              "c": {
+                "command": "mkdir /nfs/slurm/etc/agents/timers"
+              },
+              "d": {
+                "command": "mkdir -p /var/spool/slurm"
+              },
+              "e": {
+                "command": "dd if=/dev/urandom of=/etc/munge/munge.key bs=1 count=1024"
+              },
+              "f": {
+                "command": "cp /etc/munge/munge.key /nfs"
+              },
+              "g": {
+                "command": "chown munge:munge /etc/munge/munge.key"
+              },
+              "h": {
+                "command": "chmod 600 /etc/munge/munge.key"
+              },
+              "i": {
+                "command": "chown -R munge /etc/munge/ /var/log/munge/"
+              },
+              "j": {
+                "command": "chmod 0700 /etc/munge/ /var/log/munge/"
+              },
+              "k": {
+                "command": "mkdir /nfs/mnt"
+              },
+              "l": {
+                "command": "chown -R ubuntu:ubuntu /nfs/mnt"
+              },
+              "m": {
+                "command": "mkdir -p /nfs/jupyter /nfs/jupyterlogs /nfs/.jupyter/cert /nfs/working"
+              }
+            }
+          },
+          "b": {
+            "files": {
+              "/nfs/slurm/etc/aws/config.json": {
+                "content": "{\"LogLevel\": \"DEBUG\", \"LogFileName\": \"/var/log/slurm_plugin.log\", \"SlurmBinPath\": \"/bin\", \"SlurmConf\": {\"PrivateData\": \"CLOUD\", \"ResumeProgram\": \"/nfs/slurm/etc/aws/resume.py\", \"SuspendProgram\": \"/nfs/slurm/etc/aws/suspend.py\", \"ResumeRate\": 100, \"SuspendRate\": 100, \"ResumeTimeout\": 600, \"SuspendTime\": 350, \"TreeWidth\": 60000}}",
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              },
+              "/nfs/slurm/etc/aws/partitions.json": {
+                "content": "<DynamicPartitionBlock>",
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              },
+              "/nfs/slurm/etc/aws/common.py": {
+                "source": "https://raw.githubusercontent.com/omnivector-solutions/aws-plugin-for-slurm/0.1.0-alpha.1/common.py",
+                "mode": "000755",
+                "owner": "root",
+                "group": "root"
+              },
+              "/nfs/slurm/etc/aws/resume.py": {
+                "source": "https://raw.githubusercontent.com/omnivector-solutions/aws-plugin-for-slurm/0.1.0-alpha.1/resume.py",
+                "mode": "000755",
+                "owner": "root",
+                "group": "root"
+              },
+              "/nfs/slurm/etc/aws/suspend.py": {
+                "source": "https://raw.githubusercontent.com/omnivector-solutions/aws-plugin-for-slurm/0.1.0-alpha.1/suspend.py",
+                "mode": "000755",
+                "owner": "root",
+                "group": "root"
+              },
+              "/nfs/slurm/etc/aws/generate_conf.py": {
+                "source": "https://raw.githubusercontent.com/omnivector-solutions/aws-plugin-for-slurm/0.1.0-alpha.1/generate_conf.py",
+                "mode": "000755",
+                "owner": "root",
+                "group": "root"
+              },
+              "/nfs/slurm/etc/aws/change_state.py": {
+                "source": "https://raw.githubusercontent.com/omnivector-solutions/aws-plugin-for-slurm/0.1.0-alpha.1/change_state.py",
+                "mode": "000755",
+                "owner": "root",
+                "group": "root"
+              },
+              "/nfs/slurm/etc/slurm/slurm.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "ClusterName=",
+                      {
+                        "Ref": "ClusterName"
+                      },
+                      "\nControlMachine=@HEADNODE@\nControlAddr=@PRIVATE_IP@\nSlurmdUser=root\nSlurmctldPort=6817\nSlurmdPort=6818\nSlurmctldParameters=enable_configless\nAuthType=auth/munge\nAuthAltTypes=auth/jwt\nAuthAltParameters=\"jwt_key=/var/spool/slurmctld/jwt_hs256.key\"\nStateSaveLocation=/var/spool/slurm/ctld\nSlurmdSpoolDir=/var/spool/slurm/d\nSwitchType=switch/none\nMpiDefault=pmi2\nSlurmctldPidFile=/var/run/slurmctld.pid\nSlurmdPidFile=/var/run/slurmd.pid\nProctrackType=proctrack/linuxproc\nReturnToService=2\n\nPluginDir=/usr/lib/x86_64-linux-gnu/slurm-wlm\n\nGresTypes=gpu\n\n# Timers\nSlurmctldTimeout=300\nSlurmdTimeout=60\nInactiveLimit=0\nMinJobAge=300\nKillWait=30\nWaittime=0\n\n# Scheduling\nSchedulerType=sched/backfill\nSelectType=select/cons_tres\nSelectTypeParameters=CR_Core\n\n# Logging\nSlurmctldDebug=3\nSlurmctldLogFile=/var/log/slurmctld.log\nSlurmdDebug=3\nSlurmdLogFile=/var/log/slurmd.log\nDebugFlags=NO_CONF_HASH\nJobCompType=jobcomp/none\n\n# Accounting\nJobAcctGatherType=jobacct_gather/linux\nJobAcctGatherFrequency=\"task=10\"\nAcctGatherNodeFreq=",
+                      {
+                        "Ref": "AcctGatherNodeFreq"
+                      },
+                      "\nAcctGatherProfileType=acct_gather_profile/influxdb\nAccountingStorageTRES=gres/gpu\n\n# Slurmdbd\nAccountingStorageType=accounting_storage/slurmdbd\nAccountingStorageHost=@PRIVATE_IP@\nAccountingStorageUser=slurm\nAccountingStoragePort=6839\n\n"
+                    ]
+                  ]
+                },
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              },
+              "/nfs/slurm/etc/slurm/slurmdbd.conf": {
+                "content": "ArchiveEvents=yes\nArchiveJobs=yes\nArchiveResvs=yes\nArchiveSteps=no\nArchiveSuspend=no\nArchiveTXN=no\nArchiveUsage=no\nAuthType=auth/munge\nAuthInfo=socket=/var/run/munge/munge.socket.2\nAuthAltTypes=auth/jwt\nAuthAltParameters=\"jwt_key=/var/spool/slurmctld/jwt_hs256.key\"\nDbdHost=@HEADNODE@\nDbdPort=6839\nDebugLevel=info\nPurgeEventAfter=1month\nPurgeJobAfter=12month\nPurgeResvAfter=1month\nPurgeStepAfter=1month\nPurgeSuspendAfter=1month\nPurgeTXNAfter=12month\nPurgeUsageAfter=24month\nSlurmUser=root\nLogFile=/var/log/slurmdbd.log\nPidFile=/var/run/slurmdbd.pid\nStorageType=accounting_storage/mysql\nStorageUser=slurm\nStoragePass=@SLURMDBD_DATABASE_PASSWORD@\nStorageHost=127.0.0.1\nStoragePort=3306\nPluginDir=/usr/lib/x86_64-linux-gnu/slurm-wlm\n",
+                "mode": "000600",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              },
+              "/nfs/slurm/etc/slurm/slurmrestd.conf": {
+                "content": "include /nfs/slurm/etc/slurm/slurm.conf\nAuthType=auth/jwt",
+                "mode": "000600",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              },
+              "/nfs/slurm/etc/slurm/acct_gather.conf": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "ProfileInfluxDBDatabase=slurm-job-metrics\nProfileInfluxDBDefault=All\nProfileInfluxDBHost=",
+                      {
+                        "Fn::GetAtt": [
+                          "HeadNodeNetworkInterface",
+                          "PrimaryPrivateIpAddress"
+                        ]
+                      },
+                      ":8086\nProfileInfluxDBPass=",
+                      {
+                        "Ref": "InfluxdbPassword"
+                      },
+                      "\nProfileInfluxDBUser=slurm\nProfileInfluxDBRTPolicy=three_days"
+                    ]
+                  ]
+                },
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              }
+            },
+            "commands": {
+              "a": {
+                "command": "sed -i \"s|@SLURMDBD_DATABASE_PASSWORD@|$SLURMDBD_DATABASE_PASSWORD|g\" /nfs/slurm/etc/slurm/slurmdbd.conf",
+                "env": {
+                  "SLURMDBD_DATABASE_PASSWORD": {
+                    "Ref": "SlurmdbdPassword"
+                  }
+                }
+              },
+              "b": {
+                "command": "sed -i \"s|@PRIVATE_IP@|$PRIVATE_IP|g\" /nfs/slurm/etc/slurm/slurm.conf",
+                "env": {
+                  "PRIVATE_IP": {
+                    "Fn::GetAtt": [
+                      "HeadNodeNetworkInterface",
+                      "PrimaryPrivateIpAddress"
+                    ]
+                  }
+                }
+              },
+              "c": {
+                "command": "sed -i \"s|@HEADNODE@|$HOSTNAME|g\" /nfs/slurm/etc/slurm/slurm.conf",
+                "env": {
+                  "HOSTNAME": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "ip",
+                        {
+                          "Fn::Join": [
+                            "-",
+                            {
+                              "Fn::Split": [
+                                ".",
+                                {
+                                  "Fn::GetAtt": [
+                                    "HeadNodeNetworkInterface",
+                                    "PrimaryPrivateIpAddress"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    ]
+                  }
+                }
+              },
+              "d": {
+                "command": "sed -i \"s|@HEADNODE@|$HOSTNAME|g\" /nfs/slurm/etc/slurm/slurmdbd.conf",
+                "env": {
+                  "HOSTNAME": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "ip",
+                        {
+                          "Fn::Join": [
+                            "-",
+                            {
+                              "Fn::Split": [
+                                ".",
+                                {
+                                  "Fn::GetAtt": [
+                                    "HeadNodeNetworkInterface",
+                                    "PrimaryPrivateIpAddress"
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    ]
+                  }
+                }
+              },
+              "e": {
+                "command": "groupadd --gid 64031 slurmrestd"
+              },
+              "f": {
+                "command": "adduser --system --gid 64031 --uid 64031 --no-create-home --home /nonexistent slurmrestd"
+              }
+            }
+          },
+          "c": {
+            "commands": {
+              "a": {
+                "command": "/nfs/slurm/etc/aws/generate_conf.py",
+                "cwd": "/nfs/slurm/etc/aws"
+              },
+              "b": {
+                "command": "cat /nfs/slurm/etc/aws/slurm.conf.aws >> /nfs/slurm/etc/slurm/slurm.conf"
+              },
+              "c": {
+                "command": "cp /nfs/slurm/etc/aws/gres.conf.aws /nfs/slurm/etc/gres.conf"
+              }
+            }
+          },
+          "d": {
+            "commands": {
+              "a": {
+                "command": "'cp' /nfs/slurm/etc/slurm/slurm.conf /etc/slurm"
+              },
+              "b": {
+                "command": "'cp' /nfs/slurm/etc/slurm/slurmdbd.conf /etc/slurm"
+              },
+              "c": {
+                "command": "'cp' /nfs/slurm/etc/slurm/slurmrestd.conf /etc/slurm"
+              },
+              "d": {
+                "command": "'cp' /nfs/slurm/etc/slurm/acct_gather.conf /etc/slurm"
+              },
+              "e": {
+                "command": "'cp' /nfs/slurm/etc/gres.conf /etc/slurm"
+              }
+            }
+          },
+          "e": {
+            "files": {
+              "/nfs/slurm/change_state_cron": {
+                "content": "* * * * * /nfs/slurm/etc/aws/change_state.py &>/dev/null\n",
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              }
+            },
+            "commands": {
+              "a": {
+                "command": "crontab /nfs/slurm/change_state_cron"
+              },
+              "b": {
+                "command": "rm /nfs/slurm/change_state_cron"
+              }
+            }
+          },
+          "f": {
+            "commands": {
+              "a": {
+                "command": "mkdir -p /var/spool/slurmctld || true"
+              },
+              "b": {
+                "command": "openssl genrsa -out /var/spool/slurmctld/jwt_hs256.key 2048"
+              },
+              "c": {
+                "command": "chown root /var/spool/slurmctld/jwt_hs256.key"
+              },
+              "d": {
+                "command": "chmod 0600 /var/spool/slurmctld/jwt_hs256.key"
+              }
+            }
+          },
+          "g": {
+            "files": {
+              "/etc/slurm/slurmctld.service": {
+                "content": "[Unit]\nDescription=Slurm controller daemon\nAfter=network.target munge.service\nConditionPathExists=/etc/slurm/slurm.conf\n\n[Service]\nType=forking\nEnvironmentFile=-/etc/sysconfig/slurmctld\nExecStart=/usr/sbin/slurmctld $SLURMCTLD_OPTIONS\nExecReload=/bin/kill -HUP $MAINPID\nPIDFile=/var/run/slurmctld.pid\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\n",
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              },
+              "/etc/slurm/slurmdbd.service": {
+                "content": "[Unit]\nDescription=Slurm DBD accounting daemon\nAfter=network.target munge.service\nConditionPathExists=/etc/slurm/slurmdbd.conf\n\n[Service]\nType=simple\nEnvironmentFile=-/etc/sysconfig/slurmdbd\nExecStart=/usr/sbin/slurmdbd -D $SLURMDBD_OPTIONS\nExecReload=/bin/kill -HUP $MAINPID\nLimitNOFILE=65536\n\n[Install]\nWantedBy=multi-user.target\n",
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              },
+              "/etc/slurm/slurmrestd.service": {
+                "content": "[Unit]\nDescription=Slurm restd daemon\nAfter=network.target slurmctl.service\nConditionPathExists=/etc/slurm/slurmrestd.conf\n\n[Service]\nType=simple\nEnvironmentFile=-/etc/default/slurmrestd\nEnvironment=\"SLURM_JWT=daemon\"\nExecStart=/usr/sbin/slurmrestd $SLURMRESTD_OPTIONS -vvvv 0.0.0.0:6820\nExecReload=/bin/kill -HUP $MAINPID\nUser=slurmrestd\nGroup=slurmrestd\n\n[Install]\nWantedBy=multi-user.target\n",
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              }
+            },
+            "commands": {
+              "a": {
+                "command": "cp /etc/slurm/slurmctld.service /lib/systemd/system"
+              },
+              "b": {
+                "command": "cp /etc/slurm/slurmdbd.service /lib/systemd/system"
+              },
+              "c": {
+                "command": "cp /etc/slurm/slurmrestd.service /lib/systemd/system"
+              }
+            }
+          },
+          "h": {
+            "commands": {
+              "a": {
+                "command": "docker run --name slurmdbd-database -e MYSQL_ROOT_PASSWORD=$SLURMDBD_DATABASE_PASSWORD -e MYSQL_DATABASE=slurm_acct_db -e MYSQL_USER=slurm -e MYSQL_PASSWORD=$SLURMDBD_DATABASE_PASSWORD -p 3306:3306 -d mysql:5.7.38",
+                "env": {
+                  "SLURMDBD_DATABASE_PASSWORD": {
+                    "Ref": "SlurmdbdPassword"
+                  }
+                }
+              }
+            }
+          },
+          "i": {
+            "commands": {
+              "a": {
+                "command": "systemctl start influxdb",
+                "test": "test \"$(systemctl is-active influxdb)\" = \"active\""
+              },
+              "b": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "influx -execute \"CREATE USER slurm WITH PASSWORD '",
+                      {
+                        "Ref": "InfluxdbPassword"
+                      },
+                      "'\""
+                    ]
+                  ]
+                }
+              },
+              "c": {
+                "command": "influx -execute 'CREATE DATABASE \"slurm-job-metrics\"'"
+              },
+              "d": {
+                "command": "influx -execute 'GRANT ALL ON \"slurm-job-metrics\" TO slurm'"
+              },
+              "e": {
+                "command": "influx -execute 'CREATE RETENTION POLICY \"three_days\" ON \"slurm-job-metrics\" DURATION 3d REPLICATION 1 DEFAULT'"
+              }
+            }
+          },
+          "j": {
+            "commands": {
+              "a": {
+                "command": "systemctl enable munge"
+              },
+              "b": {
+                "command": "systemctl enable slurmctld"
+              },
+              "c": {
+                "command": "systemctl enable slurmdbd"
+              },
+              "d": {
+                "command": "systemctl enable slurmctld"
+              }
+            }
+          },
+          "k": {
+            "commands": {
+              "a": {
+                "command": "systemctl start munge"
+              },
+              "b": {
+                "command": "systemctl start slurmdbd"
+              },
+              "c": {
+                "command": "sleep 30"
+              },
+              "d": {
+                "command": "systemctl start slurmctld"
+              },
+              "e": {
+                "command": "systemctl start slurmrestd"
+              },
+              "f": {
+                "command": "systemctl restart munge"
+              }
+            }
+          },
+          "l": {
+            "commands": {
+              "a": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap install vantage-agent --channel ",
+                      {
+                        "Ref": "SnapChannel"
+                      },
+                      " --classic"
+                    ]
+                  ]
+                }
+              },
+              "b": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set vantage-agent base-api-url=",
+                      {
+                        "Ref": "VantageAgentsBaseApiUrl"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "c": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set vantage-agent oidc-domain=",
+                      {
+                        "Ref": "VantageAgentsOidcDomain"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "d": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set vantage-agent oidc-client-id=",
+                      {
+                        "Ref": "ClientId"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "e": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set vantage-agent oidc-client-secret=",
+                      {
+                        "Ref": "ClientSecret"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "f": {
+                "command": "snap set vantage-agent task-jobs-interval-seconds=30"
+              },
+              "g": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set vantage-agent cluster-name=",
+                      {
+                        "Ref": "ApiClusterName"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "h": {
+                "command": "snap set vantage-agent is-cloud-cluster=true"
+              },
+              "i": {
+                "command": "snap start vantage-agent.start"
+              }
+            }
+          },
+          "m": {
+            "commands": {
+              "a": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap install jobbergate-agent --channel ",
+                      {
+                        "Ref": "SnapChannel"
+                      },
+                      " --classic"
+                    ]
+                  ]
+                }
+              },
+              "b": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set jobbergate-agent base-api-url=",
+                      {
+                        "Ref": "VantageAgentsBaseApiUrl"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "c": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set jobbergate-agent oidc-domain=",
+                      {
+                        "Ref": "VantageAgentsOidcDomain"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "d": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set jobbergate-agent oidc-client-id=",
+                      {
+                        "Ref": "ClientId"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "e": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set jobbergate-agent oidc-client-secret=",
+                      {
+                        "Ref": "ClientSecret"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "f": {
+                "command": "snap set jobbergate-agent x-slurm-user-name=root"
+              },
+              "g": {
+                "command": "snap set jobbergate-agent task-jobs-interval-seconds=30"
+              },
+              "h": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "snap set jobbergate-agent influx-dsn=influxdb://slurm:",
+                      {
+                        "Ref": "InfluxdbPassword"
+                      },
+                      "@localhost:8086/slurm-job-metrics"
+                    ]
+                  ]
+                }
+              },
+              "i": {
+                "command": "snap start jobbergate-agent.start"
+              }
+            }
+          },
+          "n": {
+            "files": {
+              "/nfs/.jupyter/jupyter_config.py": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "# Configuration file for JupyterHub\nimport os\nimport socket\n\nfrom oauthenticator.generic import GenericOAuthenticator\nfrom batchspawner import SlurmSpawner\n\ndns_name = \"",
+                      {
+                        "Ref": "JupyterHubDns"
+                      },
+                      "\"\ndefault_token = \"",
+                      {
+                        "Ref": "JupyterHubToken"
+                      },
+                      "\"\noidc_dns = \"",
+                      {
+                        "Ref": "VantageAgentsOidcDomain"
+                      },
+                      "\"\n\ndef get_host_ip():\n    \"\"\"Gets the IP address of the host machine.\n    This function tries to establish a connection to an external address,\n    which forces the system to reveal its local IP.\n    \"\"\"\n    try:\n        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)\n        s.connect((\"8.8.8.8\", 80))  # Google's public DNS server\n        ip_address = s.getsockname()[0]\n    except Exception:\n        ip_address = \"127.0.0.1\"  # If connection fails, return loopback\n    finally:\n        s.close()\n    return ip_address\n\nip_address = get_host_ip()\n\nos.environ[\"JUPYTERHUB_SERVICE_URL\"] = f\"http://{ip_address}:443\"\n\nc = get_config()\n\n# Jupyterhub Config\nc.JupyterHub.hub_ip = ip_address\nc.JupyterHub.hub_port = 443\n\nc.JupyterHub.hub_connect_ip = ip_address\nc.JupyterHub.hub_connect_port = 8081\nc.JupyterHub.hub_connect_url = f\"http://{ip_address}:8081\"\nc.JupyterHub.public_url = f\"https://{dns_name}/hub\"\n\nc.SlurmSpawner.hub_connect_url = f\"http://{ip_address}:8081\"\n\nc.JupyterHub.reset_db = False\n\nc.JupyterHub.spawner_class = \"batchspawner.SlurmSpawner\"\n\nc.JupyterHub.authenticator_class = GenericOAuthenticator\nc.JupyterHub.ssl_cert = '/nfs/.jupyter/cert/fullchain.pem'\nc.JupyterHub.ssl_key = '/nfs/.jupyter/cert/privkey.pem'\nc.JupyterHub.bind_url = 'https://:443'\n\n\n# GenericOAuthenticator Config\nos.environ['OAUTH2_TOKEN_URL'] = f\"https://{oidc_dns}/protocol/openid-connect/token\"\nos.environ['OAUTH2_AUTHORIZE_URL'] = f\"https://{oidc_dns}/protocol/openid-connect/auth\"\nos.environ['OAUTH2_USERDATA_URL'] = f\"https://{oidc_dns}/protocol/openid-connect/userinfo\"\nos.environ['OAUTH2_USERNAME_KEY'] = 'jhuser'\nos.environ['OAUTH2_TLS_VERIFY'] = '0'\nos.environ['OAUTH_TLS_VERIFY'] = '0'\n\nc.GenericOAuthenticator.login_service = \"KeyCloak\"\nc.GenericOAuthenticator.client_id = \"default\"\nc.GenericOAuthenticator.token_url = f\"https://{oidc_dns}/protocol/openid-connect/token\"\nc.GenericOAuthenticator.userdata_url = f\"https://{oidc_dns}/protocol/openid-connect/userinfo\"\nc.GenericOAuthenticator.oauth_callback_url = f\"https://{dns_name}/hub/oauth_callback\"\nc.GenericOAuthenticator.userdata_params = {\"state\": \"state\"}\nc.GenericOAuthenticator.userdata_method = \"GET\"\nc.GenericOAuthenticator.username_claim = \"jhuser\"\nc.GenericOAuthenticator.scope = [\"openid\"]\nc.GenericOAuthenticator.auto_login = True\nc.GenericOAuthenticator.tls_verify = False\nc.GenericOAuthenticator.allow_all = True\n\n# ServerApp Config\nc.ServerApp.certfile = \"/nfs/.jupyter/cert/fullchain.pem\"\nc.ServerApp.keyfile = \"/nfs/.jupyter/cert/privkey.pem\"\nc.ServerApp.allow_origin = '*'\nc.ServerApp.ip = '0.0.0.0'\nc.ServerApp.open_browser = False\n\n\nc.ServerApp.tornado_settings = {\n  'headers':{\n    'Content-Security-Policy': \"frame-ancestors *\"\n  }\n}\nc.JupyterHub.tornado_settings = {\n  'headers': {\n    'Content-Security-Policy': \"frame-ancestors *\",\n    \"X-Frame-Options\": \"ALLOWALL\"\n    }\n}\n\n# Spawner Config\nc.Spawner.args = [\n  '--NotebookApp.allow_origin=*',\n  '--ServerApp.disable_check_xsfr=True',\n  '--ServerApp.tornado_settings={\"headers\": {\"Content-Security-Policy\": \"frame-ancestors *\"}}'\n]\nc.Spawner.default_url = \"/lab\"\nc.Spawner.notebook_dir = \"~\"\nc.Spawner.notebook_dir = \"/nfs/working\"\nc.Spawner.start_timeout = 300\nc.Spawner.http_timeout = 300\nc.Spawner.debug = True\n\n# Batchspawner SlurmSpawner Config\nc.Spawner.debug = True\nc.SlurmSpawner.batch_query_cmd = \"echo \\\"$(squeue  -h --job {job_id} --Format=State:11)\\\" \\\"$(scontrol show node $(scontrol show job {job_id} | tr ' ' '\\n' | grep '^NodeList=' | cut -d= -f2) | tr ' ' '\\n' | grep '^NodeAddr=' | cut -d= -f2)\\\"\"\nc.SlurmSpawner.batch_script = \"\"\"#!/bin/bash\n#SBATCH --output=/nfs/jupyterlogs/slurmspawner_%j.log\n#SBATCH --error=/nfs/jupyterlogs/slurmspawner_%j.log\n#SBATCH --job-name=spawner-jupyterhub\n#SBATCH --chdir={{homedir}}\n#SBATCH --export={{keepvars}}\n#SBATCH --get-user-env=L\n{% if partition  %}#SBATCH --partition={{partition}}\n{% endif %}{% if runtime    %}#SBATCH --time={{runtime}}\n{% endif %}{% if memory     %}#SBATCH --mem={{memory}}\n{% endif %}{% if gres       %}#SBATCH --gres={{gres}}\n{% endif %}{% if nprocs     %}#SBATCH --cpus-per-task={{nprocs}}\n{% endif %}{% if reservation%}#SBATCH --reservation={{reservation}}\n{% endif %}{% if options    %}#SBATCH {{options}}{% endif %}\n\nset -euo pipefail\n\ntrap 'echo SIGTERM received' TERM\n{{prologue}}\nsrun  /usr/bin/bash -c 'source /nfs/jupyter/bin/activate && exec /nfs/jupyter/bin/batchspawner-singleuser /nfs/jupyter/bin/jupyterhub-singleuser --config /nfs/.jupyter/jupyter_config_singleserver.py'\n\necho \"jupyterhub-singleuser ended gracefully\"\n{{epilogue}}\n\"\"\"\n\n# Allowed admins\nadmin = os.environ.get(\"JUPYTERHUB_ADMIN\")\nif admin:\n  c.Authenticator.admin_users = [admin]\n\nc.Application.log_level = 'DEBUG'\nc.JupyterHub.allow_named_servers = True\n\nc.JupyterHub.services = [\n  {\n    \"name\": \"vantage\",\n    \"api_token\": default_token,\n    \"admin\": True,\n  },\n]\n\nc.JupyterHub.load_roles = [\n  {\n    \"name\": \"service-role\",\n    \"scopes\": [\n      \"admin:users\",\n      \"admin:servers\",\n      \"admin:groups\",\n      \"delete:servers!user=ubuntu\",\n      \"read:servers!user=ubuntu\",\n      \"servers!user=ubuntu\",\n      \"users:activity!user=ubuntu\"\n    ],\n    \"services\": [\n      \"vantage\",\n    ],\n  }\n]\n\nc.Authenticator.allowed_users = {\"ubuntu\"}\n\n"
+                    ]
+                  ]
+                },
+                "mode": "000666",
+                "owner": "ubuntu",
+                "group": "ubuntu"
+              },
+              "/nfs/.jupyter/jupyter_config_singleserver.py": {
+                "content": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "# Configuration file for Jupyter Server\nimport os\ndns_name = \"",
+                      {
+                        "Ref": "JupyterHubDns"
+                      },
+                      "\"\noidc_dns = \"",
+                      {
+                        "Ref": "VantageAgentsOidcDomain"
+                      },
+                      "\"\n\nfrom oauthenticator.generic import GenericOAuthenticator\n\nc = get_config()\n\n# GenericOAuthenticator Config\nos.environ['OAUTH2_TOKEN_URL'] = f\"https://{oidc_dns}/realms/vantage/protocol/openid-connect/token\"\nos.environ['OAUTH2_AUTHORIZE_URL'] = f\"https://{oidc_dns}/realms/vantage/protocol/openid-connect/auth\"\nos.environ['OAUTH2_USERDATA_URL'] = f\"https://{oidc_dns}/realms/vantage/protocol/openid-connect/userinfo\"\nos.environ['OAUTH2_USERNAME_KEY'] = 'jhuser'\nos.environ['OAUTH2_TLS_VERIFY'] = '0'\nos.environ['OAUTH_TLS_VERIFY'] = '0'\n\nc.GenericOAuthenticator.login_service = \"KeyCloak\"\nc.GenericOAuthenticator.client_id = \"default\"\nc.GenericOAuthenticator.token_url = f\"https://{oidc_dns}/realms/vantage/protocol/openid-connect/token\"\nc.GenericOAuthenticator.userdata_url = f\"https://{oidc_dns}/realms/vantage/protocol/openid-connect/userinfo\"\nc.GenericOAuthenticator.oauth_callback_url = f\"https://{dns_name}:8888/hub/oauth_callback\"\nc.GenericOAuthenticator.userdata_params = {\"state\": \"state\"}\nc.GenericOAuthenticator.userdata_method = \"GET\"\nc.GenericOAuthenticator.username_claim = \"jhuser\"\nc.GenericOAuthenticator.scope = [\"openid\"]\nc.GenericOAuthenticator.auto_login = True\nc.GenericOAuthenticator.tls_verify = False\nc.GenericOAuthenticator.allow_all = True\n\n# ServerApp Config\nc.ServerApp.certfile = \"/nfs/.jupyter/cert/fullchain.pem\"\nc.ServerApp.keyfile = \"/nfs/.jupyter/cert/privkey.pem\"\nc.ServerApp.allow_origin = '*'\nc.ServerApp.ip = '0.0.0.0'\nc.ServerApp.open_browser = False\n\n\nc.ServerApp.tornado_settings = {\n  'headers':{\n    'Content-Security-Policy': \"frame-ancestors *\"\n  }\n}\nc.JupyterHub.tornado_settings = {\n  'headers': {\n    'Content-Security-Policy': \"frame-ancestors *\",\n    \"X-Frame-Options\": \"ALLOWALL\"\n    }\n}\n"
+                    ]
+                  ]
+                },
+                "mode": "000666",
+                "owner": "ubuntu",
+                "group": "ubuntu"
+              },
+              "/lib/systemd/system/jupyterhub.service": {
+                "content": "[Unit]\nDescription=JupyterHub\nAfter=syslog.target network.target\n[Service]\nUser=root\nEnvironment=\"PATH=/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/nfs/jupyter/venv/bin:/nfs/jupyter/venv/sbin\"\nWorkingDirectory=/nfs/jupyter\nExecStart=/nfs/jupyter/bin/jupyterhub -f /nfs/.jupyter/jupyter_config.py --debug\n[Install]\nWantedBy=multi-user.target\n",
+                "mode": "000644",
+                "owner": "root",
+                "group": "root",
+                "encoding": "plain"
+              }
+            },
+            "commands": {
+              "a": {
+                "command": ". /nfs/jupyter/bin/activate && pip install -v git+https://github.com/omnivector-solutions/jupyterhub-theme.git"
+              },
+              "b": {
+                "command": "sed -i \"s|JupyterLab\\ Light|jh-vantage-theme|g\" /nfs/jupyter/share/jupyter/lab/schemas/@jupyterlab/apputils-extension/themes.json"
+              },
+              "c": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "\n                        timeout 120 bash -c '\n                            PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)\n                            until nslookup ",
+                      {
+                        "Ref": "JupyterHubDns"
+                      },
+                      " | grep \"$PUBLIC_IP\"; do\n                                echo \"Waiting Jupyter DNS...\"\n                                sleep 5\n                            done\n                        '\n                    "
+                    ]
+                  ]
+                }
+              },
+              "d": {
+                "command": "snap install certbot --classic"
+              },
+              "e": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "certbot certonly --standalone --non-interactive --agree-tos -d '",
+                      {
+                        "Ref": "JupyterHubDns"
+                      },
+                      "'"
+                    ]
+                  ]
+                }
+              },
+              "f": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "cp /etc/letsencrypt/archive/",
+                      {
+                        "Ref": "JupyterHubDns"
+                      },
+                      "/fullchain1.pem /nfs/.jupyter/cert/fullchain.pem"
+                    ]
+                  ]
+                }
+              },
+              "g": {
+                "command": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "cp /etc/letsencrypt/archive/",
+                      {
+                        "Ref": "JupyterHubDns"
+                      },
+                      "/privkey1.pem /nfs/.jupyter/cert/privkey.pem"
+                    ]
+                  ]
+                }
+              },
+              "h": {
+                "command": "(crontab -l 2>/dev/null; echo \"0 3,15 * * * certbot renew --quiet >> /var/log/certbot-renew.log 2>&1\") | crontab -"
+              },
+              "i": {
+                "command": "chown -R ubuntu:ubuntu /nfs/jupyter /nfs/.jupyter /nfs/jupyterlogs /nfs/working"
+              },
+              "j": {
+                "command": "systemctl daemon-reload"
+              },
+              "k": {
+                "command": "systemctl start jupyterhub.service"
+              }
+            }
+          }
+        }
+      }
+    },
+    "HeadNodeInstance": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "LaunchTemplate": {
+          "LaunchTemplateId": {
+            "Ref": "HeadNodeLaunchTemplate"
+          },
+          "Version": {
+            "Fn::GetAtt": [
+              "HeadNodeLaunchTemplate",
+              "LatestVersionNumber"
+            ]
+          }
+        },
+        "Tags": [
+          {
+            "Key": "ManagedBy",
+            "Value": "Vantage"
+          }
+        ]
+      },
+      "DependsOn": [
+        "HeadNodeInstaceProfile"
+      ],
+      "CreationPolicy": {
+        "ResourceSignal": {
+          "Count": 1,
+          "Timeout": "PT10M"
+        }
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    }
+  },
+  "Mappings": {
+    "ComputeNodeLaunchTemplateAmiMap45558237": {
+      "af-south-1": {
+        "ami": "ami-05e85d3f27f30a736"
+      },
+      "ap-east-1": {
+        "ami": "ami-05f1a77c79d18f6f5"
+      },
+      "ap-northeast-1": {
+        "ami": "ami-0ef576e78a1c2641a"
+      },
+      "ap-northeast-2": {
+        "ami": "ami-08b44988cb14b5b2a"
+      },
+      "ap-northeast-3": {
+        "ami": "ami-06e82b7782a7c5f0c"
+      },
+      "ap-south-1": {
+        "ami": "ami-08352542e7c92fa25"
+      },
+      "ap-south-2": {
+        "ami": "ami-0fac989719e1d535f"
+      },
+      "ap-southeast-1": {
+        "ami": "ami-0d2691d60646696fe"
+      },
+      "ap-southeast-2": {
+        "ami": "ami-0b259fb5fddf50c0b"
+      },
+      "ap-southeast-3": {
+        "ami": "ami-08450a8d1b5897790"
+      },
+      "ap-southeast-4": {
+        "ami": "ami-0663e8cce2002fd17"
+      },
+      "ap-southeast-5": {
+        "ami": "ami-0659fa0db410649fc"
+      },
+      "ap-southeast-7": {
+        "ami": "ami-067bbe4faa6c2832e"
+      },
+      "ca-central-1": {
+        "ami": "ami-0714c1abed1e23640"
+      },
+      "ca-west-1": {
+        "ami": "ami-0cd43ed61422f0417"
+      },
+      "eu-central-1": {
+        "ami": "ami-05b33a35cad4bf0b0"
+      },
+      "eu-central-2": {
+        "ami": "ami-099ea9f68a6dc843d"
+      },
+      "eu-north-1": {
+        "ami": "ami-027fc1b99899f1357"
+      },
+      "eu-south-1": {
+        "ami": "ami-050251efe713c7696"
+      },
+      "eu-south-2": {
+        "ami": "ami-0bf63b4087c94cf6a"
+      },
+      "eu-west-1": {
+        "ami": "ami-003d05298c50aec42"
+      },
+      "eu-west-2": {
+        "ami": "ami-04c83a688108279f1"
+      },
+      "eu-west-3": {
+        "ami": "ami-0677739e4558be65b"
+      },
+      "il-central-1": {
+        "ami": "ami-0a17c144a9eaa18b5"
+      },
+      "me-central-1": {
+        "ami": "ami-0dd65423814b56408"
+      },
+      "me-south-1": {
+        "ami": "ami-0d00cca6df2c56a30"
+      },
+      "mx-central-1": {
+        "ami": "ami-083c258f6c6cc151a"
+      },
+      "sa-east-1": {
+        "ami": "ami-054386ff5b99e2d00"
+      },
+      "us-east-1": {
+        "ami": "ami-08949475170817481"
+      },
+      "us-east-2": {
+        "ami": "ami-04513bb967eb7f76e"
+      },
+      "us-west-1": {
+        "ami": "ami-0171f43dcf8163d8a"
+      },
+      "us-west-2": {
+        "ami": "ami-05edc3d01d8266e68"
+      }
+    }
+  }
+}
