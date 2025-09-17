@@ -101,10 +101,11 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
         # SLURM service restart commands
         commands.extend(
             [
-                "systemctl restart slurmdbd",
+                "systemctl enable --now slurmdbd",
                 "sleep 10",
-                "systemctl restart slurmctld",
-                "systemctl restart slurmd",
+                "systemctl enable --now slurmctld",
+                "systemctl enable --now slurmd",
+                "systemctl enable --now slurmrestd",
                 "scontrol update NodeName=$(hostname) State=RESUME",
             ]
         )
