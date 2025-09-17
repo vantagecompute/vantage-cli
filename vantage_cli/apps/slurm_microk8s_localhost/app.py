@@ -268,9 +268,10 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
         allow_fail=True,
     )
 
+
     slurm_operator_chart_values = get_chart_values_slurm_operator()
     slurm_operator_values_yaml = yaml.dump(slurm_operator_chart_values)
-    tmp_file_operator_values = Path("/home/bdx/myslurmoperatorchartvalues.yaml")
+    tmp_file_operator_values = Path.home() / "myslurmoperatorchartvalues.yaml"
     tmp_file_operator_values.write_text(slurm_operator_values_yaml)
     tmp_file_operator_values.chmod(0o600)
     # Install SLURM operator
@@ -330,7 +331,8 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     ]
 
     slurm_cluster_values_yaml = yaml.dump(slurm_cluster_chart_values)
-    tmp_slurm_cluster_values = Path("/home/bdx/myslurmclusterchartvalues.yaml")
+
+    tmp_slurm_cluster_values = Path.home() / "myslurmclusterchartvalues.yaml"
     tmp_slurm_cluster_values.write_text(slurm_cluster_values_yaml)
     tmp_slurm_cluster_values.chmod(0o600)
     # Install SLURM cluster
