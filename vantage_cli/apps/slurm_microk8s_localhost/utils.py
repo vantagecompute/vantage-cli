@@ -213,12 +213,14 @@ def get_chart_values_slurm_cluster() -> dict[str, Any]:
                 "replicas": 1,
                 "login": {
                     "image": {
-                        "repository": "ghcr.io/slinkyproject/login",
-                        "tag": "25.05-ubuntu24.04",
+                        "repository": "ghcr.io/jamesbeedy/login",
+                        "tag": "0.0.7",
                     },
                     "env": [],
                     "securityContext": {"privileged": False},
-                    "resources": {},
+                    "resources": {
+                        "limits": {"cpu": "1000m", "memory": "1024Mi"},
+                    },
                     "volumeMounts": [],
                 },
                 "rootSshAuthorizedKeys": None,

@@ -53,11 +53,18 @@ class TestMicrok8sAppAdditionalCoverage:
 
     def test_deploy_file_not_found_error(self, mock_config_file, mock_ctx):
         """Test deploy function handles missing binary gracefully."""
+        cluster_data = {
+            "name": "test-cluster",
+            "clientId": "test-client",
+            "clientSecret": "test-secret",
+            "creationParameters": {"cloud": "localhost"},
+        }
+
         with patch("shutil.which", return_value=None):
             with pytest.raises(typer.Exit) as exc_info:
                 import asyncio
 
-                asyncio.run(microk8s_app.deploy(mock_ctx))
+                asyncio.run(microk8s_app.deploy(mock_ctx, cluster_data=cluster_data))
 
             assert exc_info.value.exit_code == 1
 
@@ -171,7 +178,7 @@ class TestMicrok8sAppAdditionalCoverage:
 class TestMultipassAppAdditionalCoverage:
     """Additional tests for multipass app to increase coverage."""
 
-    def test_deploy_command_with_missing_binary(self, mock_config_file, mock_ctx):
+    def test_deploy_command_with_missing_binary(self, mock_config_file, mock_ctx, cluster_data):
         """Test multipass deploy handles missing binary."""
         with patch("shutil.which", return_value=None):
             import click
@@ -179,7 +186,7 @@ class TestMultipassAppAdditionalCoverage:
             with pytest.raises((typer.Exit, click.exceptions.Exit)) as exc_info:
                 import asyncio
 
-                asyncio.run(multipass_app.deploy(mock_ctx))
+                asyncio.run(multipass_app.deploy(mock_ctx, cluster_data=cluster_data))
 
             # Handle both typer.Exit and click.exceptions.Exit
             if hasattr(exc_info.value, "exit_code"):
