@@ -18,7 +18,7 @@ import copy
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import typer
 import yaml
@@ -181,7 +181,7 @@ async def deploy_juju_localhost(ctx: Any, deployment_name: str) -> None | typer.
         await controller.disconnect()
 
 
-async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = None) -> None:
+async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     """Deploy Juju localhost SLURM cluster using cluster data.
 
     Args:
@@ -263,29 +263,17 @@ async def deploy_command(
     console.print(Panel("Juju Localhost SLURM Application"))
     console.print("Deploying juju localhost slurm application...")
 
-    cluster_data = None
-
-    if dev_run:
-        console.print(
-            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
-        )
-        cluster_data = generate_dev_cluster_data(cluster_name)
-    else:
-        # Get cluster data by name - for now using local import to avoid circular imports
+    cluster_data = generate_dev_cluster_data(cluster_name)
+    if not dev_run:
         from vantage_cli.commands.cluster import utils as cluster_utils
 
         cluster_data = await cluster_utils.get_cluster_by_name(ctx, cluster_name)
-
-        # Fallback for testing if cluster not found
-        if not cluster_data:
-            console.print(
-                f"[yellow]Warning: Cluster '{cluster_name}' not found. Using test configuration.[/yellow]"
-            )
-            cluster_data = {"clientId": "dummy_client_for_testing"}
-
-        if not cluster_data:
-            console.print("[red]Error: No cluster data found.[/red]")
-            raise typer.Exit(code=1)
+        if cluster_data is None:
+            raise ValueError(f"Cluster '{cluster_name}' not found")
+    else:
+        console.print(
+            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
+        )
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
 

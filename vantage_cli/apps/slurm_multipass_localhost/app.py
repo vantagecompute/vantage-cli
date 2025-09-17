@@ -15,7 +15,7 @@ import os
 import subprocess
 from pathlib import Path
 from shutil import which
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import typer
 from loguru import logger
@@ -42,7 +42,7 @@ from vantage_cli.constants import (
 # See vantage_cli/apps/templates.py for CloudInitTemplate and DeploymentContext
 
 
-async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = None) -> None:
+async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     """Deploy a single-node SLURM cluster using Multipass.
 
     Args:
@@ -185,22 +185,17 @@ async def deploy_command(
     console.print(Panel("Multipass Singlenode SLURM Application"))
     console.print("Deploying multipass singlenode slurm application...")
 
-    cluster_data = None
-
-    if dev_run:
-        console.print(
-            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
-        )
-        cluster_data = generate_dev_cluster_data(cluster_name)
-    else:
-        # Import locally to avoid circular import
+    cluster_data = generate_dev_cluster_data(cluster_name)
+    if not dev_run:
         from vantage_cli.commands.cluster import utils as cluster_utils
 
         cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
-
-        if not cluster_data:
-            console.print("[red]Error: No cluster data found.[/red]")
-            raise typer.Exit(code=1)
+        if cluster_data is None:
+            raise ValueError(f"Cluster '{cluster_name}' not found")
+    else:
+        console.print(
+            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
+        )
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
 

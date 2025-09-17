@@ -138,7 +138,7 @@ def _run_command(command: list[str], allow_fail: bool = False) -> None:
     _run(command, console, allow_fail)
 
 
-async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = None) -> None:
+async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     """Deploy SLURM cluster on MicroK8s using Helm.
 
     Implements the steps documented in the module docstring:
@@ -167,12 +167,18 @@ async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = No
     _run_command(["microk8s.helm", "version"])
 
     # Validate cluster data if provided (optional for localhost deployment)
-    if cluster_data:
-        cluster_data = validate_cluster_data(cluster_data, console)
-        client_id, _ = validate_client_credentials(cluster_data, console)
-        console.print(
-            f"[blue]Deploying for cluster: {cluster_data.get('name', 'unknown')} (client: {client_id[:8]}...)[/blue]"
-        )
+    cluster_data = validate_cluster_data(cluster_data, console)
+    client_id, client_secret = validate_client_credentials(cluster_data, console)
+
+    # Get client secret from API if not in cluster data (import locally to avoid circular import)
+    if not client_secret:
+        from vantage_cli.commands.cluster import utils as cluster_utils
+
+        client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
+
+    console.print(
+        f"[blue]Deploying for cluster: {cluster_data.get('name', 'unknown')} (client: {client_id[:8]}...)[/blue]"
+    )
 
     # Check MicroK8s status first (fatal if not ready)
     # console.print("Checking MicroK8s status...")
@@ -315,6 +321,13 @@ async def deploy(ctx: typer.Context, cluster_data: Optional[Dict[str, Any]] = No
         slurm_cluster_chart_values["loginsets"]["slinky"]["rootSshAuthorizedKeys"] = "\n".join(
             ssh_authorized_keys
         )
+    slurm_cluster_chart_values["loginsets"]["slinky"]["login"]["env"] = [
+        {"name": "OIDC_CLIENT_ID", "value": client_id},
+        {"name": "OIDC_CLIENT_SECRET", "value": client_secret},
+        {"name": "OIDC_DOMAIN", "value": ctx.obj.settings.oidc_domain},
+        {"name": "DEFAULT_SLURM_WORK_DIR", "value": "/tmp"},
+        {"name": "TASK_JOBS_INTERVAL_SECONDS", "value": "10"},
+    ]
 
     slurm_cluster_values_yaml = yaml.dump(slurm_cluster_chart_values)
     tmp_slurm_cluster_values = Path("/home/bdx/myslurmclusterchartvalues.yaml")
@@ -363,25 +376,17 @@ async def deploy_command(
     console.print(Panel("MicroK8s SLURM Application"))
     console.print("Deploying MicroK8s SLURM application...")
 
-    cluster_data = None
-
-    if dev_run:
-        console.print(
-            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
-        )
-        cluster_data = generate_dev_cluster_data(cluster_name)
-    else:
-        # Import locally to avoid circular import
+    cluster_data = generate_dev_cluster_data(cluster_name)
+    if not dev_run:
         from vantage_cli.commands.cluster import utils as cluster_utils
 
         cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
-
-        # For MicroK8s localhost deployment, cluster_data is optional
-        # We can deploy without it for localhost development
-        if not cluster_data:
-            console.print(
-                f"[yellow]Warning: Cluster '{cluster_name}' not found. Deploying localhost configuration.[/yellow]"
-            )
+        if cluster_data is None:
+            raise ValueError(f"Cluster '{cluster_name}' not found")
+    else:
+        console.print(
+            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
+        )
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
 
@@ -410,7 +415,7 @@ async def cleanup_microk8s_localhost(cluster_data: Dict[str, Any]) -> None:
         raise Exception("Missing deployment_name in cluster data")
 
     # Define the namespaces that were created during deployment
-    namespaces = ["cert-manager", "prometheus", "slinky", "slurm"]
+    namespaces = ["slurm", "slinky"]
 
     console.print(f"[yellow]Cleaning up MicroK8s deployment: {deployment_name}[/yellow]")
 

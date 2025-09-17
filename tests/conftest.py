@@ -258,6 +258,13 @@ def override_cache_dir(tmp_path, mocker):
 
     return tmp_path
 
-    def log(self, *args, **kwargs):
-        """Mock log method."""
-        pass
+
+@pytest.fixture
+def cluster_data():
+    """Mock cluster data for testing app deployments."""
+    return {
+        "name": "test-cluster",
+        "clientId": "test-client",
+        "clientSecret": "test-secret",
+        "creationParameters": {"cloud": "localhost"},
+    }
