@@ -40,6 +40,9 @@ jobs:
       - name: Install just
         run: sudo snap install just --classic
 
+      - name: Install UV
+        run: sudo snap install astral-uv --classic
+
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
