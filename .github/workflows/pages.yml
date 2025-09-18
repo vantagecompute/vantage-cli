@@ -5,6 +5,11 @@ on:
     branches: ["main"]
 
   workflow_dispatch:
+    inputs:
+      event_type:
+        description: 'repository_dispatch event_type'
+        required: false
+        default: 'cli-docs-updated'
 
 concurrency:
   group: "pages"
@@ -56,3 +61,56 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  dispatch:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Gather context
+        id: ctx
+        run: |
+          echo "sha=$(git rev-parse --short HEAD || echo $GITHUB_SHA)" >> $GITHUB_OUTPUT
+          echo "ref=$GITHUB_REF" >> $GITHUB_OUTPUT
+          echo "repo=${GITHUB_REPOSITORY}" >> $GITHUB_OUTPUT
+          echo "actor=${GITHUB_ACTOR}" >> $GITHUB_OUTPUT
+
+      - name: Send repository_dispatch to vantage-docs
+        env:
+          TOKEN: ${{ secrets.PLATFORM_REPO_TOKEN }}
+          TARGET_REPO: vantagecompute/vantage-docs
+          EVENT_TYPE: ${{ github.event_name == 'workflow_dispatch' && inputs.event_type || 'cli-docs-updated' }}
+          SHA: ${{ steps.ctx.outputs.sha }}
+          REF: ${{ steps.ctx.outputs.ref }}
+          REPO: ${{ steps.ctx.outputs.repo }}
+          ACTOR: ${{ steps.ctx.outputs.actor }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "Missing secret PLATFORM_REPO_TOKEN" >&2
+            exit 1
+          fi
+
+          # Build the JSON payload
+          read -r -d '' PAYLOAD <<EOF
+          {
+            "event_type": "${EVENT_TYPE}",
+            "client_payload": {
+              "source_repo": "${REPO}",
+              "source_ref": "${REF}",
+              "source_sha": "${SHA}",
+              "actor": "${ACTOR}"
+            }
+          }
+          EOF
+
+          # Fire the dispatch
+          curl -sS -X POST \
+            -H "Authorization: token ${TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${TARGET_REPO}/dispatches \
+            -d "${PAYLOAD}" \
+            | tee /dev/stderr
+
+    # Optional: prevent overlapping dispatches
+    concurrency:
+      group: notify-platform-${{ github.ref }}
+      cancel-in-progress: false
