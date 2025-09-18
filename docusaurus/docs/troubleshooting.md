@@ -5,7 +5,7 @@ description: Common issues and solutions for Vantage CLI
 
 Quick answers for frequent issues.
 
-## Authentication Fails
+## Vantage CLI Authentication Fails
 
 ```bash
 vantage login  # complete device flow in browser
