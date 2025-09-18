@@ -75,14 +75,7 @@ jobs:
         if: steps.check_changes.outputs.changes == 'true'
         run: |
           # Add all changes except workflow files
-          git add --all
-          git reset -- .github/workflows/
-          
-          # Check if there are still changes to commit after excluding workflows
-          if git diff --cached --quiet; then
-            echo "No documentation changes to commit (only workflow changes detected)"
-            exit 0
-          fi
+          git add docusaurus/
           
           git commit -m "docs: update generated documentation
           
