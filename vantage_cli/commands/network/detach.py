@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -49,10 +46,12 @@ async def detach_network(
         )
     else:
         # Rich console output
-        console.print(
+        ctx.obj.console.print(
             f"🔗 Detaching network [bold blue]{network_id}[/bold blue] from instance [bold green]{instance_id}[/bold green]"
         )
         if force:
-            console.print("   [bold red]Force mode enabled - no graceful shutdown[/bold red]")
-        console.print("   Interface ID: [magenta]eni-abc123[/magenta]")
-        console.print("✅ Network interface detached successfully!")
+            ctx.obj.console.print(
+                "   [bold red]Force mode enabled - no graceful shutdown[/bold red]"
+            )
+        ctx.obj.console.print("   Interface ID: [magenta]eni-abc123[/magenta]")
+        ctx.obj.console.print("✅ Network interface detached successfully!")

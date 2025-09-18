@@ -73,6 +73,7 @@ async def list_clusters(
         # Render results using Rich table
         render_clusters_table(
             clusters,
+            ctx.obj.console,
             title="Clusters List",
             total_count=total_count,
             json_output=effective_json,

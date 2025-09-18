@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -55,9 +52,9 @@ async def create_license_product(
         )
     else:
         # Rich console output
-        console.print("📦 License Product Create Command")
-        console.print(f"📋 Creating license product: {name} v{version}")
-        console.print(f"🔒 License type: {license_type}")
+        ctx.obj.console.print("📦 License Product Create Command")
+        ctx.obj.console.print(f"📋 Creating license product: {name} v{version}")
+        ctx.obj.console.print(f"🔒 License type: {license_type}")
         if description:
-            console.print(f"📝 Description: {description}")
-        console.print("⚠️  Not yet implemented - this is a stub")
+            ctx.obj.console.print(f"📝 Description: {description}")
+        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")

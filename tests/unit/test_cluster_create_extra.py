@@ -38,9 +38,13 @@ class DummyGraphQLFactory:
 def make_ctx(settings: Settings | None = None):
     # Minimal duck-typed context object matching the attributes accessed by the
     # undecorated create_cluster implementation (ctx.obj.settings / ctx.obj.profile).
+    from tests.conftest import MockConsole
+
     if settings is None:
         settings = Settings()
-    return SimpleNamespace(obj=SimpleNamespace(settings=settings, profile="test_profile"))
+    return SimpleNamespace(
+        obj=SimpleNamespace(settings=settings, profile="test_profile", console=MockConsole())
+    )
 
 
 @pytest.mark.asyncio

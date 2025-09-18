@@ -13,7 +13,6 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
@@ -28,8 +27,6 @@ async def get_federation(
     name: Annotated[str, typer.Argument(help="Name of the federation to retrieve")],
 ):
     """Get details of a specific Vantage federation."""
-    console = Console()
-
     # Get JSON flag from context (automatically set by AsyncTyper)
     json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
     # Determine output format
@@ -47,6 +44,6 @@ async def get_federation(
             }
         )
     else:
-        console.print("🔗 [bold blue]Federation Get Command[/bold blue]")
-        console.print(f"📖 Retrieving federation: [bold]{name}[/bold]")
-        console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+        ctx.obj.console.print("🔗 [bold blue]Federation Get Command[/bold blue]")
+        ctx.obj.console.print(f"📖 Retrieving federation: [bold]{name}[/bold]")
+        ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")

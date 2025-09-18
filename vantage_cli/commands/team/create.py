@@ -13,13 +13,10 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @attach_settings
@@ -29,4 +26,4 @@ async def create_team(ctx: typer.Context):
     if get_effective_json_output(ctx):
         print_json(data={"team_id": "team-12345", "status": "created"})
     else:
-        console.print("👥 Team team-12345 created successfully!")
+        ctx.obj.console.print("👥 Team team-12345 created successfully!")

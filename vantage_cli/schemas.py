@@ -15,6 +15,7 @@ from typing import Optional
 
 import httpx
 from pydantic import BaseModel
+from rich.console import Console
 
 from vantage_cli.config import Settings
 
@@ -57,3 +58,4 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
     persona: Optional[Persona] = None
     client: Optional[httpx.AsyncClient] = None
     settings: Optional[Settings] = None
+    console: Optional[Console] = None

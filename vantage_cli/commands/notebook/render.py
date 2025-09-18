@@ -23,6 +23,7 @@ from vantage_cli.render import StyleMapper
 
 def render_notebooks_table(
     notebooks: List[Dict[str, Any]],
+    console: Console,
     title: str = "Notebook Servers",
     total_count: Optional[int] = None,
     json_output: bool = False,
@@ -31,6 +32,7 @@ def render_notebooks_table(
 
     Args:
         notebooks: List of notebook dictionaries
+        console: Rich console for output
         title: Title for the table
         total_count: Total number of notebooks available
         json_output: If True, output as JSON instead of a table
@@ -42,7 +44,6 @@ def render_notebooks_table(
         return
 
     if not notebooks:
-        console = Console()
         console.print()
         console.print(Panel("No notebook servers found.", title="[yellow]No Results"))
         console.print()
@@ -102,7 +103,6 @@ def render_notebooks_table(
         table.add_row(*row_values)
 
     # Display the table
-    console = Console()
     console.print()
     console.print(table)
     console.print()
@@ -110,6 +110,7 @@ def render_notebooks_table(
 
 def render_notebook_details(
     notebook: Dict[str, Any],
+    console: Console,
     title: Optional[str] = None,
     json_output: bool = False,
 ) -> None:
@@ -117,14 +118,13 @@ def render_notebook_details(
 
     Args:
         notebook: Notebook dictionary with details
+        console: Rich console for output
         title: Optional title for the panel
         json_output: If True, output as JSON instead of a panel
     """
     if json_output:
         print_json(data=notebook)
         return
-
-    console = Console()
 
     # Generate title if not provided
     if title is None:

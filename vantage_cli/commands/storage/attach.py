@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -53,10 +50,10 @@ async def attach_storage(
         )
     else:
         # Rich console output
-        console.print(
+        ctx.obj.console.print(
             f"📎 Attaching storage volume [bold blue]{storage_id}[/bold blue] to instance [bold green]{instance_id}[/bold green]"
         )
-        console.print(f"   Mount Point: [yellow]{mount_point}[/yellow]")
-        console.print(f"   Read-Only: [cyan]{read_only}[/cyan]")
-        console.print("   Device Path: [magenta]/dev/xvdf[/magenta]")
-        console.print("✅ Storage volume attached successfully!")
+        ctx.obj.console.print(f"   Mount Point: [yellow]{mount_point}[/yellow]")
+        ctx.obj.console.print(f"   Read-Only: [cyan]{read_only}[/cyan]")
+        ctx.obj.console.print("   Device Path: [magenta]/dev/xvdf[/magenta]")
+        ctx.obj.console.print("✅ Storage volume attached successfully!")

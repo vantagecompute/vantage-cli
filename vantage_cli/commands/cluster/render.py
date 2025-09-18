@@ -23,6 +23,7 @@ from vantage_cli.render import StyleMapper
 
 def render_clusters_table(
     clusters: List[Dict[str, Any]],
+    console: Console,
     title: str = "Clusters List",
     total_count: Optional[int] = None,
     json_output: bool = False,
@@ -31,6 +32,7 @@ def render_clusters_table(
 
     Args:
         clusters: List of cluster dictionaries
+        console: Rich console for output
         title: Title for the table
         total_count: Total number of clusters available
         json_output: If True, output as JSON instead of a table
@@ -42,7 +44,6 @@ def render_clusters_table(
         return
 
     if not clusters:
-        console = Console()
         console.print()
         console.print(Panel("No clusters found.", title="[yellow]No Results"))
         console.print()
@@ -99,18 +100,20 @@ def render_clusters_table(
         table.add_row(*row_values)
 
     # Print the table
-    console = Console()
     console.print()
     console.print(table)
     console.print()
 
 
-def render_cluster_details(cluster: Dict[str, Any], json_output: bool = False) -> None:
+def render_cluster_details(
+    cluster: Dict[str, Any], console: Console, json_output: bool = False
+) -> None:
     """Render detailed information for a single cluster.
 
     Args:
-        cluster: Cluster dictionary with details
-        json_output: If True, output as JSON instead of a formatted view
+        cluster: Cluster data dictionary
+        console: Rich console for output
+        json_output: If True, output as JSON instead of a table
     """
     if json_output:
         # Output as JSON with Rich formatting
@@ -118,13 +121,11 @@ def render_cluster_details(cluster: Dict[str, Any], json_output: bool = False) -
         return
 
     if not cluster:
-        console = Console()
         console.print()
         console.print(Panel("Cluster not found.", title="[red]Not Found"))
         console.print()
         return
 
-    console = Console()
     cluster_name = cluster.get("name", "Unknown")
 
     # Create a table matching the profile get command style
@@ -175,18 +176,20 @@ def render_cluster_details(cluster: Dict[str, Any], json_output: bool = False) -
     console.print()
 
 
-def render_cluster_creation_result(cluster: Dict[str, Any], json_output: bool = False) -> None:
+def render_cluster_creation_result(
+    cluster: Dict[str, Any], console: Console, json_output: bool = False
+) -> None:
     """Render the result of cluster creation.
 
     Args:
         cluster: Created cluster dictionary
+        console: Console instance for output
         json_output: If True, output as JSON instead of a formatted view
     """
     if json_output:
         print_json(data=cluster)
         return
 
-    console = Console()
     console.print()
     console.print(
         Panel(
@@ -197,16 +200,17 @@ def render_cluster_creation_result(cluster: Dict[str, Any], json_output: bool = 
     )
 
     # Show basic details
-    render_cluster_details(cluster, json_output=False)
+    render_cluster_details(cluster, console, json_output=False)
 
 
 def render_cluster_deletion_result(
-    cluster_name: str, success: bool = True, json_output: bool = False
+    cluster_name: str, console: Console, success: bool = True, json_output: bool = False
 ) -> None:
     """Render the result of cluster deletion.
 
     Args:
         cluster_name: Name of the deleted cluster
+        console: Console instance for output
         success: Whether deletion was successful
         json_output: If True, output as JSON instead of a formatted view
     """
@@ -219,7 +223,6 @@ def render_cluster_deletion_result(
         print_json(data=result)
         return
 
-    console = Console()
     console.print()
 
     if success:

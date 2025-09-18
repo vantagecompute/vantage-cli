@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -50,14 +47,14 @@ async def get_license_deployment(
         )
     else:
         # Rich console output
-        console.print(f"📦 License Deployment: [bold blue]{deployment_id}[/bold blue]")
-        console.print("   Name: [green]web-app-deployment[/green]")
-        console.print("   Product ID: [yellow]product-456[/yellow]")
-        console.print("   Environment: [cyan]prod[/cyan]")
-        console.print("   Nodes: [magenta]5[/magenta]")
-        console.print("   Status: [green]active[/green]")
-        console.print("   Description: Production deployment for web application")
-        console.print("   Licenses Allocated: [blue]50[/blue]")
-        console.print("   Licenses Used: [yellow]35[/yellow]")
-        console.print("   Created: 2025-09-01T09:00:00Z")
-        console.print("   Updated: 2025-09-10T10:00:00Z")
+        ctx.obj.console.print(f"📦 License Deployment: [bold blue]{deployment_id}[/bold blue]")
+        ctx.obj.console.print("   Name: [green]web-app-deployment[/green]")
+        ctx.obj.console.print("   Product ID: [yellow]product-456[/yellow]")
+        ctx.obj.console.print("   Environment: [cyan]prod[/cyan]")
+        ctx.obj.console.print("   Nodes: [magenta]5[/magenta]")
+        ctx.obj.console.print("   Status: [green]active[/green]")
+        ctx.obj.console.print("   Description: Production deployment for web application")
+        ctx.obj.console.print("   Licenses Allocated: [blue]50[/blue]")
+        ctx.obj.console.print("   Licenses Used: [yellow]35[/yellow]")
+        ctx.obj.console.print("   Created: 2025-09-01T09:00:00Z")
+        ctx.obj.console.print("   Updated: 2025-09-10T10:00:00Z")

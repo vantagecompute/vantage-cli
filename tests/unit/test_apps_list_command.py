@@ -33,19 +33,15 @@ def mock_config_file():
 
 
 @pytest.fixture
-def mock_ctx() -> typer.Context:
-    """Mock typer context."""
-    ctx = Mock(spec=typer.Context)
-    # Mock the obj attribute with profile for @attach_settings decorator
-    ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+def mock_ctx():
+    """Mock typer context with console."""
+    from tests.conftest import MockConsole
+
+    ctx = SimpleNamespace()
+    ctx.obj = SimpleNamespace(
+        profile="default", verbose=False, json_output=False, console=MockConsole()
+    )
     return ctx
-
-
-@pytest.fixture
-def mock_console():
-    """Mock rich console."""
-    with patch("vantage_cli.commands.app.list.console") as mock_console:
-        yield mock_console
 
 
 @pytest.fixture
@@ -138,7 +134,6 @@ class TestListApps:
         mock_get_available_apps,
         mock_config_file,
         mock_ctx,
-        mock_console,
         mock_available_apps,
     ):
         """Test list_apps with table output when apps are available."""
@@ -147,16 +142,16 @@ class TestListApps:
         await list_apps(mock_ctx)
 
         # Verify console.print was called (for the table and summary)
-        assert mock_console.print.call_count == 2
+        assert mock_ctx.obj.console.print.call_count == 2
 
         # Check that the summary message was printed
-        summary_call = mock_console.print.call_args_list[1]
+        summary_call = mock_ctx.obj.console.print.call_args_list[1]
         assert "Found 2 application(s)" in str(summary_call)
 
     @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_table_output_empty(
-        self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
+        self, mock_get_available_apps, mock_config_file, mock_ctx
     ):
         """Test list_apps with table output when no apps are available."""
         mock_get_available_apps.return_value = {}
@@ -164,12 +159,14 @@ class TestListApps:
         await list_apps(mock_ctx)
 
         # Verify console.print was called with "No applications found"
-        mock_console.print.assert_called_once_with("[yellow]No applications found.[/yellow]")
+        mock_ctx.obj.console.print.assert_called_once_with(
+            "[yellow]No applications found.[/yellow]"
+        )
 
     @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_app_with_no_module_name(
-        self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
+        self, mock_get_available_apps, mock_config_file, mock_ctx
     ):
         """Test list_apps handles apps with modules without __name__ attribute."""
         mock_module = Mock()
@@ -190,12 +187,12 @@ class TestListApps:
         await list_apps(mock_ctx)
 
         # Should handle the missing __name__ gracefully
-        assert mock_console.print.call_count == 2
+        assert mock_ctx.obj.console.print.call_count == 2
 
     @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_app_without_deploy_function(
-        self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
+        self, mock_get_available_apps, mock_config_file, mock_ctx
     ):
         """Test list_apps handles apps without deploy function."""
         mock_module = Mock()
@@ -212,7 +209,7 @@ class TestListApps:
         await list_apps(mock_ctx)
 
         # Should handle the missing deploy_function gracefully
-        assert mock_console.print.call_count == 2
+        assert mock_ctx.obj.console.print.call_count == 2
 
     @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
@@ -249,7 +246,7 @@ class TestListApps:
     @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_handles_exception(
-        self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
+        self, mock_get_available_apps, mock_config_file, mock_ctx
     ):
         """Test list_apps handles exceptions gracefully."""
         mock_get_available_apps.side_effect = Exception("Test error")
@@ -261,14 +258,14 @@ class TestListApps:
         assert exc_info.value.exit_code == 1
 
         # Verify error message was printed
-        mock_console.print.assert_called_once()
-        error_call = mock_console.print.call_args[0][0]
+        mock_ctx.obj.console.print.assert_called_once()
+        error_call = mock_ctx.obj.console.print.call_args[0][0]
         assert "Error listing applications: Test error" in error_call
 
     @patch("vantage_cli.commands.app.list.get_available_apps")
     @pytest.mark.asyncio
     async def test_list_apps_multiline_docstring(
-        self, mock_get_available_apps, mock_config_file, mock_ctx, mock_console
+        self, mock_get_available_apps, mock_config_file, mock_ctx
     ):
         """Test list_apps handles multiline docstrings correctly."""
 
@@ -294,7 +291,7 @@ class TestListApps:
         await list_apps(mock_ctx)
 
         # Should use only the first line of the docstring
-        assert mock_console.print.call_count == 2
+        assert mock_ctx.obj.console.print.call_count == 2
 
     @patch("vantage_cli.commands.app.list.get_available_apps")
     @patch("vantage_cli.commands.app.list.render_json")

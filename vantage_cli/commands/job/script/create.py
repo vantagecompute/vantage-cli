@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -49,8 +46,8 @@ async def create_job_script(
             }
         )
     else:
-        console.print(f"📜 Creating job script [bold blue]{name}[/bold blue]")
-        console.print(f"   Type: [green]{script_type}[/green]")
+        ctx.obj.console.print(f"📜 Creating job script [bold blue]{name}[/bold blue]")
+        ctx.obj.console.print(f"   Type: [green]{script_type}[/green]")
         if description:
-            console.print(f"   Description: {description}")
-        console.print("✅ Job script created successfully!")
+            ctx.obj.console.print(f"   Description: {description}")
+        ctx.obj.console.print("✅ Job script created successfully!")

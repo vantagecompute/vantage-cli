@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -75,8 +72,8 @@ async def list_networks(
         )
     else:
         # Rich console output
-        console.print("🌐 Virtual Networks:")
-        console.print()
+        ctx.obj.console.print("🌐 Virtual Networks:")
+        ctx.obj.console.print()
 
         networks = [
             ("network-123", "production-vpc", "10.0.0.0/16", "us-west-2", "active"),
@@ -84,10 +81,10 @@ async def list_networks(
         ]
 
         for net_id, name, cidr, reg, stat in networks:
-            console.print(f"  🏷️  [bold blue]{net_id}[/bold blue] - {name}")
-            console.print(
+            ctx.obj.console.print(f"  🏷️  [bold blue]{net_id}[/bold blue] - {name}")
+            ctx.obj.console.print(
                 f"      CIDR: [cyan]{cidr}[/cyan] | Region: [yellow]{reg}[/yellow] | Status: [green]{stat}[/green]"
             )
-            console.print()
+            ctx.obj.console.print()
 
-        console.print(f"📊 Total networks: {len(networks)}")
+        ctx.obj.console.print(f"📊 Total networks: {len(networks)}")

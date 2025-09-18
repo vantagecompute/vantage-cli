@@ -13,7 +13,6 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
@@ -26,8 +25,6 @@ async def list_federations(
     ctx: typer.Context,
 ):
     """List all Vantage federations."""
-    console = Console()
-
     # Determine output format
     use_json = get_effective_json_output(ctx)
 
@@ -41,6 +38,6 @@ async def list_federations(
             }
         )
     else:
-        console.print("🔗 [bold blue]Federation List Command[/bold blue]")
-        console.print("📋 This command will list all federations")
-        console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+        ctx.obj.console.print("🔗 [bold blue]Federation List Command[/bold blue]")
+        ctx.obj.console.print("📋 This command will list all federations")
+        ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")

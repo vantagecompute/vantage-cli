@@ -14,15 +14,12 @@
 from datetime import datetime
 
 import typer
-from rich.console import Console
 from rich.table import Table
 
 from vantage_cli.apps.common import load_deployments
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.format import render_json
-
-console = Console()
 
 
 @attach_settings
@@ -36,7 +33,7 @@ async def list_deployments(
 
     try:
         # Load deployments from YAML file
-        deployments_data = load_deployments()
+        deployments_data = load_deployments(ctx.obj.console)
         active_deployments = {
             dep_id: dep_data
             for dep_id, dep_data in deployments_data["deployments"].items()
@@ -63,8 +60,8 @@ async def list_deployments(
 
         # Rich table output
         if not active_deployments:
-            console.print("[yellow]No active deployments found.[/yellow]")
-            console.print(
+            ctx.obj.console.print("[yellow]No active deployments found.[/yellow]")
+            ctx.obj.console.print(
                 "[dim]Use 'vantage deployment create <app> <cluster>' to create a deployment.[/dim]"
             )
             return
@@ -97,9 +94,11 @@ async def list_deployments(
                 deployment_name, deployment_id, app_name, cluster_name, created_at, status
             )
 
-        console.print(table)
-        console.print(f"\n[bold]Found {len(active_deployments)} active deployment(s)[/bold]")
+        ctx.obj.console.print(table)
+        ctx.obj.console.print(
+            f"\n[bold]Found {len(active_deployments)} active deployment(s)[/bold]"
+        )
 
     except Exception as e:
-        console.print(f"[bold red]Error listing deployments: {e}[/bold red]")
+        ctx.obj.console.print(f"[bold red]Error listing deployments: {e}[/bold red]")
         raise typer.Exit(1)

@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -60,11 +57,11 @@ async def create_storage(
         )
     else:
         # Rich console output
-        console.print(f"💾 Creating storage volume [bold blue]{name}[/bold blue]")
-        console.print(f"   Size: [green]{size} GB[/green]")
-        console.print(f"   Type: [yellow]{storage_type}[/yellow]")
+        ctx.obj.console.print(f"💾 Creating storage volume [bold blue]{name}[/bold blue]")
+        ctx.obj.console.print(f"   Size: [green]{size} GB[/green]")
+        ctx.obj.console.print(f"   Type: [yellow]{storage_type}[/yellow]")
         if zone:
-            console.print(f"   Zone: [cyan]{zone}[/cyan]")
+            ctx.obj.console.print(f"   Zone: [cyan]{zone}[/cyan]")
         if description:
-            console.print(f"   Description: {description}")
-        console.print("✅ Storage volume creation initiated!")
+            ctx.obj.console.print(f"   Description: {description}")
+        ctx.obj.console.print("✅ Storage volume creation initiated!")

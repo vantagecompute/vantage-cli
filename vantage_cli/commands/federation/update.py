@@ -15,7 +15,6 @@ from typing import Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
@@ -41,8 +40,6 @@ async def update_federation(
     ] = None,
 ):
     """Update a Vantage federation."""
-    console = Console()
-
     # Determine output format
     use_json = get_effective_json_output(ctx)
 
@@ -59,12 +56,12 @@ async def update_federation(
             }
         )
     else:
-        console.print("🔗 [bold blue]Federation Update Command[/bold blue]")
-        console.print(f"✏️  Updating federation: [bold]{name}[/bold]")
+        ctx.obj.console.print("🔗 [bold blue]Federation Update Command[/bold blue]")
+        ctx.obj.console.print(f"✏️  Updating federation: [bold]{name}[/bold]")
         if description:
-            console.print(f"📋 New description: {description}")
+            ctx.obj.console.print(f"📋 New description: {description}")
         if add_cluster:
-            console.print(f"➕ Adding cluster: {add_cluster}")
+            ctx.obj.console.print(f"➕ Adding cluster: {add_cluster}")
         if remove_cluster:
-            console.print(f"➖ Removing cluster: {remove_cluster}")
-        console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+            ctx.obj.console.print(f"➖ Removing cluster: {remove_cluster}")
+        ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")

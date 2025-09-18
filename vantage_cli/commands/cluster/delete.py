@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 import typer
 from loguru import logger
+from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import list_deployments_by_cluster, remove_deployment
@@ -48,17 +49,15 @@ async def delete_cluster(
 
     # Confirmation prompt unless force is used
     if not force and not effective_json:
-        from rich.console import Console
         from rich.prompt import Confirm
 
-        console = Console()
-        console.print(
+        ctx.obj.console.print(
             f"\n[yellow]⚠️  You are about to delete cluster '[bold red]{cluster_name}[/bold red]'[/yellow]"
         )
-        console.print("[yellow]This action cannot be undone![/yellow]")
+        ctx.obj.console.print("[yellow]This action cannot be undone![/yellow]")
 
         if not Confirm.ask("Are you sure you want to proceed?"):
-            console.print("[dim]Deletion cancelled.[/dim]")
+            ctx.obj.console.print("[dim]Deletion cancelled.[/dim]")
             return
 
     # GraphQL mutation for deleting a cluster
@@ -105,11 +104,12 @@ async def delete_cluster(
 
         # If cluster deletion was successful and app cleanup was requested
         if success and app:
-            await _cleanup_app_deployments(cluster_name, app, effective_json)
+            await _cleanup_app_deployments(ctx, cluster_name, app, effective_json, ctx.obj.console)
 
         # Render deletion result
         render_cluster_deletion_result(
             cluster_name=cluster_name,
+            console=ctx.obj.console,
             success=success,
             json_output=effective_json,
         )
@@ -126,36 +126,39 @@ async def delete_cluster(
         )
 
 
-async def _call_app_cleanup_function(app: str, cluster_data: dict[str, Any]) -> None:
+async def _call_app_cleanup_function(
+    ctx: typer.Context, app: str, cluster_data: dict[str, Any]
+) -> None:
     """Call the appropriate cleanup function based on app type."""
     if app == "slurm-juju-localhost":
         from vantage_cli.apps.slurm_juju_localhost.app import cleanup_juju_localhost
 
-        await cleanup_juju_localhost(cluster_data)
+        await cleanup_juju_localhost(ctx, cluster_data)
     elif app == "slurm-multipass-localhost":
         from vantage_cli.apps.slurm_multipass_localhost.app import (
             cleanup_multipass_localhost,
         )
 
-        await cleanup_multipass_localhost(cluster_data)
+        await cleanup_multipass_localhost(ctx, cluster_data)
     elif app == "slurm-microk8s-localhost":
         from vantage_cli.apps.slurm_microk8s_localhost.app import (
             cleanup_microk8s_localhost,
         )
 
-        await cleanup_microk8s_localhost(cluster_data)
+        await cleanup_microk8s_localhost(ctx, cluster_data)
     else:
         raise ValueError(f"Unknown app type: {app}")
 
 
 async def _cleanup_single_deployment(
-    deployment_id: str, deployment: dict[str, Any], app: str, json_output: bool
+    ctx: typer.Context,
+    deployment_id: str,
+    deployment: dict[str, Any],
+    app: str,
+    json_output: bool,
+    console: Console,
 ) -> bool:
     """Clean up a single deployment and return True if successful."""
-    from rich.console import Console
-
-    console = Console()
-
     try:
         if not json_output:
             console.print(f"[blue]Cleaning up deployment: {deployment_id}[/blue]")
@@ -165,7 +168,7 @@ async def _cleanup_single_deployment(
 
         # Call the appropriate cleanup function
         try:
-            await _call_app_cleanup_function(app, cluster_data)
+            await _call_app_cleanup_function(ctx, app, cluster_data)
         except ValueError:
             if not json_output:
                 console.print(
@@ -174,7 +177,7 @@ async def _cleanup_single_deployment(
             return False
 
         # Remove deployment entry from tracking file
-        if remove_deployment(deployment_id):
+        if remove_deployment(deployment_id, console):
             if not json_output:
                 console.print(f"[green]✓ Cleaned up deployment '{deployment_id}'[/green]")
             return True
@@ -193,25 +196,25 @@ async def _cleanup_single_deployment(
         return False
 
 
-async def _cleanup_app_deployments(cluster_name: str, app: str, json_output: bool) -> None:
-    """Clean up app deployments for a specific cluster.
+async def _cleanup_app_deployments(
+    ctx: typer.Context, cluster_name: str, app: str, json_output: bool, console: Console
+) -> None:
+    """Clean up all deployments of a specific app type for a cluster.
 
     Args:
-        cluster_name: Name of the cluster
-        app: Name of the app to clean up (e.g., slurm-juju-localhost)
+        ctx: The typer context object for console access.
+        cluster_name: Name of the cluster to clean up
+        app: Type of app to clean up
         json_output: Whether to output JSON or rich console messages
+        console: Console instance for output
     """
-    from rich.console import Console
-
-    console = Console()
-
     if not json_output:
         console.print(
             f"\n[blue]Cleaning up '{app}' deployments for cluster '{cluster_name}'...[/blue]"
         )
 
     # Find deployments for this cluster
-    cluster_deployments = list_deployments_by_cluster(cluster_name)
+    cluster_deployments = list_deployments_by_cluster(cluster_name, console)
 
     # Filter to only the specified app type
     app_deployments = {
@@ -229,7 +232,9 @@ async def _cleanup_app_deployments(cluster_name: str, app: str, json_output: boo
 
     cleanup_count = 0
     for deployment_id, deployment in app_deployments.items():
-        if await _cleanup_single_deployment(deployment_id, deployment, app, json_output):
+        if await _cleanup_single_deployment(
+            ctx, deployment_id, deployment, app, json_output, console
+        ):
             cleanup_count += 1
 
     if not json_output:

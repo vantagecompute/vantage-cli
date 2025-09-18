@@ -19,7 +19,6 @@ from typing import Any, Dict
 
 import typer
 from loguru import logger
-from rich.console import Console
 from rich.panel import Panel
 from typing_extensions import Annotated
 
@@ -52,19 +51,18 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     Raises:
         typer.Exit: If deployment fails due to missing dependencies or invalid configuration
     """
-    console = Console()
-    console.print(Panel("Multipass Singlenode Application"))
-    console.print("Deploying multipass singlenode application...")
+    ctx.obj.console.print(Panel("Multipass Singlenode Application"))
+    ctx.obj.console.print("Deploying multipass singlenode application...")
 
     multipass = which("multipass")  # Ensure multipass is installed
     if not multipass:
-        console.print(ERROR_MULTIPASS_NOT_FOUND)
-        console.print(f"{os.environ.get('PATH')}")  # Print the PATH environment variable
+        ctx.obj.console.print(ERROR_MULTIPASS_NOT_FOUND)
+        ctx.obj.console.print(f"{os.environ.get('PATH')}")  # Print the PATH environment variable
         raise typer.Exit(code=1)
 
         # Validate cluster data and extract credentials
-    cluster_data = validate_cluster_data(cluster_data, console)
-    client_id, _ = validate_client_credentials(cluster_data, console)
+    cluster_data = validate_cluster_data(cluster_data, ctx.obj.console)
+    client_id, _ = validate_client_credentials(cluster_data, ctx.obj.console)
 
     # Extract cluster name from cluster data
     cluster_name = cluster_data.get("name", "unknown-cluster")
@@ -77,7 +75,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
 
         client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
 
-    client_secret = require_client_secret(client_secret, console)
+    client_secret = require_client_secret(client_secret, ctx.obj.console)
 
     logger.debug("Client secret obtained (or placeholder used).")
 
@@ -108,7 +106,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
         "deployment_name", f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
     )
     instance_name = deployment_name
-    console.print(f"Launching: {instance_name}")
+    ctx.obj.console.print(f"Launching: {instance_name}")
 
     shared_dir = Path.home() / "multipass-singlenode" / "shared"
     shared_dir.mkdir(parents=True, exist_ok=True)
@@ -150,21 +148,27 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
         p.communicate(input=cloud_init_config.encode("utf-8"))
 
         if p.returncode == 0:
-            console.print(f"[green]Successfully launched instance: {instance_name}[/green]")
-            console.print("Use 'multipass list' to see the instance status.")
-            console.print(f"Use 'multipass shell {instance_name}' to access the instance shell.")
-            console.print("Remember to set up your SSH keys for passwordless access if needed.")
-            console.print(
+            ctx.obj.console.print(
+                f"[green]Successfully launched instance: {instance_name}[/green]"
+            )
+            ctx.obj.console.print("Use 'multipass list' to see the instance status.")
+            ctx.obj.console.print(
+                f"Use 'multipass shell {instance_name}' to access the instance shell."
+            )
+            ctx.obj.console.print(
+                "Remember to set up your SSH keys for passwordless access if needed."
+            )
+            ctx.obj.console.print(
                 "It may take a few minutes for all services to start inside the instance."
             )
         else:
-            console.print(
+            ctx.obj.console.print(
                 f"[red]Error launching multipass instance: return code {p.returncode}[/red]"
             )
             raise typer.Exit(code=1)
 
     except subprocess.CalledProcessError as e:
-        console.print(f"[red]Error launching multipass instance: {e}[/red]")
+        ctx.obj.console.print(f"[red]Error launching multipass instance: {e}[/red]")
         raise typer.Exit(code=1)
 
 
@@ -181,9 +185,8 @@ async def deploy_command(
     ] = False,
 ) -> None:
     """Deploy a Vantage Multipass Singlenode SLURM cluster."""
-    console = Console()
-    console.print(Panel("Multipass Singlenode SLURM Application"))
-    console.print("Deploying multipass singlenode slurm application...")
+    ctx.obj.console.print(Panel("Multipass Singlenode SLURM Application"))
+    ctx.obj.console.print("Deploying multipass singlenode slurm application...")
 
     cluster_data = generate_dev_cluster_data(cluster_name)
     if not dev_run:
@@ -193,24 +196,23 @@ async def deploy_command(
         if cluster_data is None:
             raise ValueError(f"Cluster '{cluster_name}' not found")
     else:
-        console.print(
+        ctx.obj.console.print(
             f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
         )
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
 
 
-async def cleanup_multipass_localhost(cluster_data: Dict[str, Any]) -> None:
+async def cleanup_multipass_localhost(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     """Clean up a Multipass SLURM deployment by deleting the instance.
 
     Args:
+        ctx: The typer context object for console access.
         cluster_data: Dictionary containing deployment information including deployment_name
 
     Raises:
         Exception: If cleanup fails (non-critical, logged and continued)
     """
-    console = Console()
-
     try:
         # Extract deployment_name from cluster_data
         deployment_name = cluster_data.get("deployment_name")
@@ -220,7 +222,7 @@ async def cleanup_multipass_localhost(cluster_data: Dict[str, Any]) -> None:
             if client_id:
                 deployment_name = f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
             else:
-                console.print(
+                ctx.obj.console.print(
                     "[yellow]Warning: No deployment_name or client_id found in cluster_data for cleanup[/yellow]"
                 )
                 return
@@ -228,12 +230,12 @@ async def cleanup_multipass_localhost(cluster_data: Dict[str, Any]) -> None:
         # Use deployment_name as instance name (matches deploy function)
         instance_name = deployment_name
 
-        console.print(f"[blue]Cleaning up Multipass instance: {instance_name}[/blue]")
+        ctx.obj.console.print(f"[blue]Cleaning up Multipass instance: {instance_name}[/blue]")
 
         # Check if multipass is available
         multipass = which("multipass")
         if not multipass:
-            console.print(
+            ctx.obj.console.print(
                 "[yellow]Warning: multipass command not found, skipping cleanup[/yellow]"
             )
             return
@@ -247,18 +249,18 @@ async def cleanup_multipass_localhost(cluster_data: Dict[str, Any]) -> None:
         )
 
         if result.returncode == 0:
-            console.print(
+            ctx.obj.console.print(
                 f"[green]Successfully deleted Multipass instance: {instance_name}[/green]"
             )
         else:
             # Instance might not exist or already deleted - not a critical error
-            console.print(
+            ctx.obj.console.print(
                 f"[yellow]Multipass delete returned code {result.returncode}: {result.stderr.strip()}[/yellow]"
             )
-            console.print("[yellow]Instance may not exist or was already deleted[/yellow]")
+            ctx.obj.console.print("[yellow]Instance may not exist or was already deleted[/yellow]")
 
     except subprocess.TimeoutExpired:
-        console.print("[yellow]Warning: Multipass delete operation timed out[/yellow]")
+        ctx.obj.console.print("[yellow]Warning: Multipass delete operation timed out[/yellow]")
     except Exception as e:
-        console.print(f"[yellow]Warning: Error during Multipass cleanup: {e}[/yellow]")
+        ctx.obj.console.print(f"[yellow]Warning: Error during Multipass cleanup: {e}[/yellow]")
         logger.warning(f"Multipass cleanup failed: {e}")

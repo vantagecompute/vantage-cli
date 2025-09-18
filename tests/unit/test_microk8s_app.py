@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import typer
 
+from tests.conftest import MockConsole
 from vantage_cli.apps.slurm_microk8s_localhost import app as microk8s_app
 
 
@@ -42,7 +43,9 @@ def ctx() -> MagicMock:
     mock_ctx = MagicMock()
     mock_settings = SimpleNamespace()
     mock_settings.oidc_domain = "auth.example.com"
-    mock_ctx.obj = SimpleNamespace(profile="test_profile", settings=mock_settings)
+    mock_ctx.obj = SimpleNamespace(
+        profile="test_profile", settings=mock_settings, console=MockConsole()
+    )
     return mock_ctx
 
 
@@ -58,7 +61,7 @@ def test_deploy_missing_microk8s_binary(ctx: MagicMock):
     with patch("vantage_cli.apps.slurm_microk8s_localhost.app.shutil.which", return_value=None):
         with pytest.raises(typer.Exit) as exc:
             ctx2 = MagicMock()
-            ctx2.obj = SimpleNamespace(profile="p")
+            ctx2.obj = SimpleNamespace(profile="p", console=MockConsole())
             # call the internal deploy coroutine via run (simpler than invoking deploy_command decorator path)
             import asyncio
 

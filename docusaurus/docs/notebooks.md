@@ -3,7 +3,7 @@ title: Notebooks
 description: Notebooks Lifecycle in Vantage CLI
 ---
 
-## Notebook Overview
+## Notebook Server Overview
 
 The Vantage CLI supports Notebook Server lifecycle management subcommand `notebook` supports CRUD operations; create, delete, get, update, list.
 

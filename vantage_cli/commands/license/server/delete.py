@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -40,7 +37,7 @@ async def delete_license_server(
             f"Are you sure you want to delete license server '{server_id}'?"
         )
         if not confirmation:
-            console.print("❌ Operation cancelled.")
+            ctx.obj.console.print("❌ Operation cancelled.")
             raise typer.Exit(0)
 
     if get_effective_json_output(ctx):
@@ -54,6 +51,6 @@ async def delete_license_server(
         )
     else:
         # Rich console output
-        console.print("🔑 License Server Delete Command")
-        console.print(f"📋 Deleting license server: {server_id}")
-        console.print("⚠️  Not yet implemented - this is a stub")
+        ctx.obj.console.print("🔑 License Server Delete Command")
+        ctx.obj.console.print(f"📋 Deleting license server: {server_id}")
+        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")

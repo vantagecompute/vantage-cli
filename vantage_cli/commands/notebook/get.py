@@ -85,14 +85,11 @@ async def get_notebook(
                 raise Abort(f"Notebook server '{name}' not found")
 
         if len(matching_notebooks) > 1:
-            from rich.console import Console
-
-            console = Console()
-            console.print(
+            ctx.obj.console.print(
                 "[yellow]Warning: Multiple notebook servers found with the same name[/yellow]"
             )
             if cluster is None:
-                console.print(
+                ctx.obj.console.print(
                     "[yellow]Consider specifying a cluster with --cluster to disambiguate[/yellow]"
                 )
 
@@ -109,6 +106,7 @@ async def get_notebook(
         render_notebook_details(
             notebook_response_dict,
             json_output=effective_json,
+            console=ctx.obj.console,
         )
 
     except Exception as e:

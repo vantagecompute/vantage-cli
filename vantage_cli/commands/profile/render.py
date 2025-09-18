@@ -21,6 +21,7 @@ from rich.table import Table
 def render_profile_operation_result(
     operation: str,
     profile_name: str,
+    console: Console,
     success: bool = True,
     details: Optional[Dict[str, Any]] = None,
 ) -> None:
@@ -29,10 +30,10 @@ def render_profile_operation_result(
     Args:
         operation: The operation performed (create, delete, update)
         profile_name: Name of the profile
+        console: Rich Console instance
         success: Whether the operation was successful
         details: Additional details about the operation
     """
-    console = Console()
     console.print()
 
     status_icon = "✅" if success else "❌"

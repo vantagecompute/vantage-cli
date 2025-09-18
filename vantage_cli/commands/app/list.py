@@ -12,15 +12,12 @@
 """List available applications."""
 
 import typer
-from rich.console import Console
 from rich.table import Table
 
 from vantage_cli.commands.cluster.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.format import render_json
-
-console = Console()
 
 
 @handle_abort
@@ -64,7 +61,7 @@ async def list_apps(
 
         # Rich table output
         if not available_apps:
-            console.print("[yellow]No applications found.[/yellow]")
+            ctx.obj.console.print("[yellow]No applications found.[/yellow]")
             return
 
         table = Table(
@@ -98,9 +95,9 @@ async def list_apps(
 
             table.add_row(app_name, module_name, description)
 
-        console.print(table)
-        console.print(f"\n[bold]Found {len(available_apps)} application(s)[/bold]")
+        ctx.obj.console.print(table)
+        ctx.obj.console.print(f"\n[bold]Found {len(available_apps)} application(s)[/bold]")
 
     except Exception as e:
-        console.print(f"[bold red]Error listing applications: {e}[/bold red]")
+        ctx.obj.console.print(f"[bold red]Error listing applications: {e}[/bold red]")
         raise typer.Exit(1)

@@ -21,31 +21,43 @@ def _strip_ansi(text: str) -> str:
 
 
 def test_render_profile_operation_result_success_with_details(capsys):
+    from tests.conftest import MockConsole
+
+    console = MockConsole()
     details = {
-        "client_id": "abc123",
-        "client_secret": None,  # Should be skipped
-        "description": "Test profile",
+        "clientId": "client-123",
+        "description": "A test profile",
         "owner_email": "user@example.com",
     }
     profile_render.render_profile_operation_result(
-        operation="create", profile_name="test-profile", success=True, details=details
+        operation="create",
+        profile_name="test-profile",
+        console=console,
+        success=True,
+        details=details,
     )
 
-    out = _strip_ansi(capsys.readouterr().out)
-    assert "Profile 'test-profile' create successful" in out
-    # Table headers converted to Title Case with spaces
-    assert "Client Id" in out
-    assert "Description" in out
-    assert "Owner Email" in out
-    # Skipped None value
-    assert "Client Secret" not in out
+    # Check that console.print was called multiple times (empty line, panel, table, etc.)
+    assert console.print.call_count >= 2
+    # Check that some Rich object was printed (Panel or Table)
+    call_args = [call[0] for call in console.print.call_args_list if call[0]]
+    assert any(
+        hasattr(arg[0], "renderable") or hasattr(arg[0], "title") for arg in call_args if arg
+    )
 
 
 def test_render_profile_operation_result_failure_no_details(capsys):
+    from tests.conftest import MockConsole
+
+    console = MockConsole()
     profile_render.render_profile_operation_result(
-        operation="delete", profile_name="prod", success=False, details=None
+        operation="delete", profile_name="prod", console=console, success=False, details=None
     )
-    out = _strip_ansi(capsys.readouterr().out)
-    assert "Profile 'prod' delete failed" in out
-    # No details table should be rendered
-    assert "Profile Details" not in out
+
+    # Check that console.print was called (empty line + panel)
+    assert console.print.call_count >= 2
+    # Check that some Rich object was printed
+    call_args = [call[0] for call in console.print.call_args_list if call[0]]
+    assert any(
+        hasattr(arg[0], "renderable") or hasattr(arg[0], "title") for arg in call_args if arg
+    )

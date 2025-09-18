@@ -80,10 +80,9 @@ class TestNotebookCreate:
                 "vantage_cli.commands.notebook.create.get_effective_json_output",
                 return_value=False,
             ):
-                with patch("vantage_cli.commands.notebook.create.console") as mock_console:
-                    await create_notebook(ctx=ctx, name="nb", cluster_name="c", partition_name="p")
-                    client.execute_async.assert_called_once()
-                    mock_console.print.assert_called()
+                await create_notebook(ctx=ctx, name="nb", cluster_name="c", partition_name="p")
+                client.execute_async.assert_called_once()
+                ctx.obj.console.print.assert_called()
 
 
 class TestNotebookList:
@@ -190,8 +189,7 @@ class TestNotebookUpdate:
 
     @patch("vantage_cli.commands.notebook.update.get_effective_json_output")
     @patch("vantage_cli.commands.notebook.update.print_json")
-    @patch("vantage_cli.commands.notebook.update.console")
-    def test_update_notebook_json_path(self, mock_console, mock_print_json, mock_get_json):
+    def test_update_notebook_json_path(self, mock_print_json, mock_get_json):
         """Test the JSON output path of update notebook."""
         from vantage_cli.commands.notebook.update import update_notebook
 
@@ -224,12 +222,11 @@ class TestNotebookUpdate:
         # Verify JSON output was called
         mock_print_json.assert_called_once()
         # Verify console wasn't used (JSON path)
-        mock_console.print.assert_not_called()
+        assert ctx.obj.console.print.call_count == 0
 
     @patch("vantage_cli.commands.notebook.update.get_effective_json_output")
     @patch("vantage_cli.commands.notebook.update.print_json")
-    @patch("vantage_cli.commands.notebook.update.console")
-    def test_update_notebook_console_path(self, mock_console, mock_print_json, mock_get_json):
+    def test_update_notebook_console_path(self, mock_print_json, mock_get_json):
         """Test the console output path of update notebook."""
         from vantage_cli.commands.notebook.update import update_notebook
 
@@ -254,7 +251,7 @@ class TestNotebookUpdate:
         )
 
         # Verify console output was called
-        assert mock_console.print.call_count >= 2  # At least ID and success message
+        assert ctx.obj.console.print.call_count >= 2  # At least ID and success message
         # Verify JSON wasn't used (console path)
         mock_print_json.assert_not_called()
 
@@ -427,9 +424,8 @@ class TestNotebookDelete:
                 "vantage_cli.commands.notebook.delete.get_effective_json_output",
                 return_value=False,
             ):
-                with patch("vantage_cli.commands.notebook.delete.console") as mock_console:
-                    await delete_notebook(ctx=ctx, name="nb", cluster="c", force=True)
-                    mock_console.print.assert_called()
+                await delete_notebook(ctx=ctx, name="nb", cluster="c", force=True)
+                ctx.obj.console.print.assert_called()
 
     @pytest.mark.asyncio
     async def test_delete_notebook_missing_cluster(self):

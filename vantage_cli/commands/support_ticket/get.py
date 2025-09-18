@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -41,7 +38,7 @@ async def get_support_ticket(
             }
         )
     else:
-        console.print(f"🎫 Support ticket details for {ticket_id}")
-        console.print("  Subject: Help request")
-        console.print("  Status: open")
-        console.print("  Priority: medium")
+        ctx.obj.console.print(f"🎫 Support ticket details for {ticket_id}")
+        ctx.obj.console.print("  Subject: Help request")
+        ctx.obj.console.print("  Status: open")
+        ctx.obj.console.print("  Priority: medium")

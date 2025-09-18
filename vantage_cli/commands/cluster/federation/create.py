@@ -13,7 +13,6 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
@@ -31,8 +30,6 @@ async def create_federation(
     ] = "",
 ):
     """Create a new Vantage federation."""
-    console = Console()
-
     # Determine output format
     # Get JSON flag from context (automatically set by AsyncTyper)
     json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
@@ -49,8 +46,8 @@ async def create_federation(
             }
         )
     else:
-        console.print("🔗 [bold blue]Federation Create Command[/bold blue]")
-        console.print(f"📝 Creating federation: [bold]{name}[/bold]")
+        ctx.obj.console.print("🔗 [bold blue]Federation Create Command[/bold blue]")
+        ctx.obj.console.print(f"📝 Creating federation: [bold]{name}[/bold]")
         if description:
-            console.print(f"📋 Description: {description}")
-        console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+            ctx.obj.console.print(f"📋 Description: {description}")
+        ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")

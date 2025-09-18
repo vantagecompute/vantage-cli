@@ -18,7 +18,6 @@ from typing import Any, Optional
 import click
 import typer
 from loguru import logger
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import track_deployment
@@ -29,8 +28,6 @@ from vantage_cli.gql_client import create_async_graphql_client
 
 from .render import render_cluster_details
 from .utils import get_app_choices, get_cloud_choices
-
-console = Console()
 
 
 @handle_abort
@@ -170,7 +167,9 @@ async def create_cluster(
 
         # Execute the mutation
         logger.debug(f"Creating cluster: {cluster_name}")
-        console.print(f"[bold blue]Creating cluster '{cluster_name}' on {cloud}...[/bold blue]")
+        ctx.obj.console.print(
+            f"[bold blue]Creating cluster '{cluster_name}' on {cloud}...[/bold blue]"
+        )
 
         response_data = await graphql_client.execute_async(create_mutation, variables)
 
@@ -188,7 +187,9 @@ async def create_cluster(
         if "message" in create_result:
             # This is an error response
             error_message = create_result["message"]
-            console.print(f"[bold red]Failed to create cluster: {error_message}[/bold red]")
+            ctx.obj.console.print(
+                f"[bold red]Failed to create cluster: {error_message}[/bold red]"
+            )
             raise Abort(
                 f"Cluster creation failed: {error_message}",
                 subject="Cluster Creation Failed",
@@ -197,20 +198,20 @@ async def create_cluster(
 
         # Success case - cluster was created
         if "name" in create_result:
-            console.print(
+            ctx.obj.console.print(
                 f"[bold green]✓ Cluster '{create_result['name']}' created successfully![/bold green]"
             )
-            console.print()
+            ctx.obj.console.print()
 
             # Display detailed cluster information
-            render_cluster_details(create_result, json_output=False)
+            render_cluster_details(create_result, ctx.obj.console, json_output=False)
 
             # Deploy application if --app option was provided
             if app:
                 await deploy_app_to_cluster(ctx, create_result, app)
 
         else:
-            console.print(
+            ctx.obj.console.print(
                 "[bold yellow]Cluster creation initiated but status unclear[/bold yellow]"
             )
 
@@ -233,10 +234,10 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
         available_apps = get_available_apps()
 
         if app_name not in available_apps:
-            console.print(f"[bold red]✗ App '{app_name}' not found[/bold red]")
+            ctx.obj.console.print(f"[bold red]✗ App '{app_name}' not found[/bold red]")
             return
 
-        console.print(
+        ctx.obj.console.print(
             f"[bold blue]Deploying app '{app_name}' to cluster '{cluster_data['name']}'...[/bold blue]"
         )
 
@@ -263,6 +264,7 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
                 cluster_name=cluster_data["name"],
                 cluster_data=cluster_data,
                 deployment_name=deployment_name,
+                console=ctx.obj.console,
                 additional_metadata={
                     "deployment_method": "vantage cluster create --app",
                     "cluster_created": True,
@@ -270,7 +272,9 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
                 },
             )
 
-            console.print(f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]")
+            ctx.obj.console.print(
+                f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
+            )
         elif "instance" in app_info:
             # Class-based app
             app_instance = app_info["instance"]
@@ -293,6 +297,7 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
                     cluster_name=cluster_data["name"],
                     cluster_data=cluster_data,
                     deployment_name=deployment_name,
+                    console=ctx.obj.console,
                     additional_metadata={
                         "deployment_method": "vantage cluster create --app",
                         "cluster_created": True,
@@ -300,27 +305,27 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
                     },
                 )
 
-                console.print(
+                ctx.obj.console.print(
                     f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
                 )
             else:
-                console.print(
+                ctx.obj.console.print(
                     f"[bold yellow]! App '{app_name}' does not support automatic deployment[/bold yellow]"
                 )
-                console.print(
+                ctx.obj.console.print(
                     "[dim]You can manually deploy this app using the appropriate commands.[/dim]"
                 )
         else:
-            console.print(
+            ctx.obj.console.print(
                 f"[bold yellow]! App '{app_name}' does not support automatic deployment[/bold yellow]"
             )
-            console.print(
+            ctx.obj.console.print(
                 "[dim]You can manually deploy this app using the appropriate commands.[/dim]"
             )
 
     except Exception as e:
         logger.error(f"Failed to deploy app '{app_name}': {e}")
-        console.print(f"[bold red]✗ Failed to deploy app '{app_name}': {e}[/bold red]")
-        console.print(
+        ctx.obj.console.print(f"[bold red]✗ Failed to deploy app '{app_name}': {e}[/bold red]")
+        ctx.obj.console.print(
             "[dim]The cluster was created successfully, but app deployment failed.[/dim]"
         )

@@ -19,6 +19,8 @@ import click
 import pytest
 import typer
 
+from tests.conftest import MockConsole
+
 # Import the functions we want to test
 try:
     from vantage_cli.commands.profile.crud import (
@@ -41,7 +43,9 @@ class TestCreateProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile=None, verbose=False, json_output=False, console=MockConsole()
+        )
         ctx.params = {"json_output": False}
         return ctx
 
@@ -221,7 +225,9 @@ class TestDeleteProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile=None, verbose=False, json_output=False, console=MockConsole()
+        )
         ctx.params = {"json_output": False}
         return ctx
 
@@ -381,7 +387,9 @@ class TestGetProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile=None, verbose=False, json_output=False, console=MockConsole()
+        )
         ctx.params = {"json_output": False}
         return ctx
 
@@ -511,7 +519,9 @@ class TestListProfiles:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile=None, verbose=False, json_output=False, console=MockConsole()
+        )
         ctx.params = {"json_output": False}
         return ctx
 
@@ -634,7 +644,9 @@ class TestUseProfile:
     def mock_context(self):
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile=None, verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile=None, verbose=False, json_output=False, console=MockConsole()
+        )
         ctx.params = {"json_output": False}
         return ctx
 
@@ -737,10 +749,8 @@ class TestUseProfile:
     @patch("vantage_cli.commands.profile.crud._get_all_profiles")
     @patch("vantage_cli.commands.profile.crud.get_effective_json_output")
     @patch("vantage_cli.commands.profile.crud.set_active_profile")
-    @patch("vantage_cli.commands.profile.crud.Console")
     def test_use_profile_success_rich(
         self,
-        mock_console_class,
         mock_set_active,
         mock_json_output,
         mock_get_profiles,
@@ -751,8 +761,6 @@ class TestUseProfile:
         # Setup mocks
         mock_get_profiles.return_value = sample_profiles
         mock_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
 
         # Call the function
         use_profile(
@@ -763,8 +771,8 @@ class TestUseProfile:
         # Verify activation
         mock_set_active.assert_called_once_with("staging")
 
-        # Verify console output
-        mock_console.print.assert_called()
+        # Verify console output using the MockConsole from context
+        mock_context.obj.console.print.assert_called()
 
 
 class TestHelperFunctions:
@@ -827,7 +835,7 @@ class TestHelperFunctions:
             },
         }
 
-        _render_profiles_table(profiles, "default")
+        _render_profiles_table(profiles, "default", mock_console)
 
         # Verify console was used
         mock_console.print.assert_called()
@@ -847,7 +855,7 @@ class TestHelperFunctions:
             oidc_max_poll_time=300,
         )
 
-        _render_profile_details("test-profile", settings)
+        _render_profile_details("test-profile", settings, mock_console)
 
         # Verify console was used
         mock_console.print.assert_called()

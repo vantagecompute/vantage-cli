@@ -13,7 +13,6 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 from rich.panel import Panel
 
 from vantage_cli.config import clear_settings
@@ -26,25 +25,23 @@ def clear_config(
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ):
     """Clear all user tokens and configuration."""
-    console = Console()
-
     json_output = getattr(ctx.obj, "json_output", False)
 
     if not force:
         # Ask for confirmation
-        console.print()
-        console.print(
+        ctx.obj.console.print()
+        ctx.obj.console.print(
             "⚠️  [bold yellow]Warning[/bold yellow]: This will clear all configuration "
             "files and cached tokens for all profiles."
         )
-        console.print()
+        ctx.obj.console.print()
 
         confirm = typer.confirm("Are you sure you want to continue?")
         if not confirm:
             if json_output:
                 print_json(data={"cleared": False, "message": "Operation cancelled"})
             else:
-                console.print("Operation cancelled.")
+                ctx.obj.console.print("Operation cancelled.")
             return
 
     # Clear the settings
@@ -55,8 +52,8 @@ def clear_config(
             data={"cleared": True, "message": "All configuration and tokens cleared successfully"}
         )
     else:
-        console.print()
-        console.print(
+        ctx.obj.console.print()
+        ctx.obj.console.print(
             Panel(
                 "✅ All configuration files and cached tokens have been cleared.\n\n"
                 "You will need to run [bold]vantage login[/bold] to authenticate again.",
@@ -64,4 +61,4 @@ def clear_config(
                 border_style="green",
             )
         )
-        console.print()
+        ctx.obj.console.print()

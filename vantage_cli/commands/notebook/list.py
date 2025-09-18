@@ -105,6 +105,7 @@ async def list_notebooks(
             title="Notebook Servers",
             total_count=len(notebooks_list),
             json_output=effective_json,
+            console=ctx.obj.console,
         )
 
     except Exception as e:
