@@ -47,7 +47,7 @@ Configure GitHub notifications for:
 #### Before Asking for Help
 
 1. **Check documentation**: Search our docs for your issue
-2. **Review troubleshooting**: Common issues are covered in the [troubleshooting guide](/cli/troubleshooting)
+2. **Review troubleshooting**: Common issues are covered in the [troubleshooting guide](./troubleshooting)
 3. **Search existing issues**: Your question might already be answered
 4. **Try alternate profiles**: Reproduce with a fresh profile
 
@@ -153,7 +153,7 @@ Want to contribute? We welcome:
 - **Testing**: Testing new features and releases
 - **Community support**: Helping other users
 
-**Start here**: [Contributing Guide](/cli/contributing)
+**Start here**: [Contributing Guide](./contributing)
 
 ### 👥 Maintainers
 
