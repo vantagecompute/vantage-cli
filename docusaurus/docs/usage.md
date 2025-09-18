@@ -20,7 +20,7 @@ uv pip install vantage-cli
 vantage login
 ```
 
-## 3. Cluster Management
+## 3. Cluster Management Commands
 
 ```bash
 # List clusters (using alias)
