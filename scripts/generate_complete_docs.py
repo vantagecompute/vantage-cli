@@ -33,7 +33,7 @@ from types import FrameType
 class CombinedDocumentationGenerator:
     """Combined command help extractor and documentation generator."""
     
-    def __init__(self, output_file: str = "docs/commands.md", module_path: str = "vantage_cli.main"):
+    def __init__(self, output_file: str, module_path: str):
         """Initialize the generator.
         
         Args:
@@ -587,7 +587,7 @@ def main():
     import sys
     
     # Parse command line arguments
-    output_file = "docs/pages/commands.md"
+    output_file = "docusaurus/docs/commands.md"
     module_path = "vantage_cli.main"
     
     if len(sys.argv) > 1:
