@@ -51,8 +51,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh --version
-          echo "$GH_TOKEN" | gh auth login --with-token
-          gh auth status
+          gh auth status -h github.com
 
       - name: Generate & build docs
         run: |
