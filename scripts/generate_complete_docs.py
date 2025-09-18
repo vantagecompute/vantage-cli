@@ -168,8 +168,9 @@ class CombinedDocumentationGenerator:
                 in_commands_section = False
                 break
             elif in_commands_section and line.strip():
-                # Extract command name (first word after │)
-                match = re.match(r'│\s+(\w+)\s+', line)
+                # Extract command name - it should be the first word after │ and before spaces/description
+                # Format: │ command_name      Description text...
+                match = re.match(r'│\s+(\w+)\s{2,}', line)
                 if match:
                     cmd_name = match.group(1)
                     current_path = command_path + [cmd_name]
