@@ -25,19 +25,19 @@ lock:
 [group("docusaurus")]
 docs-install:
     @echo "📦 Installing Docusaurus dependencies..."
-    cd docs && yarn install
+    cd docusaurus && yarn install
 
 # Start Docusaurus development server
 [group("docusaurus")]
 docs-dev: docs-install
     @echo "🚀 Starting Docusaurus development server..."
-    cd docs && yarn start
+    cd docusaurus && yarn start
 
 # Start Docusaurus development server on specific port
 [group("docusaurus")]
 docs-dev-port port="3000": docs-install
     @echo "🚀 Starting Docusaurus development server on port {{port}}..."
-    cd docs && yarn start --port {{port}}
+    cd docusaurus && yarn start --port {{port}}
 
 # Build Docusaurus for production
 [group("docusaurus")]
@@ -45,19 +45,19 @@ docs-build: docs-install
     {{uv_run}} python3 ./scripts/generate_complete_docs.py
     {{uv_run}} python3 ./scripts/update_docs_version.py
     @echo "🏗️ Building Docusaurus for production..."
-    cd docs && yarn build
+    cd docusaurus && yarn build
 
 # Serve built Docusaurus site locally
 [group("docusaurus")]
 docs-serve: docs-build
     @echo "🌐 Serving built Docusaurus site..."
-    cd docs && yarn serve
+    cd docusaurus && yarn serve
 
 # Clean Docusaurus build artifacts
 [group("docusaurus")]
 docs-clean:
     @echo "🧹 Cleaning Docusaurus build artifacts..."
-    cd docs && rm -rf build .docusaurus
+    cd docusaurus && rm -rf build .docusaurus
 
 # Show available documentation commands
 [group("docusaurus")]

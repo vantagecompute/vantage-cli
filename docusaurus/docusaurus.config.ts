@@ -56,7 +56,7 @@ const config: Config = {
       'classic',
       {
         docs: {
-          path: './pages',
+          path: './docs',
           routeBasePath: '/',
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/vantagecompute/vantage-cli/tree/main/docs/',
@@ -75,7 +75,7 @@ const config: Config = {
         // Options here
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: 'pages',
+        docsDir: 'docs',
         ignoreFiles: ['advanced/*', 'private/*'],
         title: 'Vantage Compute CLI Documentation',
           description: 'Complete platform, CLI documentation for Vantage Compute.',
@@ -99,56 +99,56 @@ const config: Config = {
           customLLMFiles: [
             {
               filename: 'llms-index.txt',
-              includePatterns: ['pages/index.md'],
+              includePatterns: ['docs/index.md'],
               fullContent: true,
               title: 'Vantage CLI Documentation Index',
               description: 'Index reference for Vantage CLI'
             },
             {
               filename: 'llms-usage.txt',
-              includePatterns: ['pages/usage.md'],
+              includePatterns: ['docs/usage.md'],
               fullContent: true,
               title: 'Vantage CLI Usage Documentation',
               description: 'Usage documentation for Vantage CLI'
              },
             {
               filename: 'llms-commands.txt',
-              includePatterns: ['pages/commands.md'],
+              includePatterns: ['docs/commands.md'],
               fullContent: true,
               title: 'Vantage CLI Commands Documentation',
               description: 'Commands documentation for Vantage CLI'
             },
             {
               filename: 'llms-contributing.txt',
-              includePatterns: ['pages/contributing.md'],
+              includePatterns: ['docs/contributing.md'],
               fullContent: true,
               title: 'Vantage CLI Contributing Documentation',
               description: 'Contributing documentation for Vantage CLI'
             },
             {
               filename: 'llms-troubleshooting.txt',
-              includePatterns: ['pages/troubleshooting.md'],
+              includePatterns: ['docs/troubleshooting.md'],
               fullContent: true,
               title: 'Vantage CLI Troubleshooting Documentation',
               description: 'Troubleshooting documentation for Vantage CLI'
             },
             {
               filename: 'llms-installation.txt',
-              includePatterns: ['pages/installation.md'],
+              includePatterns: ['docs/installation.md'],
               fullContent: true,
               title: 'Vantage CLI Installation Documentation',
               description: 'Installation documentation for Vantage CLI'
             },
             {
               filename: 'llms-architecture.txt',
-              includePatterns: ['pages/architecture.md'],
+              includePatterns: ['docs/architecture.md'],
               fullContent: true,
               title: 'Vantage CLI Architecture Documentation',
               description: 'Architecture documentation for Vantage CLI'
             },
             {
               filename: 'llms-contact.txt',
-              includePatterns: ['pages/contact.md'],
+              includePatterns: ['docs/contact.md'],
               fullContent: true,
               title: 'Vantage CLI Contact Documentation',
               description: 'Contact documentation for Vantage CLI'
