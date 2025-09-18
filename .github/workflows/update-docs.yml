@@ -8,6 +8,7 @@ on:
       - 'scripts/generate_complete_docs.py'
       - 'scripts/update_docs_version.py'
       - 'pyproject.toml'
+      - 'docusaurus/**'
   
   workflow_dispatch:
 
