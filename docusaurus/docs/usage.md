@@ -185,4 +185,4 @@ vantage clusters --json | jq '{count: (.clusters | length), names: [.clusters[].
 ```
 
 ---
-See also: [Commands](/vantage-cli/commands/) | [Troubleshooting](/vantage-cli/troubleshooting/)
+See also: [Commands](/cli/commands) | [Troubleshooting](/cli/troubleshooting)

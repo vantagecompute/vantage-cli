@@ -63,11 +63,11 @@ vantage cluster create my-slurm-microk8s-cluster \
 
 ### Next Steps
 
-- [Installation Guide](/vantage-cli/installation/) – Install & Configure
-- [Commands Reference](/vantage-cli/commands/) – Complete Command Reference
-- [Private Installation Configuration](/vantage-cli/private-vantage-installation/) – Partner Vantage Deployment CLI Profile Configuration
-- [Notebooks](/vantage-cli/notebooks/) – Jupyterhub Notebook Server Lifecycle
-- [Deployment Applications](/vantage-cli/deployment-applications/) – Slurm Deployment Automation
-- [Usage Examples](/vantage-cli/usage/) – Practical Command Patterns
-- [Architecture](/vantage-cli/architecture/) – Internals & Module Layout
-- [Troubleshooting](/vantage-cli/troubleshooting/) – Common Issues and Solutions
+- [Installation Guide](/cli/installation) – Install & Configure
+- [Commands Reference](/cli/commands) – Complete Command Reference
+- [Private Installation Configuration](/cli/private-vantage-installation) – Partner Vantage Deployment CLI Profile Configuration
+- [Notebooks](/cli/notebooks) – Jupyterhub Notebook Server Lifecycle
+- [Deployment Applications](/cli/deployment-applications) – Slurm Deployment Automation
+- [Usage Examples](/cli/usage) – Practical Command Patterns
+- [Architecture](/cli/architecture) – Internals & Module Layout
+- [Troubleshooting](/cli/troubleshooting) – Common Issues and Solutions
