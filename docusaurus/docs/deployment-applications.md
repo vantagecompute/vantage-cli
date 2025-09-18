@@ -127,4 +127,4 @@ vantage notebook create mynotebook --cluster my-slurm-multipass-cluster --partit
 ```
 
 ---
-See also: [Commands](/cli/commands) | [Troubleshooting](/cli/troubleshooting)
+See also: [Commands](./commands) | [Troubleshooting](./troubleshooting)

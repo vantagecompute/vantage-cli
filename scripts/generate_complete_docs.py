@@ -327,6 +327,9 @@ class CombinedDocumentationGenerator:
         """
         return """# CLI Command Reference
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 This document provides a comprehensive reference for all available CLI commands and their options.
 
 """
@@ -388,10 +391,113 @@ This document provides a comprehensive reference for all available CLI commands 
         header_title = header_map.get(command_name, f"{command_name.title()} Commands")
         markdown.append(f"## {header_title}\n")
         
-        # Get main command help and always show it directly (no tabs for top-level)
-        help_content = self.extract_command_help([command_name])
-        if help_content:
-            # Clean the help content
+        # Generate subcommand sections using Docusaurus tabs
+        if command_data:
+            # Start tabs container
+            markdown.append("<Tabs>")
+            
+            # First tab: main command help
+            help_content = self.extract_command_help([command_name])
+            if help_content:
+                # Clean the help content
+                lines = help_content.split('\n')
+                cleaned_lines: List[str] = []
+                for line in lines:
+                    line = re.sub(r'python3? -m vantage_cli\.main', 'vantage', line)
+                    cleaned_lines.append(line)
+                
+                markdown.append(f"<TabItem value=\"{command_name}\" label=\"🔹 {command_name}\">")
+                markdown.append("")
+                markdown.append("```text")
+                markdown.extend(cleaned_lines)
+                markdown.append("```")
+                markdown.append("")
+                markdown.append("</TabItem>")
+            
+            # Subsequent tabs: subcommands
+            for subcmd_name, subcmd_data in command_data.items():
+                subcmd_path = [command_name, subcmd_name]
+                tab_content = self.generate_subcommand_tab_content(subcmd_path, subcmd_data)
+                if tab_content:
+                    markdown.append(f"<TabItem value=\"{subcmd_name}\" label=\"{subcmd_name}\">")
+                    markdown.append("")
+                    markdown.append(tab_content)
+                    markdown.append("")
+                    markdown.append("</TabItem>")
+            
+            # End tabs container
+            markdown.append("</Tabs>\n")
+        else:
+            # No subcommands, just show the main command help directly
+            help_content = self.extract_command_help([command_name])
+            if help_content:
+                # Clean the help content
+                lines = help_content.split('\n')
+                cleaned_lines: List[str] = []
+                for line in lines:
+                    line = re.sub(r'python3? -m vantage_cli\.main', 'vantage', line)
+                    cleaned_lines.append(line)
+                
+                markdown.append("```text")
+                markdown.extend(cleaned_lines)
+                markdown.append("```\n")
+        
+        return '\n'.join(markdown)
+
+    def generate_subcommand_tab_content(self, command_path: List[str], command_data: Dict[str, Any]) -> str:
+        """Generate content for a subcommand tab.
+        
+        Args:
+            command_path: Full command path (e.g., ['cluster', 'list'])
+            command_data: Subcommand structure data
+            
+        Returns:
+            Markdown content for the tab
+        """
+        markdown: List[str] = []
+        
+        help_content = self.extract_command_help(command_path)
+        if not help_content:
+            return ""
+        
+        # If this command has subcommands, show the main help and create nested tabs
+        if command_data:
+            # Add nested subcommands in nested tabs with main command first
+            if len(command_data) > 0:
+                markdown.append("<Tabs>")
+                
+                # First tab: main command help
+                lines = help_content.split('\n')
+                cleaned_lines: List[str] = []
+                for line in lines:
+                    line = re.sub(r'python3? -m vantage_cli\.main', 'vantage', line)
+                    cleaned_lines.append(line)
+                
+                # Use just the last part of the command for the tab label - make it stand out
+                main_command_label = command_path[-1]
+                markdown.append(f"<TabItem value=\"{main_command_label}\" label=\"🔹 {main_command_label}\">")
+                markdown.append("")
+                markdown.append("```text")
+                markdown.extend(cleaned_lines)
+                markdown.append("```")
+                markdown.append("")
+                markdown.append("</TabItem>")
+                
+                # Subsequent tabs: nested subcommands
+                for subcmd_name, subcmd_data in command_data.items():
+                    nested_path = command_path + [subcmd_name]
+                    nested_content = self.generate_subcommand_tab_content(nested_path, subcmd_data)
+                    if nested_content:
+                        markdown.append(f"<TabItem value=\"{subcmd_name}\" label=\"{subcmd_name}\">")
+                        markdown.append("")
+                        markdown.append(nested_content)
+                        markdown.append("")
+                        markdown.append("</TabItem>")
+                
+                markdown.append("</Tabs>")
+        
+        else:
+            # Leaf command - show the entire help content in a code block
             lines = help_content.split('\n')
             cleaned_lines: List[str] = []
             for line in lines:
@@ -400,13 +506,8 @@ This document provides a comprehensive reference for all available CLI commands 
             
             markdown.append("```text")
             markdown.extend(cleaned_lines)
-            markdown.append("```\n")
-        
-        # Generate subcommand sections - these will be in tabs/details
-        if command_data:
-            for subcmd_name, subcmd_data in command_data.items():
-                subcmd_path = [command_name, subcmd_name]
-                markdown.append(self.generate_subcommand_section(subcmd_path, subcmd_data))
+            markdown.append("```")
+            markdown.append("")
         
         return '\n'.join(markdown)
 
@@ -421,78 +522,9 @@ This document provides a comprehensive reference for all available CLI commands 
         Returns:
             Markdown content for the subcommand
         """
-        markdown: List[str] = []
-        command_name = ' '.join(command_path)
-        
-        help_content = self.extract_command_help(command_path)
-        if not help_content:
-            return ""
-        
-        # If this command has subcommands, treat it as a group with nested details
-        if command_data:
-            anchor_id = "-".join(command_path).replace(" ", "-").lower()
-            
-            # Add main command help content in a details block with clickable anchor
-            markdown.append(f"<details markdown=\"1\" id=\"{anchor_id}\">")
-            markdown.append(f"<summary onclick=\"window.location.hash='{anchor_id}'\">Show {command_name} help</summary>\n")
-            
-            lines = help_content.split('\n')
-            cleaned_lines: List[str] = []
-            for line in lines:
-                line = re.sub(r'python3? -m vantage_cli\.main', 'vantage', line)
-                cleaned_lines.append(line)
-            
-            markdown.append("```bash")
-            markdown.append(f"vantage {command_name} --help")
-            markdown.append("```\n")
-            
-            markdown.append("```text")
-            markdown.extend(cleaned_lines)
-            markdown.append("```\n")
-            
-            markdown.append("</details>\n")
-            
-            # Add nested subcommands
-            for subcmd_name, subcmd_data in command_data.items():
-                nested_path = command_path + [subcmd_name]
-                markdown.append(self.generate_subcommand_section(nested_path, subcmd_data, level + 1))
-        
-        else:
-            # Leaf command - generate simplified documentation with parsed args/options
-            anchor_id = "-".join(command_path).replace(" ", "-").lower()
-            
-            # Parse the help content to extract structured information
-            info = self.extract_detailed_command_info(help_content)
-            
-            markdown.append(f"<details markdown=\"1\" id=\"{anchor_id}\">")
-            markdown.append(f"<summary onclick=\"window.location.hash='{anchor_id}'\">Show {command_name} details</summary>\n")
-            
-            if info["description"]:
-                markdown.append(f"{info['description']}\n")
-            
-            # Usage line
-            usage = self.clean_usage_line(info["usage"])
-            if usage:
-                markdown.append(f"```bash")
-                markdown.append(f"{usage}")
-                markdown.append(f"```\n")
-            
-            # Arguments and options
-            if info["arguments"]:
-                markdown.append("**Arguments:**\n")
-                for arg in info["arguments"]:
-                    markdown.append(f"- {arg}")
-                markdown.append("")
-            
-            if info["options"]:
-                markdown.append("**Options:**\n")
-                for opt in info["options"]:
-                    markdown.append(f"- {opt}")
-                markdown.append("")
-            
-            markdown.append("</details>\n")
-        
-        return '\n'.join(markdown)
+        # This method is now deprecated in favor of generate_subcommand_tab_content
+        # but kept for backward compatibility
+        return self.generate_subcommand_tab_content(command_path, command_data)
 
     def generate_full_documentation(self) -> str:
         """Generate the complete documentation content.
@@ -544,8 +576,52 @@ This document provides a comprehensive reference for all available CLI commands 
             print("Processing config commands...")
             markdown.append("## Configuration Management\n")
             config_data = self.command_structure["config"]
-            for subcmd_name, subcmd_data in config_data.items():
-                markdown.append(self.generate_subcommand_section(["config", subcmd_name], subcmd_data))
+            
+            # Add config commands in tabs with main command as first tab
+            if config_data:
+                markdown.append("<Tabs>")
+                
+                # First tab: main config command help
+                config_help = self.extract_command_help(["config"])
+                if config_help:
+                    lines = config_help.split('\n')
+                    cleaned_lines: List[str] = []
+                    for line in lines:
+                        line = re.sub(r'python3? -m vantage_cli\.main', 'vantage', line)
+                        cleaned_lines.append(line)
+                    
+                    markdown.append("<TabItem value=\"config\" label=\"🔹 config\">")
+                    markdown.append("")
+                    markdown.append("```text")
+                    markdown.extend(cleaned_lines)
+                    markdown.append("```")
+                    markdown.append("")
+                    markdown.append("</TabItem>")
+                
+                # Subsequent tabs: config subcommands
+                for subcmd_name, subcmd_data in config_data.items():
+                    tab_content = self.generate_subcommand_tab_content(["config", subcmd_name], subcmd_data)
+                    if tab_content:
+                        markdown.append(f"<TabItem value=\"{subcmd_name}\" label=\"{subcmd_name}\">")
+                        markdown.append("")
+                        markdown.append(tab_content)
+                        markdown.append("")
+                        markdown.append("</TabItem>")
+                
+                markdown.append("</Tabs>\n")
+            else:
+                # No subcommands, just show main config help
+                config_help = self.extract_command_help(["config"])
+                if config_help:
+                    lines = config_help.split('\n')
+                    cleaned_lines: List[str] = []
+                    for line in lines:
+                        line = re.sub(r'python3? -m vantage_cli\.main', 'vantage', line)
+                        cleaned_lines.append(line)
+                    
+                    markdown.append("```text")
+                    markdown.extend(cleaned_lines)
+                    markdown.append("```\n")
         
         return '\n'.join(markdown)
 
