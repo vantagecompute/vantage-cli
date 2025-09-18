@@ -11,7 +11,7 @@ Vantage CLI is a modern async Python tool that unifies authentication, profile m
 
 ### Quick Start
 
-Install from pypi:
+Install `vantage-cli` from pypi:
 
 ```bash
 uv venv
