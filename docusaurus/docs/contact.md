@@ -38,7 +38,7 @@ Configure GitHub notifications for:
 **Best for**: Bug reports, specific problems, feature requests
 
 - **URL**: [github.com/vantagecompute/vantage-cli/issues](https://github.com/vantagecompute/vantage-cli/issues)
-- **Templates**: We provide issue templates for:
+- **Templates**: This project provides issue templates for:
   - Bug reports
   - Feature requests
   - Documentation improvements
