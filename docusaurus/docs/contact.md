@@ -19,6 +19,7 @@ Configure GitHub notifications for:
 - New releases
 - Issue mentions
 - Discussion replies
+- PR Review/Contribution
 
 
 ### 💬 Community Support
