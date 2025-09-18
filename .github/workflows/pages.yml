@@ -3,7 +3,7 @@ name: Deploy Docs
 on:
   push:
     branches: ["main"]
-
+  
   workflow_dispatch:
     inputs:
       event_type:
@@ -24,6 +24,10 @@ jobs:
   build:
     name: Build Docusaurus
     runs-on: ubuntu-24.04
+    # Only run when docs are updated by github-actions bot or manual dispatch
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, 'docs: update generated documentation'))
 
     # Deploy to the github-pages environment
     environment:
@@ -38,7 +42,7 @@ jobs:
         with:
           node-version: 22
           cache: yarn
-          cache-dependency-path: docs/yarn.lock
+          cache-dependency-path: docusaurus/yarn.lock
 
       - name: Install just
         run: sudo snap install just --classic
@@ -46,8 +50,15 @@ jobs:
       - name: Install UV
         run: sudo snap install astral-uv --classic
 
-      - name: Build website
-        run: just docs-build
+      - name: Build website (if build files don't exist)
+        run: |
+          if [ ! -d "docusaurus/build" ]; then
+            echo "Build files not found, generating documentation and building..."
+            just docs-build
+          else
+            echo "Build files found, skipping documentation generation"
+          fi
+
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -55,8 +66,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: './docs/build'
+          # Upload build directory
+          path: './docusaurus/build'
 
       - name: Deploy to GitHub Pages
         id: deployment
