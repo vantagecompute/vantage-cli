@@ -44,6 +44,8 @@ jobs:
         run: sudo snap install astral-uv --classic
 
       - name: Configure Git
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           # Inputs
@@ -127,7 +129,6 @@ jobs:
           echo "PR_URL=${PR_URL}" >> "$GITHUB_ENV"
 
       - name: Auto-merge Pull Request
-        if: steps.check_changes.outputs.changes == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
