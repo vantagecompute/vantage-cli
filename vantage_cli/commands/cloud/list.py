@@ -12,14 +12,11 @@
 """List command for cloud provider configurations."""
 
 import typer
-from rich.console import Console
 
 from vantage_cli.exceptions import handle_abort
 
 # NO IMPORTS NEEDED! The --json option is auto-injected by AsyncTyper
 from .render import render_clouds_table
-
-console = Console()
 
 
 @handle_abort
@@ -67,4 +64,11 @@ def list_command(
 
         print_json(data={"clouds": mock_clouds})
     else:
-        render_clouds_table(mock_clouds)
+        # Handle case where ctx.obj might be None in tests
+        console = getattr(ctx.obj, "console", None) if ctx.obj else None
+        if console is None:
+            # Fallback to standard console if no console available
+            from rich.console import Console
+
+            console = Console()
+        render_clouds_table(mock_clouds, console)

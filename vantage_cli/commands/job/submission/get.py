@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -36,6 +33,6 @@ async def get_job_submission(
             data={"submission_id": submission_id, "script": "example.sh", "status": "running"}
         )
     else:
-        console.print(f"📋 Job submission details for {submission_id}")
-        console.print("  Script: example.sh")
-        console.print("  Status: running")
+        ctx.obj.console.print(f"📋 Job submission details for {submission_id}")
+        ctx.obj.console.print("  Script: example.sh")
+        ctx.obj.console.print("  Status: running")

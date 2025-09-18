@@ -137,8 +137,11 @@ def get_deployments_file_path() -> Path:
     return vantage_dir / "deployments.yaml"
 
 
-def load_deployments() -> Dict[str, Any]:
+def load_deployments(console: Console) -> Dict[str, Any]:
     """Load deployment tracking data from ~/.vantage-cli/deployments.yaml.
+
+    Args:
+        console: Rich console for warning output
 
     Returns:
         Dictionary containing deployments data with 'deployments' key
@@ -155,23 +158,22 @@ def load_deployments() -> Dict[str, Any]:
                 data["deployments"] = {}
             return data
     except Exception as e:
-        console = Console()
         console.print(f"[yellow]Warning: Could not load deployments file: {e}[/yellow]")
         return {"deployments": {}}
 
 
-def save_deployments(deployments_data: Dict[str, Any]) -> None:
+def save_deployments(deployments_data: Dict[str, Any], console: Console) -> None:
     """Save deployment tracking data to ~/.vantage-cli/deployments.yaml.
 
     Args:
         deployments_data: Dictionary containing deployments data
+        console: Rich console for error output
     """
     deployments_file = get_deployments_file_path()
     try:
         with open(deployments_file, "w") as f:
             yaml.dump(deployments_data, f, default_flow_style=False, indent=2)
     except Exception as e:
-        console = Console()
         console.print(f"[red]Error: Could not save deployments file: {e}[/red]")
 
 
@@ -180,6 +182,7 @@ def track_deployment(
     app_name: str,
     cluster_name: str,
     cluster_data: Dict[str, Any],
+    console: Console,
     deployment_name: Optional[str] = None,
     additional_metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
@@ -190,10 +193,11 @@ def track_deployment(
         app_name: Name of the app being deployed (e.g., 'slurm-microk8s-localhost')
         cluster_name: Name of the cluster
         cluster_data: Cluster configuration data
+        console: Rich console for output
         deployment_name: Human-readable name for the deployment (optional)
         additional_metadata: Additional app-specific metadata to store
     """
-    deployments_data = load_deployments()
+    deployments_data = load_deployments(console)
 
     deployment_record = {
         "deployment_name": deployment_name or f"{app_name}-{cluster_name}",
@@ -208,34 +212,37 @@ def track_deployment(
     }
 
     deployments_data["deployments"][deployment_id] = deployment_record
-    save_deployments(deployments_data)
+    save_deployments(deployments_data, console)
 
-    console = Console()
     console.print(
         f"[green]✓ Deployment '{deployment_id}' tracked in ~/.vantage-cli/deployments.yaml[/green]"
     )
 
 
-def get_deployment(deployment_id: str) -> Optional[Dict[str, Any]]:
+def get_deployment(deployment_id: str, console: Console) -> Optional[Dict[str, Any]]:
     """Get deployment information by ID.
 
     Args:
         deployment_id: Unique identifier for the deployment
+        console: Rich console for error output
 
     Returns:
         Deployment record dictionary or None if not found
     """
-    deployments_data = load_deployments()
+    deployments_data = load_deployments(console)
     return deployments_data["deployments"].get(deployment_id)
 
 
-def get_deployments() -> List[Dict[str, Any]]:
+def get_deployments(console: Console) -> List[Dict[str, Any]]:
     """Get all deployments with their IDs included.
+
+    Args:
+        console: Rich console for error output
 
     Returns:
         List of deployment records with deployment_id field added
     """
-    deployments_data = load_deployments()
+    deployments_data = load_deployments(console)
     deployments_list = []
 
     for deployment_id, deployment_data in deployments_data["deployments"].items():
@@ -250,16 +257,17 @@ def get_deployments() -> List[Dict[str, Any]]:
     return deployments_list
 
 
-def list_deployments_by_app(app_name: str) -> Dict[str, Dict[str, Any]]:
+def list_deployments_by_app(app_name: str, console: Console) -> Dict[str, Dict[str, Any]]:
     """List all deployments for a specific app.
 
     Args:
         app_name: Name of the app to filter by
+        console: Rich console for error output
 
     Returns:
         Dictionary of deployment_id -> deployment_record
     """
-    deployments_data = load_deployments()
+    deployments_data = load_deployments(console)
     return {
         dep_id: dep_data
         for dep_id, dep_data in deployments_data["deployments"].items()
@@ -267,16 +275,17 @@ def list_deployments_by_app(app_name: str) -> Dict[str, Dict[str, Any]]:
     }
 
 
-def list_deployments_by_cluster(cluster_name: str) -> Dict[str, Dict[str, Any]]:
+def list_deployments_by_cluster(cluster_name: str, console: Console) -> Dict[str, Dict[str, Any]]:
     """List all active deployments for a specific cluster.
 
     Args:
         cluster_name: Name of the cluster to filter by
+        console: Rich console for error output
 
     Returns:
         Dictionary of deployment_id -> deployment_record for active deployments
     """
-    deployments_data = load_deployments()
+    deployments_data = load_deployments(console)
     return {
         dep_id: dep_data
         for dep_id, dep_data in deployments_data["deployments"].items()
@@ -284,36 +293,38 @@ def list_deployments_by_cluster(cluster_name: str) -> Dict[str, Dict[str, Any]]:
     }
 
 
-def mark_deployment_deleted(deployment_id: str) -> bool:
+def mark_deployment_deleted(deployment_id: str, console: Console) -> bool:
     """Mark a deployment as deleted in the tracking file.
 
     Args:
         deployment_id: Unique identifier for the deployment
+        console: Rich console for error output
 
     Returns:
         True if deployment was found and marked as deleted, False otherwise
     """
-    deployments_data = load_deployments()
+    deployments_data = load_deployments(console)
     if deployment_id in deployments_data["deployments"]:
         deployments_data["deployments"][deployment_id]["status"] = "deleted"
         deployments_data["deployments"][deployment_id]["deleted_at"] = datetime.now().isoformat()
-        save_deployments(deployments_data)
+        save_deployments(deployments_data, console)
         return True
     return False
 
 
-def remove_deployment(deployment_id: str) -> bool:
+def remove_deployment(deployment_id: str, console: Console) -> bool:
     """Remove a deployment entry completely from the tracking file.
 
     Args:
         deployment_id: Unique identifier for the deployment
+        console: Rich console for error output
 
     Returns:
         True if deployment was found and removed, False otherwise
     """
-    deployments_data = load_deployments()
+    deployments_data = load_deployments(console)
     if deployment_id in deployments_data["deployments"]:
         del deployments_data["deployments"][deployment_id]
-        save_deployments(deployments_data)
+        save_deployments(deployments_data, console)
         return True
     return False

@@ -13,15 +13,12 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_utils import should_use_json
 from vantage_cli.exceptions import handle_abort
 
 from .render import render_cloud_operation_result
-
-console = Console()
 
 
 @handle_abort
@@ -58,6 +55,7 @@ def get_command(
     else:
         render_cloud_operation_result(
             operation="Get Cloud Configuration",
+            console=ctx.obj.console,
             success=True,
             cloud_name=name,
             details=mock_cloud,

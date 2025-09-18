@@ -15,7 +15,6 @@ import uuid
 from typing import Optional
 
 import typer
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
@@ -28,8 +27,6 @@ from vantage_cli.apps.common import (
 from vantage_cli.commands.cluster.utils import get_available_apps, get_cluster_by_name
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @attach_settings
@@ -58,28 +55,28 @@ async def create_deployment(
         available_apps = get_available_apps()
 
         if app_name not in available_apps:
-            console.print(f"[bold red]✗ App '{app_name}' not found[/bold red]")
-            console.print(f"\nAvailable apps: {', '.join(available_apps.keys())}")
-            console.print(
+            ctx.obj.console.print(f"[bold red]✗ App '{app_name}' not found[/bold red]")
+            ctx.obj.console.print(f"\nAvailable apps: {', '.join(available_apps.keys())}")
+            ctx.obj.console.print(
                 "Use [cyan]vantage deployment list[/cyan] to see all available applications."
             )
             raise typer.Exit(1)
 
-        console.print(
+        ctx.obj.console.print(
             f"[bold blue]Creating deployment '{app_name}' for cluster '{cluster_name}'...[/bold blue]"
         )
 
         # Get cluster data - either from API or generate dummy data
         cluster_data = None
         if dev_run:
-            console.print(
+            ctx.obj.console.print(
                 f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
             )
             cluster_data = generate_dev_cluster_data(cluster_name)
         else:
             cluster_data = await get_cluster_by_name(ctx, cluster_name)
             if not cluster_data:
-                console.print(f"[bold red]✗ Cluster '{cluster_name}' not found[/bold red]")
+                ctx.obj.console.print(f"[bold red]✗ Cluster '{cluster_name}' not found[/bold red]")
                 raise typer.Exit(1)
 
         # Get the app info
@@ -107,6 +104,7 @@ async def create_deployment(
                     "deployment_method": "vantage deployment create",
                     "dev_run": dev_run,
                 },
+                console=ctx.obj.console,
             )
 
             try:
@@ -116,21 +114,21 @@ async def create_deployment(
                 # Call the deploy function with cluster data
                 await deploy_function(ctx, cluster_data)
 
-                console.print(
+                ctx.obj.console.print(
                     f"[bold green]✓ Deployment '{app_name}' created successfully for cluster '{cluster_name}'![/bold green]"
                 )
             except Exception as e:
                 # If deployment fails, mark it as failed but keep the tracking
-                deployments_data = load_deployments()
+                deployments_data = load_deployments(ctx.obj.console)
                 if deployment_id in deployments_data["deployments"]:
                     deployments_data["deployments"][deployment_id]["status"] = "failed"
                     deployments_data["deployments"][deployment_id]["error"] = str(e)
-                    save_deployments(deployments_data)
+                    save_deployments(deployments_data, ctx.obj.console)
 
-                console.print(f"[bold red]✗ Deployment failed: {e}[/bold red]")
+                ctx.obj.console.print(f"[bold red]✗ Deployment failed: {e}[/bold red]")
                 raise
         else:
-            console.print(
+            ctx.obj.console.print(
                 f"[bold red]✗ App '{app_name}' does not have a deploy function[/bold red]"
             )
             raise typer.Exit(1)
@@ -139,5 +137,7 @@ async def create_deployment(
         # Re-raise typer.Exit to maintain exit codes
         raise
     except Exception as e:
-        console.print(f"[bold red]✗ Error creating deployment '{app_name}': {e}[/bold red]")
+        ctx.obj.console.print(
+            f"[bold red]✗ Error creating deployment '{app_name}': {e}[/bold red]"
+        )
         raise typer.Exit(1)

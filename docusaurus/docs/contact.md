@@ -19,6 +19,7 @@ Configure GitHub notifications for:
 - New releases
 - Issue mentions
 - Discussion replies
+- PR Review/Contribution
 
 
 ### 💬 Community Support
@@ -31,13 +32,13 @@ Configure GitHub notifications for:
   - **Q&A**: Usage questions and help
   - **Ideas**: Feature requests and suggestions
   - **Show and tell**: Share your deployments
-  - **General**: General discussion
+  - **General**: General discussions
 
 #### GitHub Issues
 **Best for**: Bug reports, specific problems, feature requests
 
 - **URL**: [github.com/vantagecompute/vantage-cli/issues](https://github.com/vantagecompute/vantage-cli/issues)
-- **Templates**: We provide issue templates for:
+- **Templates**: This project provides issue templates for:
   - Bug reports
   - Feature requests
   - Documentation improvements
@@ -46,8 +47,8 @@ Configure GitHub notifications for:
 
 #### Before Asking for Help
 
-1. **Check documentation**: Search our docs for your issue
-2. **Review troubleshooting**: Common issues are covered in the [troubleshooting guide](/vantage-cli/troubleshooting/)
+1. **Check documentation**: Search our faq for your issue
+2. **Review troubleshooting**: Common issues are covered in the [troubleshooting guide](./troubleshooting)
 3. **Search existing issues**: Your question might already be answered
 4. **Try alternate profiles**: Reproduce with a fresh profile
 
@@ -153,7 +154,7 @@ Want to contribute? We welcome:
 - **Testing**: Testing new features and releases
 - **Community support**: Helping other users
 
-**Start here**: [Contributing Guide](/vantage-cli/contributing/)
+**Start here**: [Contributing Guide](./contributing)
 
 ### 👥 Maintainers
 

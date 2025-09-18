@@ -15,13 +15,10 @@ from typing import Annotated, Any, Dict, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -57,14 +54,14 @@ async def update_license_server(
         print_json(data=update_data)
     else:
         # Rich console output
-        console.print("🔑 License Server Update Command")
-        console.print(f"📋 Updating license server: {server_id}")
+        ctx.obj.console.print("🔑 License Server Update Command")
+        ctx.obj.console.print(f"📋 Updating license server: {server_id}")
         if name:
-            console.print(f"📝 New name: {name}")
+            ctx.obj.console.print(f"📝 New name: {name}")
         if host:
-            console.print(f"🌐 New host: {host}")
+            ctx.obj.console.print(f"🌐 New host: {host}")
         if port:
-            console.print(f"🔌 New port: {port}")
+            ctx.obj.console.print(f"🔌 New port: {port}")
         if description:
-            console.print(f"📄 New description: {description}")
-        console.print("⚠️  Not yet implemented - this is a stub")
+            ctx.obj.console.print(f"📄 New description: {description}")
+        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")

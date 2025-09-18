@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 import click
 import pytest
 
+from tests.conftest import MockConsole
 from vantage_cli.commands.profile.crud import (
     create_profile,
     delete_profile,
@@ -76,7 +77,9 @@ def test_create_profile_activate_json():
 def test_create_profile_activate_rich():
     """Activation + rich path; ensure set_active_profile called and details rendered."""
     mock_ctx = MagicMock()
-    mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+    mock_ctx.obj = SimpleNamespace(
+        profile="default", verbose=False, json_output=True, console=MockConsole()
+    )
     with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
         with patch("vantage_cli.commands.profile.crud.init_user_filesystem"):
             with patch("vantage_cli.commands.profile.crud.dump_settings"):
@@ -167,7 +170,9 @@ def test_delete_default_profile_without_force_json():
 
 def test_delete_profile_confirmation_decline(monkeypatch: pytest.MonkeyPatch):
     mock_ctx = MagicMock()
-    mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+    mock_ctx.obj = SimpleNamespace(
+        profile="default", verbose=False, json_output=True, console=MockConsole()
+    )
     existing = {"p": {"api_base_url": "x"}}
     with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value=existing):
         with patch(
@@ -246,16 +251,18 @@ def test_get_profile_exception_json():
 
 def test_list_profiles_empty_rich():
     mock_ctx = MagicMock()
-    mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+    mock_ctx.obj = SimpleNamespace(
+        profile="default", verbose=False, json_output=True, console=MockConsole()
+    )
     with patch("vantage_cli.commands.profile.crud.get_active_profile", return_value="none"):
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch(
                 "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
             ):
-                # Patch Console to avoid real output
-                with patch("vantage_cli.commands.profile.crud.Console") as cons:
-                    list_profiles(mock_ctx)
-                    assert cons.called
+                # Function should succeed without errors - no need to patch Console anymore
+                list_profiles(mock_ctx)
+                # Verify console was used
+                mock_ctx.obj.console.print.assert_called()
 
 
 def test_list_profiles_exception_json():
@@ -282,17 +289,20 @@ def test_list_profiles_exception_json():
 
 def test_use_profile_success_rich():
     mock_ctx = MagicMock()
-    mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+    mock_ctx.obj = SimpleNamespace(
+        profile="default", verbose=False, json_output=True, console=MockConsole()
+    )
     existing = {"p": {"api_base_url": "x"}}
     with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value=existing):
         with patch(
             "vantage_cli.commands.profile.crud.get_effective_json_output", return_value=False
         ):
             with patch("vantage_cli.commands.profile.crud.set_active_profile") as sap:
-                with patch("vantage_cli.commands.profile.crud.Console") as cons:
-                    use_profile(mock_ctx, "p")
-                    sap.assert_called_once_with("p")
-                    assert cons.called
+                # Function should succeed without errors - no need to patch Console anymore
+                use_profile(mock_ctx, "p")
+                sap.assert_called_once_with("p")
+                # Verify console was used
+                mock_ctx.obj.console.print.assert_called()
 
 
 def test_use_profile_not_found_json():

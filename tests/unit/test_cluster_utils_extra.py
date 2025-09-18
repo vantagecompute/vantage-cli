@@ -55,8 +55,12 @@ class FakeAsyncClient:
 
 
 def make_ctx():
+    from tests.conftest import MockConsole
+
     settings = SimpleNamespace(api_base_url="https://api.example.com")
-    return SimpleNamespace(obj=SimpleNamespace(settings=settings, profile="dev"))
+    return SimpleNamespace(
+        obj=SimpleNamespace(settings=settings, profile="dev", console=MockConsole())
+    )
 
 
 @pytest.mark.asyncio

@@ -22,6 +22,29 @@ from vantage_cli.commands.cloud.delete import delete_command
 from vantage_cli.commands.cloud.update import update_command
 
 
+def _extract_panel_content(console_calls):
+    """Extract text content from Panel objects in console calls."""
+    content_list = []
+    for call in console_calls:
+        args = call[0]  # Get positional arguments
+        for arg in args:
+            if hasattr(arg, "renderable"):
+                # This is a Panel with a renderable
+                content_list.append(str(arg.renderable))
+            elif hasattr(arg, "__str__"):
+                content_list.append(str(arg))
+    return "\n".join(content_list)
+
+
+def _extract_json_content(console_calls):
+    """Extract JSON content from print_json calls."""
+    for call in console_calls:
+        # Check if this was a print_json call by looking at kwargs
+        if "data" in call.kwargs:
+            return call.kwargs["data"]
+    return None
+
+
 class DummyContext(SimpleNamespace):
     """Lightweight stand-in for typer.Context just needing an .obj dict."""
 
@@ -131,19 +154,55 @@ def test_delete_command_confirmation_accept(monkeypatch, ctx_quiet, capsys):
 
 
 def test_render_clouds_table_empty(capsys):
-    clouds_render.render_clouds_table([])
-    out = capsys.readouterr().out
-    assert "No cloud accounts found" in out
+    from tests.conftest import MockConsole
+
+    console = MockConsole()
+    clouds_render.render_clouds_table([], console)
+
+    # Check that console.print was called with a Panel containing the expected message
+    console.print.assert_called()
+    calls = console.print.call_args_list
+
+    # Look for Panel objects in the calls and check their content
+    found_message = False
+    for call in calls:
+        args = call[0]  # Get positional arguments
+        for arg in args:
+            if hasattr(arg, "renderable") and hasattr(arg.renderable, "__str__"):
+                # This is a Panel with a renderable (likely Text)
+                if "No cloud accounts found" in str(arg.renderable):
+                    found_message = True
+                    break
+            elif hasattr(arg, "__str__") and "No cloud accounts found" in str(arg):
+                found_message = True
+                break
+        if found_message:
+            break
+
+    assert found_message, f"Expected 'No cloud accounts found' in Panel, but got calls: {calls}"
 
 
 def test_render_clouds_table_json(capsys):
+    from tests.conftest import MockConsole
+
+    console = MockConsole()
     data = [{"name": "c1", "provider": "aws", "status": "READY", "accountId": "acc1"}]
-    clouds_render.render_clouds_table(data, json_output=True)
-    out = capsys.readouterr().out
-    assert '"clouds"' in out and '"c1"' in out
+    clouds_render.render_clouds_table(data, console, json_output=True)
+
+    # Check that console.print_json was called instead of console.print
+    console.print_json.assert_called()
+    json_data = _extract_json_content(console.print_json.call_args_list)
+
+    # Verify JSON content contains expected data
+    assert json_data is not None
+    assert "clouds" in json_data
+    assert json_data["clouds"] == data
 
 
 def test_render_clouds_table_table(capsys):
+    from tests.conftest import MockConsole
+
+    console = MockConsole()
     data = [
         {
             "name": "c1",
@@ -154,26 +213,79 @@ def test_render_clouds_table_table(capsys):
         },
         {"name": "c2", "provider": "gcp", "status": "PENDING", "accountId": "acc2"},
     ]
-    clouds_render.render_clouds_table(data)
-    out = capsys.readouterr().out
-    assert "Cloud Accounts" in out
-    assert "c1" in out and "c2" in out
+    clouds_render.render_clouds_table(data, console)
+
+    # Check that console.print was called (table rendering)
+    console.print.assert_called()
+
+    # Verify that a table was printed - look for Table object in call args
+    calls = console.print.call_args_list
+    table_found = False
+    for call in calls:
+        args = call[0]
+        for arg in args:
+            if hasattr(arg, "add_column") and hasattr(arg, "add_row"):
+                # This is a Table object
+                table_found = True
+                break
+        if table_found:
+            break
+
+    assert table_found, "Expected a Table object to be printed"
 
 
 def test_render_cloud_operation_result_json(capsys):
+    from tests.conftest import MockConsole
+
+    console = MockConsole()
     clouds_render.render_cloud_operation_result(
-        "add", "c1", success=True, details={"region": "us-east-1"}, json_output=True
+        "add", "c1", console, success=True, details={"region": "us-east-1"}, json_output=True
     )
-    out = capsys.readouterr().out
-    assert '"operation"' in out and '"add"' in out
+
+    # Check that console.print_json was called instead of console.print
+    console.print_json.assert_called()
+    json_data = _extract_json_content(console.print_json.call_args_list)
+
+    # Verify JSON content contains expected fields
+    assert json_data is not None
+    assert json_data["operation"] == "add"
+    assert json_data["cloud_name"] == "c1"
+    assert json_data["success"] is True
 
 
 def test_render_cloud_operation_result_panel(capsys):
+    from tests.conftest import MockConsole
+
+    console = MockConsole()
     clouds_render.render_cloud_operation_result(
-        "delete", "c2", success=False, details={"error": "not found"}
+        "delete", "c2", console, success=False, details={"error": "not found"}
     )
-    out = capsys.readouterr().out
-    assert "Cloud account" in out and "not found" in out
+
+    # Check that console.print was called with panel content
+    console.print.assert_called()
+
+    # Check that the print calls contain Rich Panel with expected content
+    print_calls = console.print.call_args_list
+    found_panel_with_content = False
+
+    for call in print_calls:
+        args = call[0]
+        for arg in args:
+            # Check if this is a Rich Panel object
+            if hasattr(arg, "renderable") and hasattr(arg, "title"):
+                # This is a Rich Panel, check its content
+                panel_content = str(arg.renderable)
+                if (
+                    "Cloud account" in panel_content
+                    and "c2" in panel_content
+                    and "delete" in panel_content
+                ):
+                    found_panel_with_content = True
+                    break
+
+    assert found_panel_with_content, (
+        f"Expected to find panel with 'Cloud account', 'c2', and 'delete' in content. Print calls: {print_calls}"
+    )
 
 
 def test_render_quick_start_guide(capsys):

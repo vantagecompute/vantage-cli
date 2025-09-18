@@ -35,13 +35,15 @@ class DummyPopen:
 @pytest.fixture()
 def ctx() -> Any:
     # Minimal context object expected by DeploymentContext usage inside deploy()
+    from tests.conftest import MockConsole
+
     settings = SimpleNamespace(
         oidc_domain="auth.example.com",
         oidc_base_url="https://auth.example.com",
         api_base_url="https://api.example.com",
         tunnel_api_url="https://tunnel.example.com",
     )
-    return SimpleNamespace(obj=SimpleNamespace(settings=settings))
+    return SimpleNamespace(obj=SimpleNamespace(settings=settings, console=MockConsole()))
 
 
 def _cluster_data(include_secret: bool = True) -> Dict[str, Any]:

@@ -13,13 +13,10 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -49,6 +46,6 @@ async def list_license_products(ctx: typer.Context):
         )
     else:
         # Rich console output
-        console.print("📦 License Product List Command")
-        console.print("📋 This command will list all license products")
-        console.print("⚠️  Not yet implemented - this is a stub")
+        ctx.obj.console.print("📦 License Product List Command")
+        ctx.obj.console.print("📋 This command will list all license products")
+        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")

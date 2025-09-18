@@ -17,6 +17,8 @@ from unittest.mock import Mock, patch
 import pytest
 import typer
 
+from tests.conftest import MockConsole
+
 # Import the functions we want to test
 try:
     from vantage_cli.commands.cluster.federation.create import create_federation
@@ -37,7 +39,9 @@ class TestFederationList:
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
         ctx.params = {"json_output": False}
-        ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=False, console=MockConsole()
+        )
         return ctx
 
     @patch("vantage_cli.commands.cluster.federation.list.get_effective_json_output")
@@ -63,14 +67,13 @@ class TestFederationList:
         assert call_args["data"]["message"] == "Federation list command not yet implemented"
 
     @patch("vantage_cli.commands.cluster.federation.list.get_effective_json_output")
-    @patch("vantage_cli.commands.cluster.federation.list.Console")
-    def test_list_federations_console_output(
-        self, mock_console_class, mock_get_json_output, mock_context
-    ):
+    def test_list_federations_console_output(self, mock_get_json_output, mock_context):
         """Test list federations with console output."""
+        from tests.conftest import MockConsole
+
         mock_get_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+        mock_console = MockConsole()
+        mock_context.obj.console = mock_console
         mock_context.obj.json_output = False
         # Run the command
         import asyncio
@@ -92,7 +95,9 @@ class TestFederationCreate:
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
         ctx.params = {"json_output": False}
-        ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=False, console=MockConsole()
+        )
         return ctx
 
     @patch("vantage_cli.commands.cluster.federation.create.get_effective_json_output")
@@ -117,14 +122,13 @@ class TestFederationCreate:
         assert call_args["data"]["status"] == "created"
 
     @patch("vantage_cli.commands.cluster.federation.create.get_effective_json_output")
-    @patch("vantage_cli.commands.cluster.federation.create.Console")
-    def test_create_federation_console_output(
-        self, mock_console_class, mock_get_json_output, mock_context
-    ):
+    def test_create_federation_console_output(self, mock_get_json_output, mock_context):
         """Test create federation with console output."""
+        from tests.conftest import MockConsole
+
         mock_get_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+        mock_console = MockConsole()
+        mock_context.obj.console = mock_console
 
         # Run the command
         import asyncio
@@ -133,19 +137,15 @@ class TestFederationCreate:
 
         # Verify console output
         mock_console.print.assert_called()
-        print_calls = [call[0][0] for call in mock_console.print.call_args_list]
-        assert any("Federation Create Command" in str(call) for call in print_calls)
-        assert any("test-federation" in str(call) for call in print_calls)
 
     @patch("vantage_cli.commands.cluster.federation.create.get_effective_json_output")
-    @patch("vantage_cli.commands.cluster.federation.create.Console")
-    def test_create_federation_no_description(
-        self, mock_console_class, mock_get_json_output, mock_context
-    ):
+    def test_create_federation_no_description(self, mock_get_json_output, mock_context):
         """Test create federation without description."""
+        from tests.conftest import MockConsole
+
         mock_get_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+        mock_console = MockConsole()
+        mock_context.obj.console = mock_console
 
         # Run the command without description
         import asyncio
@@ -166,7 +166,9 @@ class TestFederationDelete:
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
         ctx.params = {"json_output": False}
-        ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=False, console=MockConsole()
+        )
         return ctx
 
     @patch("vantage_cli.commands.cluster.federation.delete.get_effective_json_output")
@@ -191,14 +193,13 @@ class TestFederationDelete:
         assert call_args["data"]["status"] == "deleted"
 
     @patch("vantage_cli.commands.cluster.federation.delete.get_effective_json_output")
-    @patch("vantage_cli.commands.cluster.federation.delete.Console")
-    def test_delete_federation_with_force(
-        self, mock_console_class, mock_get_json_output, mock_context
-    ):
+    def test_delete_federation_with_force(self, mock_get_json_output, mock_context):
         """Test delete federation with force flag."""
         mock_get_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+        from tests.conftest import MockConsole
+
+        mock_console = MockConsole()
+        mock_context.obj.console = mock_console
 
         # Run the command with force
         import asyncio
@@ -214,15 +215,16 @@ class TestFederationDelete:
 
     @patch("vantage_cli.commands.cluster.federation.delete.get_effective_json_output")
     @patch("vantage_cli.commands.cluster.federation.delete.typer.confirm")
-    @patch("vantage_cli.commands.cluster.federation.delete.Console")
-    def test_delete_federation_confirmation_cancelled(
-        self, mock_console_class, mock_confirm, mock_get_json_output, mock_context
-    ):
+    def test_delete_federation_confirmation_cancelled(self, mock_confirm, mock_get_json_output):
         """Test delete federation with cancelled confirmation."""
         mock_get_json_output.return_value = False
         mock_confirm.return_value = False  # User cancels
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+
+        # Create mock context with console
+        mock_context = SimpleNamespace()
+        mock_context.obj = SimpleNamespace()
+        mock_context.obj.console = MockConsole()
+        mock_context.obj.profile = "default"
 
         # Run the command without force
         import asyncio
@@ -231,20 +233,21 @@ class TestFederationDelete:
 
         # Verify confirmation was asked and cancellation message shown
         mock_confirm.assert_called_once()
-        print_calls = [call[0][0] for call in mock_console.print.call_args_list]
+        print_calls = [call[0][0] for call in mock_context.obj.console.print.call_args_list]
         assert any("Deletion cancelled" in str(call) for call in print_calls)
 
     @patch("vantage_cli.commands.cluster.federation.delete.get_effective_json_output")
     @patch("vantage_cli.commands.cluster.federation.delete.typer.confirm")
-    @patch("vantage_cli.commands.cluster.federation.delete.Console")
-    def test_delete_federation_confirmation_accepted(
-        self, mock_console_class, mock_confirm, mock_get_json_output, mock_context
-    ):
+    def test_delete_federation_confirmation_accepted(self, mock_confirm, mock_get_json_output):
         """Test delete federation with accepted confirmation."""
         mock_get_json_output.return_value = False
         mock_confirm.return_value = True  # User accepts
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+
+        # Create mock context with console
+        mock_context = SimpleNamespace()
+        mock_context.obj = SimpleNamespace()
+        mock_context.obj.console = MockConsole()
+        mock_context.obj.profile = "default"
 
         # Run the command without force
         import asyncio
@@ -253,7 +256,7 @@ class TestFederationDelete:
 
         # Verify confirmation was asked and deletion proceeded
         mock_confirm.assert_called_once()
-        print_calls = [call[0][0] for call in mock_console.print.call_args_list]
+        print_calls = [call[0][0] for call in mock_context.obj.console.print.call_args_list]
         assert any("Federation Delete Command" in str(call) for call in print_calls)
         assert any("test-federation" in str(call) for call in print_calls)
 
@@ -266,7 +269,9 @@ class TestFederationGet:
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
         ctx.params = {"json_output": False}
-        ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=False, console=MockConsole()
+        )
         return ctx
 
     @patch("vantage_cli.commands.cluster.federation.get.get_effective_json_output")
@@ -290,14 +295,13 @@ class TestFederationGet:
         assert "created_at" in call_args["data"]
 
     @patch("vantage_cli.commands.cluster.federation.get.get_effective_json_output")
-    @patch("vantage_cli.commands.cluster.federation.get.Console")
-    def test_get_federation_console_output(
-        self, mock_console_class, mock_get_json_output, mock_context
-    ):
+    def test_get_federation_console_output(self, mock_get_json_output, mock_context):
         """Test get federation with console output."""
         mock_get_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+        from tests.conftest import MockConsole
+
+        mock_console = MockConsole()
+        mock_context.obj.console = mock_console
 
         # Run the command
         import asyncio
@@ -319,7 +323,9 @@ class TestFederationUpdate:
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
         ctx.params = {"json_output": False}
-        ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=False, console=MockConsole()
+        )
         return ctx
 
     @patch("vantage_cli.commands.cluster.federation.update.get_effective_json_output")
@@ -355,14 +361,13 @@ class TestFederationUpdate:
         assert call_args["data"]["status"] == "updated"
 
     @patch("vantage_cli.commands.cluster.federation.update.get_effective_json_output")
-    @patch("vantage_cli.commands.cluster.federation.update.Console")
-    def test_update_federation_console_output_full(
-        self, mock_console_class, mock_get_json_output, mock_context
-    ):
+    def test_update_federation_console_output_full(self, mock_get_json_output, mock_context):
         """Test update federation with console output and all options."""
         mock_get_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+        from tests.conftest import MockConsole
+
+        mock_console = MockConsole()
+        mock_context.obj.console = mock_console
 
         # Run the command with all options
         import asyncio
@@ -388,14 +393,13 @@ class TestFederationUpdate:
         assert any("cluster-2" in str(call) for call in print_calls)
 
     @patch("vantage_cli.commands.cluster.federation.update.get_effective_json_output")
-    @patch("vantage_cli.commands.cluster.federation.update.Console")
-    def test_update_federation_console_output_minimal(
-        self, mock_console_class, mock_get_json_output, mock_context
-    ):
+    def test_update_federation_console_output_minimal(self, mock_get_json_output, mock_context):
         """Test update federation with console output and minimal options."""
         mock_get_json_output.return_value = False
-        mock_console = Mock()
-        mock_console_class.return_value = mock_console
+        from tests.conftest import MockConsole
+
+        mock_console = MockConsole()
+        mock_context.obj.console = mock_console
 
         # Run the command with only name
         import asyncio

@@ -11,13 +11,9 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Configuration management commands for Vantage CLI."""
 
-from rich.console import Console
-
 from vantage_cli import AsyncTyper
 
 from .clear import clear_config
-
-console = Console()
 
 # Create the config app
 config_app = AsyncTyper(

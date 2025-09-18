@@ -119,17 +119,16 @@ def create_profile(
                 result["message"] += " and set as active"
             print_json(data=result)
         else:
-            console = Console()
-            console.print()
+            ctx.obj.console.print()
             message = f"✅ Profile '[bold cyan]{profile_name}[/bold cyan]' created successfully!"
             if activate:
                 message += "\n🎯 Set as active profile!"
-            console.print(
+            ctx.obj.console.print(
                 Panel(message, title="[green]Profile Created[/green]", border_style="green")
             )
 
             # Show profile details
-            _render_profile_details(profile_name, settings)
+            _render_profile_details(profile_name, settings, ctx.obj.console)
 
     except Exception as e:
         logger.error(f"Failed to create profile '{profile_name}': {str(e)}")
@@ -199,16 +198,15 @@ def delete_profile(
     if not force and not effective_json:
         from rich.prompt import Confirm
 
-        console = Console()
-        console.print(
+        ctx.obj.console.print(
             f"\n[yellow]⚠️  You are about to delete profile '[bold red]{profile_name}[/bold red]'[/yellow]"
         )
-        console.print(
+        ctx.obj.console.print(
             "[yellow]This will remove all settings and cached tokens for this profile![/yellow]"
         )
 
         if not Confirm.ask("Are you sure you want to proceed?"):
-            console.print("[dim]Deletion cancelled.[/dim]")
+            ctx.obj.console.print("[dim]Deletion cancelled.[/dim]")
             return
 
     try:
@@ -239,16 +237,15 @@ def delete_profile(
             }
             print_json(data=result)
         else:
-            console = Console()
-            console.print()
-            console.print(
+            ctx.obj.console.print()
+            ctx.obj.console.print(
                 Panel(
                     f"✅ Profile '[bold cyan]{profile_name}[/bold cyan]' deleted successfully!",
                     title="[green]Profile Deleted[/green]",
                     border_style="green",
                 )
             )
-            console.print()
+            ctx.obj.console.print()
 
     except Exception as e:
         logger.error(f"Failed to delete profile '{profile_name}': {str(e)}")
@@ -311,7 +308,7 @@ def get_profile(
             }
             print_json(data=result)
         else:
-            _render_profile_details(profile_name, settings)
+            _render_profile_details(profile_name, settings, ctx.obj.console)
 
     except Exception as e:
         logger.error(f"Failed to get profile '{profile_name}': {str(e)}")
@@ -356,10 +353,9 @@ def list_profiles(
                 result = {"profiles": [], "total": 0, "current_profile": active_profile}
                 print_json(data=result)
             else:
-                console = Console()
-                console.print()
-                console.print(Panel("No profiles found.", title="[yellow]No Profiles"))
-                console.print()
+                ctx.obj.console.print()
+                ctx.obj.console.print(Panel("No profiles found.", title="[yellow]No Profiles"))
+                ctx.obj.console.print()
             return
 
         if effective_json:
@@ -380,7 +376,7 @@ def list_profiles(
             }
             print_json(data=result)
         else:
-            _render_profiles_table(all_profiles, active_profile)
+            _render_profiles_table(all_profiles, active_profile, ctx.obj.console)
 
     except Exception as e:
         logger.error(f"Failed to list profiles: {str(e)}")
@@ -425,9 +421,8 @@ def use_profile(
             print_json(data=result)
             return
         else:
-            console = Console()
-            console.print()
-            console.print(
+            ctx.obj.console.print()
+            ctx.obj.console.print(
                 Panel(
                     f"❌ Profile '[bold red]{profile_name}[/bold red]' does not exist.\n\n"
                     f"Available profiles: {', '.join(existing_profiles.keys()) if existing_profiles else 'None'}",
@@ -451,9 +446,8 @@ def use_profile(
             }
             print_json(data=result)
         else:
-            console = Console()
-            console.print()
-            console.print(
+            ctx.obj.console.print()
+            ctx.obj.console.print(
                 Panel(
                     f"🎯 Profile '[bold cyan]{profile_name}[/bold cyan]' is now active!\n\n"
                     f"This profile will be used for all future commands until changed.",
@@ -490,10 +484,10 @@ def _get_all_profiles() -> Dict[str, Any]:
         return {}
 
 
-def _render_profiles_table(profiles: Dict[str, Any], current_profile: str) -> None:
+def _render_profiles_table(
+    profiles: Dict[str, Any], current_profile: str, console: Console
+) -> None:
     """Render a table of all profiles."""
-    console = Console()
-
     # Create the table
     table = Table(
         title="Vantage CLI Profiles",
@@ -529,10 +523,8 @@ def _render_profiles_table(profiles: Dict[str, Any], current_profile: str) -> No
     console.print()
 
 
-def _render_profile_details(profile_name: str, settings: Settings) -> None:
+def _render_profile_details(profile_name: str, settings: Settings, console: Console) -> None:
     """Render detailed information for a single profile."""
-    console = Console()
-
     # Create a table matching the whoami command style
     table = Table(
         title=f"Profile Details: {profile_name}", show_header=True, header_style="bold white"

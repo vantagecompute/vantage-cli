@@ -239,13 +239,13 @@ class TestLogin:
 
     @pytest.mark.asyncio
     @patch("vantage_cli.main._check_existing_login")
-    @patch("vantage_cli.main.Console")
-    async def test_login_already_logged_in(self, mock_console, mock_check, mock_async_environment):
+    async def test_login_already_logged_in(self, mock_check, mock_async_environment):
         """Test login when already logged in."""
         # Setup
         ctx = Mock(spec=typer.Context)
         ctx.obj = Mock()
         ctx.obj.profile = "test_profile"
+        ctx.obj.console = Mock()  # Add console to context
         mock_check.return_value = "test@example.com"
 
         # Execute
@@ -253,21 +253,22 @@ class TestLogin:
 
         # Verify
         mock_check.assert_called_once_with("test_profile")
-        mock_console.assert_called_once()
+        # Verify console was used (print method should be called)
+        ctx.obj.console.print.assert_called()
 
     @pytest.mark.asyncio
     @patch("vantage_cli.main._check_existing_login")
     @patch("vantage_cli.main.fetch_auth_tokens")
     @patch("vantage_cli.main.extract_persona")
-    @patch("vantage_cli.main.Console")
     async def test_login_success(
-        self, mock_console, mock_extract, mock_fetch, mock_check, mock_async_environment
+        self, mock_extract, mock_fetch, mock_check, mock_async_environment
     ):
         """Test successful login."""
         # Setup
         ctx = Mock(spec=typer.Context)
         ctx.obj = Mock()
         ctx.obj.profile = "test_profile"
+        ctx.obj.console = Mock()  # Add console to context
         mock_check.return_value = None
 
         token_set = TokenSet(access_token="new_token")
@@ -286,7 +287,8 @@ class TestLogin:
         mock_check.assert_called_once_with("test_profile")
         mock_fetch.assert_called_once_with(ctx.obj)
         mock_extract.assert_called_once_with("test_profile", token_set)
-        mock_console.assert_called_once()
+        # Verify console was used (print method should be called)
+        ctx.obj.console.print.assert_called()
 
     @pytest.mark.asyncio
     @patch("vantage_cli.main._check_existing_login")
@@ -319,15 +321,13 @@ class TestLogout:
     @pytest.mark.asyncio
     @patch("vantage_cli.main.clear_token_cache")
     @patch("vantage_cli.main._check_existing_login")
-    @patch("vantage_cli.main.Console")
-    async def test_logout_success(
-        self, mock_console, mock_check, mock_clear, mock_async_environment
-    ):
+    async def test_logout_success(self, mock_check, mock_clear, mock_async_environment):
         """Test successful logout."""
         # Setup
         ctx = Mock(spec=typer.Context)
         ctx.obj = Mock()
         ctx.obj.profile = "test_profile"
+        ctx.obj.console = Mock()  # Add console to context
         mock_check.return_value = "user@example.com"
 
         # Execute
@@ -335,7 +335,8 @@ class TestLogout:
 
         # Verify
         mock_clear.assert_called_once_with("test_profile")
-        mock_console.assert_called_once()
+        # Verify console was used (print method should be called)
+        ctx.obj.console.print.assert_called()
         mock_check.assert_called_once_with("test_profile")
 
     @pytest.mark.asyncio

@@ -13,13 +13,10 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -44,6 +41,6 @@ async def list_job_templates(ctx: typer.Context):
             }
         )
     else:
-        console.print("📋 Job templates:")
-        console.print("  tpl-12345 - example1 (Example template 1)")
-        console.print("  tpl-67890 - example2 (Example template 2)")
+        ctx.obj.console.print("📋 Job templates:")
+        ctx.obj.console.print("  tpl-12345 - example1 (Example template 1)")
+        ctx.obj.console.print("  tpl-67890 - example2 (Example template 2)")

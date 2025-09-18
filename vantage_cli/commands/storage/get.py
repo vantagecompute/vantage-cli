@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -52,16 +49,16 @@ async def get_storage(
         )
     else:
         # Rich console output
-        console.print(f"💾 Storage Volume: [bold blue]{storage_id}[/bold blue]")
-        console.print("   Name: [green]web-data-volume[/green]")
-        console.print("   Size: [yellow]100 GB[/yellow]")
-        console.print("   Type: [cyan]ssd[/cyan]")
-        console.print("   Zone: [magenta]us-west-2a[/magenta]")
-        console.print("   Status: [green]available[/green]")
-        console.print("   Description: Primary data storage for web application")
-        console.print("   Attached to: [blue]instance-456[/blue]")
-        console.print("   Mount Point: [yellow]/data[/yellow]")
-        console.print("   IOPS: [cyan]3000[/cyan]")
-        console.print("   Throughput: [magenta]125 MB/s[/magenta]")
-        console.print("   Created: 2025-09-01T09:00:00Z")
-        console.print("   Updated: 2025-09-10T10:00:00Z")
+        ctx.obj.console.print(f"💾 Storage Volume: [bold blue]{storage_id}[/bold blue]")
+        ctx.obj.console.print("   Name: [green]web-data-volume[/green]")
+        ctx.obj.console.print("   Size: [yellow]100 GB[/yellow]")
+        ctx.obj.console.print("   Type: [cyan]ssd[/cyan]")
+        ctx.obj.console.print("   Zone: [magenta]us-west-2a[/magenta]")
+        ctx.obj.console.print("   Status: [green]available[/green]")
+        ctx.obj.console.print("   Description: Primary data storage for web application")
+        ctx.obj.console.print("   Attached to: [blue]instance-456[/blue]")
+        ctx.obj.console.print("   Mount Point: [yellow]/data[/yellow]")
+        ctx.obj.console.print("   IOPS: [cyan]3000[/cyan]")
+        ctx.obj.console.print("   Throughput: [magenta]125 MB/s[/magenta]")
+        ctx.obj.console.print("   Created: 2025-09-01T09:00:00Z")
+        ctx.obj.console.print("   Updated: 2025-09-10T10:00:00Z")

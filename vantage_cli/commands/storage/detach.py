@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -47,8 +44,10 @@ async def detach_storage(
         )
     else:
         # Rich console output
-        console.print(f"📎 Detaching storage volume [bold blue]{storage_id}[/bold blue]")
+        ctx.obj.console.print(f"📎 Detaching storage volume [bold blue]{storage_id}[/bold blue]")
         if force:
-            console.print("   [bold red]Force mode enabled - no graceful unmounting[/bold red]")
-        console.print("   Previous instance: [green]instance-456[/green]")
-        console.print("✅ Storage volume detached successfully!")
+            ctx.obj.console.print(
+                "   [bold red]Force mode enabled - no graceful unmounting[/bold red]"
+            )
+        ctx.obj.console.print("   Previous instance: [green]instance-456[/green]")
+        ctx.obj.console.print("✅ Storage volume detached successfully!")

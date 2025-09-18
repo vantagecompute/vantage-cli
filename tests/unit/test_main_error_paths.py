@@ -17,6 +17,7 @@ from unittest.mock import Mock, patch
 import pytest
 import typer
 
+from tests.conftest import MockConsole
 from vantage_cli.exceptions import Abort
 from vantage_cli.main import whoami
 from vantage_cli.schemas import IdentityData, Persona, TokenSet
@@ -32,7 +33,7 @@ async def test_whoami_success_rich_table():
         patch("vantage_cli.config.USER_CONFIG_FILE") as mock_config_file,
     ):
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile="test_profile", json_output=False)
+        ctx.obj = SimpleNamespace(profile="test_profile", json_output=False, console=MockConsole())
 
         # Provide minimal settings mapping for required profile
         mock_config_file.read_text.return_value = json.dumps({"test_profile": {}})
@@ -66,7 +67,7 @@ async def test_whoami_error_json_output():
         patch("vantage_cli.config.USER_CONFIG_FILE") as mock_config_file,
     ):
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile="p", json_output=True)
+        ctx.obj = SimpleNamespace(profile="p", json_output=True, console=MockConsole())
         mock_config_file.read_text.return_value = json.dumps({"p": {}})
         mock_extract.side_effect = Abort("boom")
 
@@ -85,7 +86,7 @@ async def test_whoami_error_rich_panel():
         patch("vantage_cli.config.USER_CONFIG_FILE") as mock_config_file,
     ):
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile="err_prof", json_output=False)
+        ctx.obj = SimpleNamespace(profile="err_prof", json_output=False, console=MockConsole())
         mock_config_file.read_text.return_value = json.dumps({"err_prof": {}})
         mock_extract.side_effect = Abort("nope")
 

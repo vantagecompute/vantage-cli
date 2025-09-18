@@ -24,7 +24,6 @@ import typer
 import yaml
 from juju.controller import Controller
 from juju.errors import JujuError
-from rich.console import Console
 from rich.panel import Panel
 from typing_extensions import Annotated
 
@@ -149,20 +148,19 @@ async def _configure_jobbergate_influxdb(model) -> None:
 
 async def deploy_juju_localhost(ctx: Any, deployment_name: str) -> None | typer.Exit:
     """Deploy Vantage JupyterHub SLURM cluster using Juju on localhost (refactored)."""
-    console = Console()
     controller = Controller()
     model_name = deployment_name  # Use deployment_name as model_name
     secret_name = JUJU_SECRET_NAME
     try:
-        console.print("Connecting to Juju controller...")
+        ctx.obj.console.print("Connecting to Juju controller...")
         await controller.connect()
-        console.print(f"Creating juju model: {model_name}")
+        ctx.obj.console.print(f"Creating juju model: {model_name}")
         model = await controller.add_model(model_name, cloud_name="localhost")
         try:
-            console.print(f"Creating '{secret_name}' juju secret...")
+            ctx.obj.console.print(f"Creating '{secret_name}' juju secret...")
             secret = await model.add_secret(secret_name, _build_secret_args(ctx))
-            console.print(f"Secret created with ID: {secret}")
-            console.print("Deploying SLURM cluster...")
+            ctx.obj.console.print(f"Secret created with ID: {secret}")
+            ctx.obj.console.print("Deploying SLURM cluster...")
             bundle_yaml = _prepare_bundle(ctx, model_name, secret)
             await _write_and_deploy_model_bundle(model, bundle_yaml)
             await model.grant_secret(secret_name, JUJU_APPLICATION_NAME)
@@ -191,13 +189,12 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     Raises:
         typer.Exit: If deployment fails due to missing or invalid cluster data
     """
-    console = Console()
-    console.print(Panel("Juju Localhost SLURM Application"))
-    console.print("Deploying juju localhost slurm application...")
+    ctx.obj.console.print(Panel("Juju Localhost SLURM Application"))
+    ctx.obj.console.print("Deploying juju localhost slurm application...")
 
     # Validate cluster data and extract credentials
-    cluster_data = validate_cluster_data(cluster_data, console)
-    client_id, client_secret = validate_client_credentials(cluster_data, console)
+    cluster_data = validate_cluster_data(cluster_data, ctx.obj.console)
+    client_id, client_secret = validate_client_credentials(cluster_data, ctx.obj.console)
 
     # Get client secret from API if not in cluster data (import locally to avoid circular import)
     if not client_secret:
@@ -209,7 +206,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     if not client_secret:
         client_secret = os.environ.get(ENV_CLIENT_SECRET, None)
     if not client_secret:
-        console.print(
+        ctx.obj.console.print(
             "[red]Error: No client secret found in cluster data, API, or environment.[/red]"
         )
         raise typer.Exit(code=1)
@@ -221,7 +218,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
             jupyterhub_token = jupyterhub_token_data
 
     if jupyterhub_token is None:
-        console.print("[red]Error: No jupyterhub_token found in cluster data.[/red]")
+        ctx.obj.console.print("[red]Error: No jupyterhub_token found in cluster data.[/red]")
         raise typer.Exit(code=1)
 
     # Extract deployment name from cluster_data
@@ -230,7 +227,9 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     # Get settings from the active profile (attached by @attach_settings decorator)
     settings = getattr(ctx.obj, "settings", None)
     if not settings:
-        console.print("[red]Error: No settings found. Please configure your profile first.[/red]")
+        ctx.obj.console.print(
+            "[red]Error: No settings found. Please configure your profile first.[/red]"
+        )
         raise typer.Exit(code=1)
 
     # Create VantageClusterContext with the validated credentials and URLs from settings
@@ -259,9 +258,8 @@ async def deploy_command(
     ] = False,
 ) -> None:
     """Deploy a Vantage JupyterHub SLURM cluster using Juju localhost."""
-    console = Console()
-    console.print(Panel("Juju Localhost SLURM Application"))
-    console.print("Deploying juju localhost slurm application...")
+    ctx.obj.console.print(Panel("Juju Localhost SLURM Application"))
+    ctx.obj.console.print("Deploying juju localhost slurm application...")
 
     cluster_data = generate_dev_cluster_data(cluster_name)
     if not dev_run:
@@ -271,42 +269,42 @@ async def deploy_command(
         if cluster_data is None:
             raise ValueError(f"Cluster '{cluster_name}' not found")
     else:
-        console.print(
+        ctx.obj.console.print(
             f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
         )
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
 
 
-async def cleanup_juju_localhost(deployment_data: Dict[str, Any]) -> None:
+async def cleanup_juju_localhost(ctx: typer.Context, deployment_data: Dict[str, Any]) -> None:
     """Clean up a Juju localhost deployment by destroying the model.
 
     Args:
+        ctx: Typer context containing console object
         deployment_data: Dictionary containing deployment information including deployment_name
 
     Raises:
         Exception: If cleanup fails
     """
-    console = Console()
     controller = Controller()
 
     # Get the deployment name (which is used as the model name)
     model_name = deployment_data.get("deployment_name", "")
     if not model_name:
-        console.print("[red]Error: No deployment_name found in deployment data[/red]")
+        ctx.obj.console.print("[red]Error: No deployment_name found in deployment data[/red]")
         raise Exception("Missing deployment_name in deployment data")
 
     try:
-        console.print("Connecting to Juju controller...")
+        ctx.obj.console.print("Connecting to Juju controller...")
         await controller.connect()
 
-        console.print(f"[yellow]Destroying Juju model: {model_name}[/yellow]")
+        ctx.obj.console.print(f"[yellow]Destroying Juju model: {model_name}[/yellow]")
         await controller.destroy_model(model_name, destroy_storage=True)
 
-        console.print(f"[green]✓ Successfully destroyed Juju model '{model_name}'[/green]")
+        ctx.obj.console.print(f"[green]✓ Successfully destroyed Juju model '{model_name}'[/green]")
 
     except Exception as e:
-        console.print(f"[red]Error during cleanup: {e}[/red]")
+        ctx.obj.console.print(f"[red]Error during cleanup: {e}[/red]")
         raise
     finally:
         try:

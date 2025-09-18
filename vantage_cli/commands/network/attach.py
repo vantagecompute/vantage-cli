@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -54,12 +51,12 @@ async def attach_network(
         )
     else:
         # Rich console output
-        console.print(
+        ctx.obj.console.print(
             f"🔗 Attaching network [bold blue]{network_id}[/bold blue] to instance [bold green]{instance_id}[/bold green]"
         )
         if subnet_id:
-            console.print(f"   Subnet: [yellow]{subnet_id}[/yellow]")
-        console.print(f"   Public IP: [cyan]{assign_public_ip}[/cyan]")
-        console.print("   Interface ID: [magenta]eni-abc123[/magenta]")
-        console.print("   Private IP: [yellow]10.0.1.100[/yellow]")
-        console.print("✅ Network interface attached successfully!")
+            ctx.obj.console.print(f"   Subnet: [yellow]{subnet_id}[/yellow]")
+        ctx.obj.console.print(f"   Public IP: [cyan]{assign_public_ip}[/cyan]")
+        ctx.obj.console.print("   Interface ID: [magenta]eni-abc123[/magenta]")
+        ctx.obj.console.print("   Private IP: [yellow]10.0.1.100[/yellow]")
+        ctx.obj.console.print("✅ Network interface attached successfully!")

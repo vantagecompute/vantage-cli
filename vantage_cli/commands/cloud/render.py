@@ -13,7 +13,6 @@
 
 from typing import Any, Dict, List, Optional
 
-from rich import print_json
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -23,6 +22,7 @@ from vantage_cli.render import StyleMapper
 
 def render_clouds_table(
     clouds: List[Dict[str, Any]],
+    console: Console,
     title: str = "Cloud Accounts",
     total_count: Optional[int] = None,
     json_output: bool = False,
@@ -31,17 +31,17 @@ def render_clouds_table(
 
     Args:
         clouds: List of cloud account dictionaries
+        console: Console instance for output
         title: Title for the table
         total_count: Total number of cloud accounts available
         json_output: If True, output as JSON instead of a table
     """
     if json_output:
         output = {"clouds": clouds, "total": total_count or len(clouds)}
-        print_json(data=output)
+        console.print_json(data=output)
         return
 
     if not clouds:
-        console = Console()
         console.print()
         console.print(Panel("No cloud accounts found.", title="[yellow]No Results"))
         console.print()
@@ -89,7 +89,6 @@ def render_clouds_table(
             table.add_row(*row_values)
 
     # Print the table
-    console = Console()
     console.print()
     console.print(table)
     console.print()
@@ -98,6 +97,7 @@ def render_clouds_table(
 def render_cloud_operation_result(
     operation: str,
     cloud_name: str,
+    console: Console,
     success: bool = True,
     details: Optional[Dict[str, Any]] = None,
     json_output: bool = False,
@@ -107,6 +107,7 @@ def render_cloud_operation_result(
     Args:
         operation: The operation performed (add, update, delete)
         cloud_name: Name of the cloud account
+        console: Console instance for output
         success: Whether the operation was successful
         details: Additional details about the operation
         json_output: If True, output as JSON instead of a formatted view
@@ -118,10 +119,9 @@ def render_cloud_operation_result(
             "success": success,
             "details": details or {},
         }
-        print_json(data=result)
+        console.print_json(data=result)
         return
 
-    console = Console()
     console.print()
 
     status_icon = "✅" if success else "❌"

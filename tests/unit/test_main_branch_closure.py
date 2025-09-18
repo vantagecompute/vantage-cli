@@ -21,6 +21,7 @@ from unittest.mock import Mock, patch
 import pytest
 import typer
 
+from tests.conftest import MockConsole
 from vantage_cli.main import whoami
 from vantage_cli.schemas import IdentityData, Persona, TokenSet
 
@@ -35,7 +36,7 @@ async def test_whoami_minimal_rich_table_no_optional_fields():
         patch("vantage_cli.config.USER_CONFIG_FILE") as mock_config_file,
     ):
         ctx = Mock(spec=typer.Context)
-        ctx.obj = SimpleNamespace(profile="minimal", json_output=False)
+        ctx.obj = SimpleNamespace(profile="minimal", json_output=False, console=MockConsole())
 
         # Provide empty settings mapping for profile
         mock_config_file.read_text.return_value = json.dumps({"minimal": {}})

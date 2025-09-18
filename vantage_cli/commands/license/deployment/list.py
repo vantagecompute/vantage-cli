@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -80,8 +77,8 @@ async def list_license_deployments(
         )
     else:
         # Rich console output
-        console.print("📦 License Deployments:")
-        console.print()
+        ctx.obj.console.print("📦 License Deployments:")
+        ctx.obj.console.print()
 
         deployments = [
             ("deployment-123", "web-app-deployment", "prod", "active", "50/35"),
@@ -89,10 +86,10 @@ async def list_license_deployments(
         ]
 
         for dep_id, name, env, stat, licenses in deployments:
-            console.print(f"  🏷️  [bold blue]{dep_id}[/bold blue] - {name}")
-            console.print(
+            ctx.obj.console.print(f"  🏷️  [bold blue]{dep_id}[/bold blue] - {name}")
+            ctx.obj.console.print(
                 f"      Environment: [cyan]{env}[/cyan] | Status: [green]{stat}[/green] | Licenses: [yellow]{licenses}[/yellow]"
             )
-            console.print()
+            ctx.obj.console.print()
 
-        console.print(f"📊 Total deployments: {len(deployments)}")
+        ctx.obj.console.print(f"📊 Total deployments: {len(deployments)}")

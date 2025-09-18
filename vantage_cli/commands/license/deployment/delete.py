@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -34,7 +31,7 @@ async def delete_license_deployment(
     """Delete a license deployment."""
     if not force:
         if not typer.confirm(f"Are you sure you want to delete deployment {deployment_id}?"):
-            console.print("❌ Deployment deletion cancelled.")
+            ctx.obj.console.print("❌ Deployment deletion cancelled.")
             return
 
     if get_effective_json_output(ctx):
@@ -48,5 +45,7 @@ async def delete_license_deployment(
         )
     else:
         # Rich console output
-        console.print(f"🗑️ Deleting license deployment [bold red]{deployment_id}[/bold red]")
-        console.print("✅ License deployment deleted successfully!")
+        ctx.obj.console.print(
+            f"🗑️ Deleting license deployment [bold red]{deployment_id}[/bold red]"
+        )
+        ctx.obj.console.print("✅ License deployment deleted successfully!")

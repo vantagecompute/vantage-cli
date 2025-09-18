@@ -13,7 +13,6 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
@@ -31,8 +30,6 @@ async def delete_federation(
     ] = False,
 ):
     """Delete a Vantage federation."""
-    console = Console()
-
     # Determine output format
     # Get JSON flag from context (automatically set by AsyncTyper)
     json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
@@ -40,12 +37,12 @@ async def delete_federation(
 
     if not force and not use_json:
         # Ask for confirmation
-        console.print(f"⚠️  You are about to delete federation '[red]{name}[/red]'")
-        console.print("This action cannot be undone!")
+        ctx.obj.console.print(f"⚠️  You are about to delete federation '[red]{name}[/red]'")
+        ctx.obj.console.print("This action cannot be undone!")
 
         confirm = typer.confirm("Are you sure you want to proceed?")
         if not confirm:
-            console.print("Deletion cancelled.")
+            ctx.obj.console.print("Deletion cancelled.")
             return
 
     if use_json:
@@ -59,8 +56,8 @@ async def delete_federation(
             }
         )
     else:
-        console.print("🔗 [bold blue]Federation Delete Command[/bold blue]")
-        console.print(f"🗑️  Deleting federation: [bold]{name}[/bold]")
+        ctx.obj.console.print("🔗 [bold blue]Federation Delete Command[/bold blue]")
+        ctx.obj.console.print(f"🗑️  Deleting federation: [bold]{name}[/bold]")
         if force:
-            console.print("💪 Force deletion enabled")
-        console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+            ctx.obj.console.print("💪 Force deletion enabled")
+        ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")

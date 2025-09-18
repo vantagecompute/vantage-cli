@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -51,14 +48,14 @@ async def get_network(
         )
     else:
         # Rich console output
-        console.print(f"🌐 Virtual Network: [bold blue]{network_id}[/bold blue]")
-        console.print("   Name: [green]production-vpc[/green]")
-        console.print("   CIDR: [yellow]10.0.0.0/16[/yellow]")
-        console.print("   Region: [cyan]us-west-2[/cyan]")
-        console.print("   Status: [green]active[/green]")
-        console.print("   DNS Enabled: [magenta]True[/magenta]")
-        console.print("   Description: Production VPC for web services")
-        console.print("   Subnets: [blue]subnet-123, subnet-456[/blue]")
-        console.print("   Internet Gateway: [yellow]igw-abc[/yellow]")
-        console.print("   Created: 2025-09-01T09:00:00Z")
-        console.print("   Updated: 2025-09-10T10:00:00Z")
+        ctx.obj.console.print(f"🌐 Virtual Network: [bold blue]{network_id}[/bold blue]")
+        ctx.obj.console.print("   Name: [green]production-vpc[/green]")
+        ctx.obj.console.print("   CIDR: [yellow]10.0.0.0/16[/yellow]")
+        ctx.obj.console.print("   Region: [cyan]us-west-2[/cyan]")
+        ctx.obj.console.print("   Status: [green]active[/green]")
+        ctx.obj.console.print("   DNS Enabled: [magenta]True[/magenta]")
+        ctx.obj.console.print("   Description: Production VPC for web services")
+        ctx.obj.console.print("   Subnets: [blue]subnet-123, subnet-456[/blue]")
+        ctx.obj.console.print("   Internet Gateway: [yellow]igw-abc[/yellow]")
+        ctx.obj.console.print("   Created: 2025-09-01T09:00:00Z")
+        ctx.obj.console.print("   Updated: 2025-09-10T10:00:00Z")

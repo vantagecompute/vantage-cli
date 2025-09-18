@@ -13,13 +13,10 @@
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @attach_settings
@@ -36,6 +33,6 @@ async def list_teams(ctx: typer.Context):
             }
         )
     else:
-        console.print("👥 Teams:")
-        console.print("  team-12345 - Development Team (5 members)")
-        console.print("  team-67890 - QA Team (3 members)")
+        ctx.obj.console.print("👥 Teams:")
+        ctx.obj.console.print("  team-12345 - Development Team (5 members)")
+        ctx.obj.console.print("  team-67890 - QA Team (3 members)")

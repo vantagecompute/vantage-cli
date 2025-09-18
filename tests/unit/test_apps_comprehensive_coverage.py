@@ -38,8 +38,11 @@ def mock_config_file():
 @pytest.fixture
 def mock_ctx():
     """Mock typer context with settings."""
+    from tests.conftest import MockConsole
+
     ctx = SimpleNamespace()
     ctx.obj = SimpleNamespace()
+    ctx.obj.console = MockConsole()
     ctx.obj.settings = SimpleNamespace()
     ctx.obj.settings.api_base_url = "https://api.example.com"
     ctx.obj.settings.oidc_base_url = "https://auth.example.com"

@@ -15,15 +15,12 @@ from typing import Any, Dict, Optional, cast
 
 import typer
 from rich import print_json
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
-
-console = Console()
 
 
 @handle_abort
@@ -41,7 +38,7 @@ async def delete_notebook(
     if not force:
         confirm = typer.confirm(f"Are you sure you want to delete notebook server '{name}'?")
         if not confirm:
-            console.print("[yellow]Deletion cancelled[/yellow]")
+            ctx.obj.console.print("[yellow]Deletion cancelled[/yellow]")
             return
 
     # The API only needs the notebook server name for deletion
@@ -100,9 +97,9 @@ async def delete_notebook(
             print_json(data=result)
         else:
             if message:
-                console.print(f"[green]✓[/green] {message}")
+                ctx.obj.console.print(f"[green]✓[/green] {message}")
             else:
-                console.print(
+                ctx.obj.console.print(
                     f"[green]✓[/green] Notebook server '{name}' has been deleted successfully"
                 )
 

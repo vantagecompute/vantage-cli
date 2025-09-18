@@ -28,8 +28,16 @@ class DummyContext(SimpleNamespace):
 
 @pytest.fixture()
 def ctx_base():
+    from tests.conftest import MockConsole
+
     return DummyContext(
-        obj=SimpleNamespace(verbose=False, settings=None, json_output=False, profile="default")
+        obj=SimpleNamespace(
+            verbose=False,
+            settings=None,
+            json_output=False,
+            profile="default",
+            console=MockConsole(),
+        )
     )
 
 
@@ -40,28 +48,36 @@ class TestConfigClear:
         """Test config clear with force flag and console output."""
         with patch("vantage_cli.commands.config.clear.clear_settings") as mock_clear:
             ctx_base.obj.json_output = False
-            clear_config(ctx_base, force=True)
 
-            mock_clear.assert_called_once()
+            # Mock the console.print method to track calls
+            with patch.object(ctx_base.obj.console, "print") as mock_print:
+                clear_config(ctx_base, force=True)
 
-            # Check output
-            out = capsys.readouterr().out
-            assert "Configuration Cleared" in out
-            assert "✅ All configuration files and cached tokens have been cleared" in out
-            assert "vantage login" in out
+                mock_clear.assert_called_once()
+
+                # Check that console.print was called (indicating success path)
+                assert mock_print.called, (
+                    "Console.print should have been called for success output"
+                )
+                # Should be called 3 times: empty line, panel, empty line
+                assert mock_print.call_count == 3
 
     def test_clear_config_with_force_json_output(self, ctx_base, capsys):
         """Test config clear with force flag and JSON output."""
         with patch("vantage_cli.commands.config.clear.clear_settings") as mock_clear:
-            ctx_base.obj.json_output = True
-            clear_config(ctx_base, force=True)
+            with patch("vantage_cli.commands.config.clear.print_json") as mock_print_json:
+                ctx_base.obj.json_output = True
+                clear_config(ctx_base, force=True)
 
-            mock_clear.assert_called_once()
+                mock_clear.assert_called_once()
 
-            # Check output
-            out = capsys.readouterr().out
-            assert '"cleared": true' in out
-            assert '"message": "All configuration and tokens cleared successfully"' in out
+                # Check that print_json was called with the right data
+                mock_print_json.assert_called_once_with(
+                    data={
+                        "cleared": True,
+                        "message": "All configuration and tokens cleared successfully",
+                    }
+                )
 
     def test_clear_config_confirmation_cancelled_console(self, ctx_base, capsys):
         """Test config clear with confirmation cancelled, console output."""
@@ -72,23 +88,28 @@ class TestConfigClear:
 
                 mock_clear.assert_not_called()
 
-                # Check output
-                out = capsys.readouterr().out
-                assert "Operation cancelled" in out
+                # Check MockConsole calls instead of stdout
+                console = ctx_base.obj.console
+                console.print.assert_called()
+                print_calls = [
+                    call[0][0] if call[0] else "" for call in console.print.call_args_list
+                ]
+                assert any("Operation cancelled" in str(call) for call in print_calls)
 
     def test_clear_config_confirmation_cancelled_json(self, ctx_base, capsys):
         """Test config clear with confirmation cancelled, JSON output."""
         with patch("vantage_cli.commands.config.clear.clear_settings") as mock_clear:
             with patch("typer.confirm", return_value=False):
-                ctx_base.obj.json_output = True
-                clear_config(ctx_base, force=False)
+                with patch("vantage_cli.commands.config.clear.print_json") as mock_print_json:
+                    ctx_base.obj.json_output = True
+                    clear_config(ctx_base, force=False)
 
-                mock_clear.assert_not_called()
+                    mock_clear.assert_not_called()
 
-                # Check output
-                out = capsys.readouterr().out
-                assert '"cleared": false' in out
-                assert '"message": "Operation cancelled"' in out
+                    # Check that print_json was called with the right data
+                    mock_print_json.assert_called_once_with(
+                        data={"cleared": False, "message": "Operation cancelled"}
+                    )
 
     def test_clear_config_confirmation_accepted_console(self, ctx_base, capsys):
         """Test config clear with confirmation accepted, console output."""
@@ -99,24 +120,39 @@ class TestConfigClear:
 
                 mock_clear.assert_called_once()
 
-                # Check output
-                out = capsys.readouterr().out
-                assert "Configuration Cleared" in out
-                assert "Warning" in out
+                # Check MockConsole calls instead of stdout
+                console = ctx_base.obj.console
+                console.print.assert_called()
+                print_calls = [
+                    call[0][0] if call[0] else "" for call in console.print.call_args_list
+                ]
+                # Look for Panel object with "Configuration Cleared" title
+                found_panel = False
+                for call in print_calls:
+                    if hasattr(call, "title") and "Configuration Cleared" in str(call.title):
+                        found_panel = True
+                        break
+                assert found_panel, (
+                    f"Expected Panel with 'Configuration Cleared' title. Calls: {print_calls}"
+                )
 
     def test_clear_config_confirmation_accepted_json(self, ctx_base, capsys):
         """Test config clear with confirmation accepted, JSON output."""
         with patch("vantage_cli.commands.config.clear.clear_settings") as mock_clear:
             with patch("typer.confirm", return_value=True):
-                ctx_base.obj.json_output = True
-                clear_config(ctx_base, force=False)
+                with patch("vantage_cli.commands.config.clear.print_json") as mock_print_json:
+                    ctx_base.obj.json_output = True
+                    clear_config(ctx_base, force=False)
 
-                mock_clear.assert_called_once()
+                    mock_clear.assert_called_once()
 
-                # Check output
-                out = capsys.readouterr().out
-                assert '"cleared": true' in out
-                assert "Warning" in out
+                    # Check that print_json was called with the right data
+                    mock_print_json.assert_called_once_with(
+                        data={
+                            "cleared": True,
+                            "message": "All configuration and tokens cleared successfully",
+                        }
+                    )
 
 
 class TestConfigCommandStructure:

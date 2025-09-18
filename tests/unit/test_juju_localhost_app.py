@@ -16,6 +16,7 @@ import pytest
 import typer
 from juju.errors import JujuError
 
+from tests.conftest import MockConsole
 from vantage_cli.apps.slurm_juju_localhost import app as juju_app
 from vantage_cli.config import Settings
 
@@ -28,7 +29,7 @@ def ctx() -> Any:
         oidc_base_url="http://localhost:8000/auth",
         tunnel_api_url="http://localhost:8002",
     )
-    ctx_obj = SimpleNamespace(settings=settings)
+    ctx_obj = SimpleNamespace(settings=settings, console=MockConsole())
     return SimpleNamespace(obj=ctx_obj)
 
 
@@ -366,6 +367,10 @@ async def test_deploy_juju_success_path(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(juju_app, "_write_and_deploy_model_bundle", fake_write)
 
     class Ctx:
+        def __init__(self):
+            self.obj = SimpleNamespace()
+            self.obj.console = MockConsole()
+
         client_id = "client-123-aaaa-bbbb-cccc"  # ensures model name trimming works
         client_secret = "sek"
         base_api_url = "http://api"
@@ -399,6 +404,10 @@ async def test_deploy_juju_wait_for_idle_failure(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(juju_app, "_write_and_deploy_model_bundle", fake_write)
 
     class Ctx:
+        def __init__(self):
+            self.obj = SimpleNamespace()
+            self.obj.console = MockConsole()
+
         client_id = "client-123-aaaa-bbbb-cccc"
         client_secret = "sek"
         base_api_url = "http://api"

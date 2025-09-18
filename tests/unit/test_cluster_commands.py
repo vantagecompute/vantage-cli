@@ -18,6 +18,8 @@ import click.exceptions
 import pytest
 import typer
 
+from tests.conftest import MockConsole
+
 # Import the functions we want to test
 try:
     from vantage_cli.commands.cluster.create import create_cluster
@@ -43,7 +45,9 @@ class TestClusterCreate:
         """Create a mock typer context."""
         ctx = Mock(spec=typer.Context)
         ctx.params = {"json_output": False}
-        ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+        ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=False, console=MockConsole()
+        )
         return ctx
 
     @pytest.fixture
@@ -426,14 +430,16 @@ class TestClusterDelete:
             # Verify GraphQL was called
             mock_client.execute_async.assert_called_once()
 
-            # Verify deployments were queried
-            mock_list_deployments.assert_called_once_with("test-cluster")
+            # Verify deployments were queried with console parameter
+            mock_list_deployments.assert_called_once_with("test-cluster", mock_context.obj.console)
 
             # Verify cleanup was called
-            mock_cleanup.assert_called_once_with({"id": "cluster-123", "clientId": "client-123"})
+            mock_cleanup.assert_called_once_with(mock_context, {"id": "cluster-123", "clientId": "client-123"})
 
-            # Verify deployment was removed
-            mock_remove_deployment.assert_called_once_with("deployment-123")
+            # Verify deployment was removed with console parameter
+            mock_remove_deployment.assert_called_once_with(
+                "deployment-123", mock_context.obj.console
+            )
 
     @pytest.mark.asyncio
     @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
@@ -462,8 +468,8 @@ class TestClusterDelete:
         # Verify GraphQL was called
         mock_client.execute_async.assert_called_once()
 
-        # Verify deployments were queried
-        mock_list_deployments.assert_called_once_with("test-cluster")
+        # Verify deployments were queried with console parameter
+        mock_list_deployments.assert_called_once_with("test-cluster", mock_context.obj.console)
 
     @pytest.mark.asyncio
     @patch("vantage_cli.commands.cluster.delete.create_async_graphql_client")
@@ -500,8 +506,8 @@ class TestClusterDelete:
         # Verify GraphQL was called
         mock_client.execute_async.assert_called_once()
 
-        # Verify deployments were queried
-        mock_list_deployments.assert_called_once_with("test-cluster")
+        # Verify deployments were queried with console parameter
+        mock_list_deployments.assert_called_once_with("test-cluster", mock_context.obj.console)
 
 
 class TestClusterGet:
@@ -626,6 +632,9 @@ class TestClusterRender:
 
     def test_render_cluster_details(self):
         """Test rendering cluster details."""
+        from tests.conftest import MockConsole
+
+        console = MockConsole()
         cluster_data = {
             "name": "test-cluster",
             "status": "RUNNING",
@@ -638,22 +647,31 @@ class TestClusterRender:
         }
 
         # This should not raise an exception
-        render_cluster_details(cluster_data, json_output=False)
+        render_cluster_details(cluster_data, console, json_output=False)
 
     def test_render_cluster_details_json(self):
         """Test rendering cluster details with JSON output."""
+        from tests.conftest import MockConsole
+
+        console = MockConsole()
         cluster_data = {"name": "test-cluster", "status": "RUNNING", "clientId": "client-123"}
 
         # This should not raise an exception
-        render_cluster_details(cluster_data, json_output=True)
+        render_cluster_details(cluster_data, console, json_output=True)
 
     def test_render_clusters_table_empty(self):
         """Test rendering empty clusters table."""
+        from tests.conftest import MockConsole
+
+        console = MockConsole()
         # This should not raise an exception
-        render_clusters_table([], json_output=False)
+        render_clusters_table([], console, json_output=False)
 
     def test_render_clusters_table_with_data(self):
         """Test rendering clusters table with data."""
+        from tests.conftest import MockConsole
+
+        console = MockConsole()
         clusters_data = [
             {
                 "name": "cluster1",
@@ -670,11 +688,14 @@ class TestClusterRender:
         ]
 
         # This should not raise an exception
-        render_clusters_table(clusters_data, json_output=False)
+        render_clusters_table(clusters_data, console, json_output=False)
 
     def test_render_clusters_table_json(self):
         """Test rendering clusters table with JSON output."""
+        from tests.conftest import MockConsole
+
+        console = MockConsole()
         clusters_data = [{"name": "cluster1", "status": "RUNNING"}]
 
         # This should not raise an exception
-        render_clusters_table(clusters_data, json_output=True)
+        render_clusters_table(clusters_data, console, json_output=True)

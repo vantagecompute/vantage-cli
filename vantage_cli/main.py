@@ -132,7 +132,12 @@ def main(
 
     setup_logging(verbose=verbose)
 
-    cli_ctx = CliContext(profile=active_profile, verbose=verbose, json_output=json_output)
+    # Create a single console instance for the entire application
+    console = Console(width=99)
+
+    cli_ctx = CliContext(
+        profile=active_profile, verbose=verbose, json_output=json_output, console=console
+    )
     ctx.obj = cli_ctx
 
 
@@ -174,7 +179,7 @@ async def login(ctx: typer.Context):
     # Check if user is already logged in with a valid token
     existing_email = _check_existing_login(ctx.obj.profile)
     if existing_email:
-        console = Console()
+        console = ctx.obj.console
         console.print()
         console.print(
             Panel(
@@ -190,7 +195,7 @@ async def login(ctx: typer.Context):
 
     token_set: TokenSet = await fetch_auth_tokens(ctx.obj)
     persona: Persona = extract_persona(ctx.obj.profile, token_set)
-    console = Console()
+    console = ctx.obj.console
     console.print()
     console.print(
         Panel(
@@ -211,7 +216,7 @@ async def logout(ctx: typer.Context):
     """Log out of the vantage-cli and clear saved user credentials."""
     existing_email = _check_existing_login(ctx.obj.profile)
     if existing_email:
-        console = Console()
+        console = ctx.obj.console
         console.print()
         console.print(
             Panel(
@@ -284,7 +289,7 @@ async def whoami(ctx: typer.Context):
         if json_output:
             print_json(data=user_info)
         else:
-            console = Console()
+            console = ctx.obj.console
             console.print()
 
             # Create a table for user information
@@ -330,7 +335,7 @@ async def whoami(ctx: typer.Context):
         if json_output:
             print_json(data=error_info)
         else:
-            console = Console()
+            console = ctx.obj.console
             console.print()
             console.print(
                 Panel(

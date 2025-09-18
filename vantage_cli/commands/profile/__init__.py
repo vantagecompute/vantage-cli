@@ -12,11 +12,8 @@
 """Profile management commands for Vantage CLI."""
 
 import typer
-from rich.console import Console
 
 from .crud import create_profile, delete_profile, get_profile, list_profiles, use_profile
-
-console = Console()
 
 # Create the profile app
 profile_app = typer.Typer(

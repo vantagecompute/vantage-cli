@@ -22,6 +22,7 @@ import click
 import pytest
 import typer
 
+from tests.conftest import MockConsole
 from vantage_cli.commands.profile.crud import (
     _clear_profile_token_cache,
     _get_all_profiles,
@@ -111,7 +112,9 @@ class TestCreateProfile:
     def test_create_profile_success(self):
         """Test successful profile creation."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch("vantage_cli.commands.profile.crud.init_user_filesystem") as mock_init:
@@ -130,7 +133,9 @@ class TestCreateProfile:
     def test_create_profile_already_exists(self):
         """Test creating profile that already exists without force."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -147,7 +152,9 @@ class TestCreateProfile:
     def test_create_profile_with_force(self):
         """Test creating profile that already exists with force=True."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -175,7 +182,9 @@ class TestDeleteProfile:
     def test_delete_profile_success(self):
         """Test successful profile deletion."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -198,7 +207,9 @@ class TestDeleteProfile:
     def test_delete_profile_not_found(self):
         """Test deleting profile that doesn't exist."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch(
@@ -232,7 +243,9 @@ class TestGetProfile:
     def test_get_profile_success(self):
         """Test successful profile retrieval."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
         existing_profiles = {
             "test_profile": {
                 "api_base_url": "https://example.com",
@@ -257,7 +270,9 @@ class TestGetProfile:
     def test_get_profile_not_found(self):
         """Test getting profile that doesn't exist."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch(
@@ -275,7 +290,9 @@ class TestListProfiles:
     def test_list_profiles_success(self):
         """Test successful profile listing."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
         existing_profiles = {
             "default": {"api_base_url": "https://api.example.com"},
             "test": {"api_base_url": "https://test.example.com"},
@@ -302,7 +319,9 @@ class TestListProfiles:
     def test_list_profiles_empty(self):
         """Test listing profiles when none exist."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
 
         with patch("vantage_cli.commands.profile.crud.get_active_profile", return_value="default"):
             with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
@@ -325,7 +344,9 @@ class TestUseProfile:
     def test_use_profile_success(self):
         """Test successful profile activation."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
         existing_profiles = {"test_profile": {"api_base_url": "https://example.com"}}
 
         with patch(
@@ -344,7 +365,9 @@ class TestUseProfile:
     def test_use_profile_not_found(self):
         """Test using profile that doesn't exist."""
         mock_ctx = MagicMock()
-        mock_ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=True)
+        mock_ctx.obj = SimpleNamespace(
+            profile="default", verbose=False, json_output=True, console=MockConsole()
+        )
 
         with patch("vantage_cli.commands.profile.crud._get_all_profiles", return_value={}):
             with patch(

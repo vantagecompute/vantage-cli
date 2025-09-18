@@ -84,4 +84,4 @@ vantage whoami --json | jq '{email: .email, client_id: .client_id}'
 ```
 
 ---
-See also: [Commands](/vantage-cli/commands/) | [Troubleshooting](/vantage-cli/troubleshooting/)
+See also: [Commands](./commands) | [Troubleshooting](./troubleshooting)

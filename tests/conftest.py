@@ -118,13 +118,11 @@ class MockSettings:
 class MockConsole:
     """Mock console for testing."""
 
-    def print(self, *args, **kwargs):
-        """Mock print method."""
-        pass
-
-    def log(self, *args, **kwargs):
-        """Mock log method."""
-        pass
+    def __init__(self):
+        """Initialize mock console with Mock objects for tracking calls."""
+        self.print = MagicMock()
+        self.log = MagicMock()
+        self.print_json = MagicMock()
 
 
 # Enhanced JWT Testing Fixtures
@@ -237,6 +235,7 @@ def mock_context():
     mock_obj.json_output = False
     mock_obj.verbose = False
     mock_obj.profile = "test-profile"
+    mock_obj.console = MockConsole()  # Add console for centralized console approach
 
     # Create mock context
     mock_ctx = MagicMock(spec=Context)

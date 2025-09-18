@@ -15,13 +15,10 @@ from typing import Annotated, Optional
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @attach_settings
@@ -60,13 +57,13 @@ async def update_notebook(
         )
     else:
         # Rich console output
-        console.print(f"🔄 Updating notebook [bold blue]{notebook_id}[/bold blue]")
+        ctx.obj.console.print(f"🔄 Updating notebook [bold blue]{notebook_id}[/bold blue]")
 
         if name:
-            console.print(f"   Name: [green]{name}[/green]")
+            ctx.obj.console.print(f"   Name: [green]{name}[/green]")
         if description:
-            console.print(f"   Description: {description}")
+            ctx.obj.console.print(f"   Description: {description}")
         if kernel:
-            console.print(f"   Kernel: [yellow]{kernel}[/yellow]")
+            ctx.obj.console.print(f"   Kernel: [yellow]{kernel}[/yellow]")
 
-        console.print("✅ Notebook updated successfully!")
+        ctx.obj.console.print("✅ Notebook updated successfully!")

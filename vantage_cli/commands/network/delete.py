@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @handle_abort
@@ -34,7 +31,7 @@ async def delete_network(
     """Delete a virtual network."""
     if not force:
         if not typer.confirm(f"Are you sure you want to delete network {network_id}?"):
-            console.print("❌ Network deletion cancelled.")
+            ctx.obj.console.print("❌ Network deletion cancelled.")
             return
 
     if get_effective_json_output(ctx):
@@ -48,5 +45,5 @@ async def delete_network(
         )
     else:
         # Rich console output
-        console.print(f"🗑️ Deleting virtual network [bold red]{network_id}[/bold red]")
-        console.print("✅ Virtual network deleted successfully!")
+        ctx.obj.console.print(f"🗑️ Deleting virtual network [bold red]{network_id}[/bold red]")
+        ctx.obj.console.print("✅ Virtual network deleted successfully!")

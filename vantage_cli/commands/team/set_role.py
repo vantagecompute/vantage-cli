@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @attach_settings
@@ -38,4 +35,6 @@ async def set_team_member_role(
             data={"team_id": team_id, "user_id": user_id, "role": role, "status": "updated"}
         )
     else:
-        console.print(f"👤 User {user_id} role in team {team_id} set to {role} successfully!")
+        ctx.obj.console.print(
+            f"👤 User {user_id} role in team {team_id} set to {role} successfully!"
+        )

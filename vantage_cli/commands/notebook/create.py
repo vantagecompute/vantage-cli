@@ -16,15 +16,12 @@ from typing import Any, Dict, Optional, cast
 import typer
 from loguru import logger
 from rich import print_json
-from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
-
-console = Console()
 
 
 @handle_abort
@@ -114,17 +111,17 @@ async def create_notebook(
         if get_effective_json_output(ctx):
             print_json(data=result_dict)
         else:
-            console.print("📓 Creating notebook server...")
-            console.print(
+            ctx.obj.console.print("📓 Creating notebook server...")
+            ctx.obj.console.print(
                 f"[green]✓[/green] Notebook server '[bold]{result_dict['name']}[/bold]' created successfully!"
             )
-            console.print(f"   Cluster: {result_dict['clusterName']}")
-            console.print(f"   Partition: {result_dict['partition']}")
-            console.print(f"   Owner: {result_dict['owner']}")
+            ctx.obj.console.print(f"   Cluster: {result_dict['clusterName']}")
+            ctx.obj.console.print(f"   Partition: {result_dict['partition']}")
+            ctx.obj.console.print(f"   Owner: {result_dict['owner']}")
             if result_dict.get("serverUrl"):
-                console.print(f"   URL: {result_dict['serverUrl']}")
+                ctx.obj.console.print(f"   URL: {result_dict['serverUrl']}")
             if result_dict.get("slurmJobId"):
-                console.print(f"   SLURM Job ID: {result_dict['slurmJobId']}")
+                ctx.obj.console.print(f"   SLURM Job ID: {result_dict['slurmJobId']}")
 
     except Exception as e:
         logger.error(f"Failed to create notebook server: {e}")

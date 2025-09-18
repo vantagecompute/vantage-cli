@@ -39,4 +39,6 @@ async def get_cluster(
 
     # Get JSON flag from context (automatically set by AsyncTyper)
     json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-    render_cluster_details(cluster, json_output=get_effective_json_output(ctx, json_output))
+    render_cluster_details(
+        cluster, ctx.obj.console, json_output=get_effective_json_output(ctx, json_output)
+    )

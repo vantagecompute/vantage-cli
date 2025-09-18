@@ -15,13 +15,10 @@ from typing import Annotated
 
 import typer
 from rich import print_json
-from rich.console import Console
 
 from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-console = Console()
 
 
 @attach_settings
@@ -41,6 +38,6 @@ async def list_team_members(
             }
         )
     else:
-        console.print(f"👥 Members of team {team_id}:")
-        console.print("  alice (admin)")
-        console.print("  bob (member)")
+        ctx.obj.console.print(f"👥 Members of team {team_id}:")
+        ctx.obj.console.print("  alice (admin)")
+        ctx.obj.console.print("  bob (member)")

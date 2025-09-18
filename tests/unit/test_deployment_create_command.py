@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 import typer
 
+from tests.conftest import MockConsole
 from vantage_cli.commands.deployment.create import create_deployment
 
 
@@ -37,7 +38,9 @@ def mock_ctx():
     """Mock typer context."""
     ctx = Mock(spec=typer.Context)
     # Mock the obj attribute with profile for @attach_settings decorator
-    ctx.obj = SimpleNamespace(profile="default", verbose=False, json_output=False)
+    ctx.obj = SimpleNamespace(
+        profile="default", verbose=False, json_output=False, console=MockConsole()
+    )
     return ctx
 
 

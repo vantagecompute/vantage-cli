@@ -5,13 +5,13 @@ description: Common issues and solutions for Vantage CLI
 
 Quick answers for frequent issues.
 
-## Authentication Fails
+## Vantage CLI Authentication Fails
 
 ```bash
 vantage login  # complete device flow in browser
 ```
 
-If it loops: verify network access to OIDC URL and that system clock skew < 60s.
+If the terminal shows a "loop": verify network access to OIDC URL and that system clock skew < 60s.
 
 ## Expired Token
 
