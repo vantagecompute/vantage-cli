@@ -116,13 +116,13 @@ jobs:
           if ! PR_URL=$(
             gh pr create \
               --base "${BASE_BRANCH}" \
-              --head "${BRANCH_NAME}" \
-              --labels "deploy-docs,auto-merge" \
+              --label "deploy-docs" \
+              --label "auto-merge" \
               --title "docs: auto-update generated documentation" \
               --body $'🤖 **Automated Documentation Update**\n\n- ✅ Updated CLI command documentation\n- ✅ Regenerated Docusaurus build files\n- ✅ Updated version information\n\n> Created by GitHub Actions.'
           ); then
             echo "PR create failed—attempting to fetch existing PR…"
-            PR_URL="$(gh pr view --head "${BRANCH_NAME}" --json url -q .url || true)"
+            PR_URL="$(gh pr view "${BRANCH_NAME}" --json url -q .url || true)"
           fi
 
           if [ -z "${PR_URL}" ]; then
