@@ -1,8 +1,10 @@
 name: Deploy Docs
 
 on:
-  push:
+  pull_request:
     branches: ["main"]
+    types: [closed]
+    labels: ["deploy-docs*"]
 
   workflow_dispatch:
     inputs:
@@ -24,10 +26,11 @@ jobs:
   build:
     name: Build Docusaurus
     runs-on: ubuntu-24.04
-    # Only run when docs are updated by github-actions bot or manual dispatch
+    # Only run when docs are updated by github-actions bot, manual dispatch, or PR merged
     if: |
       github.event_name == 'workflow_dispatch' || 
-      (github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, 'docs: auto-update generated documentation'))
+      (github.event.pull_request.merged == true && github.actor == 'github-actions[bot]' && contains(github.event.pull_request.title, 'docs: auto-update generated documentation')) ||
+      (github.event.pull_request.merged == true && contains(github.event.pull_request.title, 'docs:'))
 
     # Deploy to the github-pages environment
     environment:
