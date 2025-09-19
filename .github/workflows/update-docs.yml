@@ -28,6 +28,7 @@ jobs:
   update-docs:
     name: Update Documentation
     runs-on: ubuntu-24.04
+    environment: github-pages
 
     steps:
       - uses: actions/checkout@v4
@@ -193,11 +194,6 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  dispatch:
-    runs-on: ubuntu-latest
-    needs: [update-docs]
-    environment: github-pages
-    steps:
       - name: Gather context
         id: ctx
         run: |
