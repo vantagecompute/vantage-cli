@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: ["main"]
     types: [closed]
-    labels: ["deploy-docs*"]
+    labels: ["deploy-docs", "auto-merge"]
 
   workflow_dispatch:
     inputs:
