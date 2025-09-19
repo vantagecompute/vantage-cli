@@ -206,14 +206,16 @@ jobs:
         env:
           TOKEN: ${{ secrets.PLATFORM_REPO_TOKEN }}
           TARGET_REPO: vantagecompute/vantage-docs
-          EVENT_TYPE: ${{ github.event_name == 'workflow_dispatch' && inputs.event_type || 'cli-docs-updated' }}
+          EVENT_TYPE: cli-docs-updated
           SHA: ${{ steps.ctx.outputs.sha }}
           REF: ${{ steps.ctx.outputs.ref }}
           REPO: ${{ steps.ctx.outputs.repo }}
           ACTOR: ${{ steps.ctx.outputs.actor }}
         run: |
-          # Build the JSON payload
-          read -r -d '' PAYLOAD <<EOF
+          set -euo pipefail
+          
+          # Build the JSON payload using cat instead of read
+          PAYLOAD=$(cat <<EOF
           {
             "event_type": "${EVENT_TYPE}",
             "client_payload": {
@@ -224,14 +226,24 @@ jobs:
             }
           }
           EOF
+          )
+
+          # Validate payload is not empty
+          if [ -z "${PAYLOAD}" ]; then
+            echo "Error: Payload is empty" >&2
+            exit 1
+          fi
+
+          echo "Sending dispatch with payload:"
+          echo "${PAYLOAD}"
 
           # Fire the dispatch
           curl -sS -X POST \
             -H "Authorization: token ${TOKEN}" \
             -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
             https://api.github.com/repos/${TARGET_REPO}/dispatches \
-            -d "${PAYLOAD}" \
-            | tee /dev/stderr
+            -d "${PAYLOAD}"
 
     # Optional: prevent overlapping dispatches
     concurrency:
