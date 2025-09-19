@@ -47,7 +47,7 @@ Configure GitHub notifications for:
 
 #### Before Asking for Help
 
-1. **Check documentation**: Search our FAQQ for your issue
+1. **Check documentation**: Search our faq for your issue
 2. **Review troubleshooting**: Common issues are covered in the [troubleshooting guide](./troubleshooting)
 3. **Search existing issues**: Your question might already be answered
 4. **Try alternate profiles**: Reproduce with a fresh profile
