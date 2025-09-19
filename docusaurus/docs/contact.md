@@ -32,7 +32,7 @@ Configure GitHub notifications for:
   - **Q&A**: Usage questions and help
   - **Ideas**: Feature requests and suggestions
   - **Show and tell**: Share your deployments
-  - **General**: General discussion
+  - **General**: General discussions
 
 #### GitHub Issues
 **Best for**: Bug reports, specific problems, feature requests
