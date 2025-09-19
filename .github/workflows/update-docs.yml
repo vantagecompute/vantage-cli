@@ -13,7 +13,7 @@ on:
 
 concurrency:
   group: "update-docs"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -53,14 +53,6 @@ jobs:
           gh --version
           gh auth status -h github.com
 
-      - name: Generate & build docs
-        run: |
-          set -euo pipefail
-          python3 scripts/generate_complete_docs.py
-          python3 scripts/update_docs_version.py
-          just docs-build
-          echo "Docs generated & built."
-
       - name: Create docs update branch & commit
         id: commit_changes
         env:
@@ -80,6 +72,10 @@ jobs:
 
           # Create/update working branch from base
           git switch -C "${BRANCH_NAME}"
+
+          python3 scripts/generate_complete_docs.py
+          python3 scripts/update_docs_version.py
+          just docs-build
 
           # Stage only intended paths
           git add docusaurus/ || true
