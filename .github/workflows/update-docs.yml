@@ -212,7 +212,6 @@ jobs:
           REPO: ${{ steps.ctx.outputs.repo }}
           ACTOR: ${{ steps.ctx.outputs.actor }}
         run: |
-          set -euo pipefail
           # Build the JSON payload
           read -r -d '' PAYLOAD <<EOF
           {
