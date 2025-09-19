@@ -133,15 +133,46 @@ jobs:
           echo "PR_URL=${PR_URL}" >> "$GITHUB_ENV"
           echo "Opened PR: ${PR_URL}"
 
-      - name: Enable auto-merge
+      - name: Merge or enable auto-merge
         if: steps.commit_changes.outputs.changes == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ steps.open_pr.outputs.url }}
         run: |
           set -euo pipefail
-          gh pr merge "$PR_URL" --squash --auto
-          echo "Auto-merge enabled for: $PR_URL"
-
-      - name: No changes detected
-        if: steps.commit_changes.outputs.changes != 'true'
-        run: echo "✅ Documentation is already up to date"
+      
+          # Fetch PR status
+          ms=$(gh pr view "$PR_URL" --json mergeStateStatus -q .mergeStateStatus)
+          rd=$(gh pr view "$PR_URL" --json reviewDecision -q .reviewDecision)
+          draft=$(gh pr view "$PR_URL" --json isDraft -q .isDraft)
+      
+          echo "mergeStateStatus=${ms}"
+          echo "reviewDecision=${rd}"
+          echo "isDraft=${draft}"
+      
+          case "$ms" in
+            CLEAN)
+              echo "PR is clean/mergeable now. Merging immediately…"
+              gh pr merge "$PR_URL" --squash --delete-branch
+              ;;
+      
+            BLOCKED|BEHIND|UNSTABLE|DIRTY)
+              echo "PR is not immediately mergeable (status: $ms). Attempting to enable auto-merge…"
+              # Will succeed only if repo has Auto-merge enabled and required conditions will pass later.
+              if gh pr merge "$PR_URL" --squash --auto; then
+                echo "Auto-merge enabled."
+              else
+                echo "Could not enable auto-merge. Likely reasons:"
+                echo " - Repo hasn’t enabled Auto-merge (Settings → Pull requests → Enable auto-merge)"
+                echo " - Required reviews/checks not satisfied (reviewDecision=$rd, draft=$draft)"
+                echo " - Branch is behind or needs an update (status=$ms)"
+                exit 1
+              fi
+              ;;
+      
+            *)
+              echo "Unexpected mergeStateStatus: $ms"
+              gh pr view "$PR_URL" --json url,mergeable,mergeStateStatus,reviewDecision,isDraft,requiredStatusCheckContexts
+              exit 1
+              ;;
+          esac
