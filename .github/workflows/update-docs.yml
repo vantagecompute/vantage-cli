@@ -88,7 +88,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "changes=false" >> "$GITHUB_OUTPUT"
             echo "No changes detected; skipping PR."
-            exit 0
+           exit 0
           fi
 
           git config user.name  "github-actions[bot]"

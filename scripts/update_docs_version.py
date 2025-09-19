@@ -1,161 +1,61 @@
-# Copyright (C) 2025 Vantage Compute Corporation
-# This program is free software: you can redistribute it and/or modify it under
-# the terms of the GNU General Public License as published by the Free Software
-# Foundation, version 3.
-#
-# This program is distributed in the hope that it will be useful, but WITHOUT
-# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# this program. If not, see <https://www.gnu.org/licenses/>.
 #!/usr/bin/env python3
 """
-Update documentation files with version from pyproject.toml
-
-This script reads the version from pyproject.toml and updates:
-1. docs/_data/project.yml (replaces __VERSION__ placeholder)
-2. docs/_config.yml (adds version field)
-3. Any other documentation files that need version updates
+Simple script to update Docusaurus version.yml from pyproject.toml
 """
 
 import re
-import sys
+import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
 
-try:
-    import tomllib
-except ImportError:
-    # Python < 3.11 fallback
+
+def get_version_from_pyproject():
+    """Extract version from pyproject.toml"""
+    pyproject_path = Path("pyproject.toml")
+    content = pyproject_path.read_text()
+    match = re.search(r'^version = "([^"]+)"', content, re.MULTILINE)
+    if not match:
+        raise ValueError("Could not find version in pyproject.toml")
+    return match.group(1)
+
+
+def get_git_commit():
+    """Get current git commit hash"""
     try:
-        import tomli as tomllib
-    except ImportError:
-        print("Error: tomllib (Python 3.11+) or tomli package required")
-        sys.exit(1)
-
-
-def load_pyproject_version() -> str:
-    """Load version from pyproject.toml"""
-    pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-    
-    if not pyproject_path.exists():
-        raise FileNotFoundError(f"pyproject.toml not found at {pyproject_path}")
-    
-    with open(pyproject_path, "rb") as f:
-        data = tomllib.load(f)
-    
-    version = data.get("project", {}).get("version")
-    if not version:
-        raise ValueError("Version not found in pyproject.toml")
-    
-    return version
-
-
-def update_project_yml(version: str) -> None:
-    """Update docs/_data/project.yml with the current version"""
-    project_yml_path = Path(__file__).parent.parent / "docs" / "_data" / "project.yml"
-    
-    if not project_yml_path.exists():
-        print(f"Warning: {project_yml_path} not found, skipping")
-        return
-    
-    content = project_yml_path.read_text(encoding="utf-8")
-    
-    # Replace version placeholder
-    updated_content = re.sub(
-        r'version:\s*["\']?__VERSION__["\']?',
-        f'version: "{version}"',
-        content
-    )
-    
-    # Update the date as well
-    today = datetime.now().strftime("%Y-%m-%d")
-    updated_content = re.sub(
-        r'updated:\s*["\']?[\d-]+["\']?',
-        f'updated: "{today}"',
-        updated_content
-    )
-    
-    project_yml_path.write_text(updated_content, encoding="utf-8")
-    print(f"✓ Updated {project_yml_path} with version {version}")
-
-
-def update_config_yml(version: str) -> None:
-    """Update docs/_config.yml with the current version"""
-    config_yml_path = Path(__file__).parent.parent / "docs" / "_config.yml"
-    
-    if not config_yml_path.exists():
-        print(f"Warning: {config_yml_path} not found, skipping")
-        return
-    
-    content = config_yml_path.read_text(encoding="utf-8")
-    
-    # Check if version field already exists
-    if re.search(r'^version:\s*', content, re.MULTILINE):
-        # Update existing version
-        updated_content = re.sub(
-            r'^version:\s*.*$',
-            f'version: "{version}"',
-            content,
-            flags=re.MULTILINE
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True
         )
-    else:
-        # Add version field after description
-        updated_content = re.sub(
-            r'(description:.*?\n)',
-            f'\\1version: "{version}"\n',
-            content,
-            flags=re.DOTALL
-        )
-    
-    config_yml_path.write_text(updated_content, encoding="utf-8")
-    print(f"✓ Updated {config_yml_path} with version {version}")
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return "unknown"
 
 
-def update_index_md(version: str) -> None:
-    """Update docs/index.md with version information if needed"""
-    index_md_path = Path(__file__).parent.parent / "docs" / "index.md"
+def update_version_yml():
+    """Update the Docusaurus version.yml file"""
+    version = get_version_from_pyproject()
+    date = datetime.now().strftime("%Y-%m-%d")
+    commit = get_git_commit()
+    build_number = datetime.now().strftime("%Y%m%d%H%M")
     
-    if not index_md_path.exists():
-        print(f"Warning: {index_md_path} not found, skipping")
-        return
-    
-    content = index_md_path.read_text(encoding="utf-8")
-    
-    # Add version to the front matter if it doesn't exist
-    if "version:" not in content and "---" in content:
-        # Insert version into front matter
-        updated_content = re.sub(
-            r'(---\n.*?)\n(---)',
-            f'\\1\nversion: "{version}"\n\\2',
-            content,
-            flags=re.DOTALL
-        )
-        
-        if updated_content != content:
-            index_md_path.write_text(updated_content, encoding="utf-8")
-            print(f"✓ Updated {index_md_path} with version {version}")
+    version_yml_content = f"""# Vantage CLI Version Information
+# This file is automatically updated by GitHub Actions
+# Do not manually edit this file
 
-
-def main() -> None:
-    """Main function to update all documentation files with version"""
-    try:
-        version = load_pyproject_version()
-        print(f"📝 Updating documentation with version: {version}")
-        
-        # Update all documentation files
-        update_project_yml(version)
-        update_config_yml(version)
-        update_index_md(version)
-        
-        print(f"🎉 Successfully updated documentation files with version {version}")
-        
-    except Exception as e:
-        print(f"❌ Error updating documentation version: {e}")
-        sys.exit(1)
+version: "{version}"
+lastUpdated: "{date}"
+buildNumber: "{build_number}"
+gitCommit: "{commit}"
+releaseDate: "{date}"
+"""
+    
+    version_yml_path = Path("docusaurus/data/version.yml")
+    version_yml_path.write_text(version_yml_content)
+    
+    print(f"✓ Updated docusaurus/data/version.yml with version {version} (build: {build_number}, commit: {commit})")
 
 
 if __name__ == "__main__":
-    main()
+    update_version_yml()

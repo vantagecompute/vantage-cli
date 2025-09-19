@@ -1,0 +1,9 @@
+# Vantage CLI Version Information
+# This file is automatically updated by GitHub Actions
+# Do not manually edit this file
+
+version: "0.1.15"
+lastUpdated: "2025-09-19"
+buildNumber: "202509190022"
+gitCommit: "c9fc4a0"
+releaseDate: "2025-09-19"
