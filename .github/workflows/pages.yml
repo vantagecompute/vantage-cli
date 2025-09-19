@@ -27,7 +27,7 @@ jobs:
     # Only run when docs are updated by github-actions bot or manual dispatch
     if: |
       github.event_name == 'workflow_dispatch' || 
-      (github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, 'docs: update generated documentation'))
+      (github.actor == 'github-actions[bot]' && contains(github.event.head_commit.message, 'docs: auto-update generated documentation'))
 
     # Deploy to the github-pages environment
     environment:
