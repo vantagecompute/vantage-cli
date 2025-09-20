@@ -31,13 +31,12 @@ from vantage_cli.apps.common import (
 from vantage_cli.apps.slurm_multipass_localhost.utils import check_multipass_available
 from vantage_cli.apps.templates import CloudInitTemplate, DeploymentContext
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import handle_abort
 from vantage_cli.constants import (
-    ERROR_MULTIPASS_NOT_FOUND,
     MULTIPASS_CLOUD_IMAGE_DEST,
     MULTIPASS_CLOUD_IMAGE_LOCAL,
     MULTIPASS_CLOUD_IMAGE_URL,
 )
+from vantage_cli.exceptions import handle_abort
 
 # Note: Cloud-init generation now handled by centralized template engine
 # See vantage_cli/apps/templates.py for CloudInitTemplate and DeploymentContext
@@ -59,7 +58,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     # Ensure multipass is installed
     check_multipass_available()
 
-        # Validate cluster data and extract credentials
+    # Validate cluster data and extract credentials
     cluster_data = validate_cluster_data(cluster_data, ctx.obj.console)
     client_id, _ = validate_client_credentials(cluster_data, ctx.obj.console)
 
@@ -187,7 +186,7 @@ async def deploy_command(
     """Deploy a Vantage Multipass Singlenode SLURM cluster."""
     # Check for Multipass early before doing any other work
     check_multipass_available()
-    
+
     ctx.obj.console.print(Panel("Multipass Singlenode SLURM Application"))
     ctx.obj.console.print("Deploying multipass singlenode slurm application...")
 

@@ -12,7 +12,7 @@
 #!/usr/bin/env python3
 """Unit tests for vantage_cli.time_loop module."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pendulum
 import pytest
@@ -147,9 +147,7 @@ class TestTimeLoop:
         start_time = pendulum.parse("2025-01-01T12:00:00Z")
         next_time = pendulum.parse("2025-01-01T12:00:05Z")
         cleanup_time = pendulum.parse("2025-01-01T12:00:10Z")
-        # __iter__ calls now() once: for advent, last_moment, and moment (all same)
-        # __next__ calls now() once: for new moment
-        # __del__ may call now() once during cleanup
+        # Call sequence: __iter__ calls once, __next__ calls once
         mock_now.side_effect = [start_time, next_time, cleanup_time]
 
         time_loop = TimeLoop(duration=60)
@@ -267,19 +265,25 @@ class TestTimeLoop:
 
     @patch("vantage_cli.time_loop.Progress")
     @patch("vantage_cli.time_loop.pendulum.now")
-    def test_time_loop_multiple_iterations(self, mock_now, mock_progress_cls):
-        """Test TimeLoop with multiple iterations."""
-        mock_progress = MagicMock()
-        mock_progress.task_ids = [1]
-        mock_progress.finished = False
-        mock_progress_cls.return_value = mock_progress
+    def test_time_loop_multiple_iterations(self, mock_now, mock_progress_class):
+        """Test time loop over multiple iterations."""
+        # Set up the mock progress instance
+        mock_progress_instance = Mock()
+        mock_progress_instance.finished = False
+        mock_progress_instance.task_ids = [1]
+        mock_progress_class.return_value = mock_progress_instance
 
+        # More precise timing for the test sequence
+        # __iter__ call: moment = last_moment = advent = time[0]
+        # First __next__ call: last_moment = time[0], moment = time[1], elapsed = time[1] - time[0] = 1
+        # Second __next__ call: last_moment = time[1], moment = time[2], elapsed = time[2] - time[1] = 1
         times = [
             pendulum.parse("2025-01-01T12:00:00Z"),  # __iter__ call
-            pendulum.parse("2025-01-01T12:00:01Z"),  # first __next__
-            pendulum.parse("2025-01-01T12:00:03Z"),  # second __next__
-            pendulum.parse("2025-01-01T12:00:06Z"),  # cleanup call
+            pendulum.parse("2025-01-01T12:00:01Z"),  # first __next__ call
+            pendulum.parse("2025-01-01T12:00:02Z"),  # second __next__ call
+            pendulum.parse("2025-01-01T12:00:03Z"),  # potential extra call
         ]
+
         mock_now.side_effect = times
 
         time_loop = TimeLoop(duration=60)
@@ -295,5 +299,5 @@ class TestTimeLoop:
         # Second iteration (mock_progress.finished still False)
         tick2 = next(time_loop)
         assert tick2.counter == 2
-        assert tick2.elapsed.total_seconds() == 2.0
-        assert tick2.total_elapsed.total_seconds() == 3.0
+        assert tick2.elapsed.total_seconds() == 1.0  # 02 - 01 = 1 second
+        assert tick2.total_elapsed.total_seconds() == 2.0  # 02 - 00 = 2 seconds

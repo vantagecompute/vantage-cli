@@ -12,6 +12,7 @@
 """Utility functions for SLURM on Juju localhost deployments."""
 
 import shutil
+
 import snick
 
 from vantage_cli.exceptions import Abort
@@ -19,7 +20,7 @@ from vantage_cli.exceptions import Abort
 
 def check_juju_available() -> None:
     """Check if Juju is available and provide installation instructions if not.
-    
+
     Raises:
         Abort: If Juju is not found, with installation instructions
     """

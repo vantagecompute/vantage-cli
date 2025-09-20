@@ -74,15 +74,15 @@ from vantage_cli.apps.common import (
     validate_cluster_data,
 )
 from vantage_cli.apps.slurm_microk8s_localhost.utils import (
-    check_microk8s_available,
-    check_microk8s_addons,
     check_existing_deployment,
+    check_microk8s_addons,
+    check_microk8s_available,
     get_chart_values_slurm_cluster,
     get_chart_values_slurm_operator,
     show_getting_started_help,
 )
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import Abort, handle_abort
+from vantage_cli.exceptions import handle_abort
 
 
 def _run(
@@ -397,19 +397,22 @@ async def deploy_command(
     ] = False,
     sssd_conf: Annotated[
         str,
-        typer.Option("--sssd-conf", help="Extra SSSD configuration to append: --sssd-conf='$(cat mysssd.conf)'"),
+        typer.Option(
+            "--sssd-conf",
+            help="Extra SSSD configuration to append: --sssd-conf='$(cat mysssd.conf)'",
+        ),
     ] = "",
 ) -> None:
     """Deploy a Vantage SLURM cluster on MicroK8s."""
     # Check for MicroK8s early before doing any other work
     check_microk8s_available()
-    
+
     # Check that all required addons are enabled
     check_microk8s_addons()
-    
+
     # Check if deployment already exists
     check_existing_deployment()
-    
+
     ctx.obj.console.print(Panel("MicroK8s SLURM Application"))
     ctx.obj.console.print("Deploying MicroK8s SLURM application...")
 
@@ -450,16 +453,12 @@ async def cleanup_microk8s_localhost(ctx: typer.Context, cluster_data: Dict[str,
     Raises:
         Exception: If cleanup fails
     """
-    # Get deployment name from cluster data
-    deployment_name = cluster_data.get("deployment_name", "")
-    if not deployment_name:
-        ctx.obj.console.print("[red]Error: No deployment_name found in cluster data[/red]")
-        raise Exception("Missing deployment_name in cluster data")
-
     # Define the namespaces that were created during deployment
     namespaces = ["slurm", "slinky"]
 
-    ctx.obj.console.print(f"[yellow]Cleaning up MicroK8s deployment: {deployment_name}[/yellow]")
+    cluster_name = cluster_data.get("name", "unknown")
+
+    ctx.obj.console.print(f"[yellow]Cleaning up MicroK8s deployment: {cluster_name}[/yellow]")
 
     # Check if microk8s is available
     if not shutil.which("microk8s"):
@@ -499,7 +498,7 @@ async def cleanup_microk8s_localhost(ctx: typer.Context, cluster_data: Dict[str,
             # Continue with other namespaces even if one fails
 
     ctx.obj.console.print(
-        f"[green]✓ MicroK8s cleanup completed for deployment '{deployment_name}'[/green]"
+        f"[green]✓ MicroK8s cleanup completed for deployment '{cluster_name}'[/green]"
     )
 
 
@@ -538,7 +537,5 @@ async def cleanup_command(
     if cluster_data is None:
         ctx.obj.console.print(f"[red]Error: Cluster '{deployment_name}' not found[/red]")
         raise typer.Exit(1)
-
-    cluster_data["deployment_name"] = deployment_name
 
     await cleanup_microk8s_localhost(ctx=ctx, cluster_data=cluster_data)

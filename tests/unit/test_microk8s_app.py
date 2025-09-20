@@ -24,10 +24,10 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-import typer
 
 from tests.conftest import MockConsole
 from vantage_cli.apps.slurm_microk8s_localhost import app as microk8s_app
+from vantage_cli.exceptions import Abort
 
 
 class DummyCompleted:
@@ -58,15 +58,17 @@ def test_deploy_missing_microk8s_binary(ctx: MagicMock):
         "creationParameters": {"cloud": "localhost"},
     }
 
-    with patch("vantage_cli.apps.slurm_microk8s_localhost.app.shutil.which", return_value=None):
-        with pytest.raises(typer.Exit) as exc:
+    with patch.object(microk8s_app, "check_microk8s_available") as mock_check:
+        mock_check.side_effect = Abort("MicroK8s not found")
+        with pytest.raises(Abort):
+            from vantage_cli.config import Settings
+
             ctx2 = MagicMock()
-            ctx2.obj = SimpleNamespace(profile="p", console=MockConsole())
+            ctx2.obj = SimpleNamespace(profile="p", console=MockConsole(), settings=Settings())
             # call the internal deploy coroutine via run (simpler than invoking deploy_command decorator path)
             import asyncio
 
             asyncio.run(microk8s_app.deploy(ctx2, cluster_data=cluster_data))
-        assert exc.value.exit_code == 1
 
 
 def test_deploy_happy_path_reuse_existing_values(ctx: MagicMock, tmp_path: Path):

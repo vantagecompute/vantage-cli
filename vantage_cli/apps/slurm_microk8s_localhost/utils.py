@@ -13,10 +13,11 @@
 
 import shutil
 import subprocess
-import yaml
-import snick
 from textwrap import dedent
-from typing import Any, Dict, List, Tuple
+from typing import Any
+
+import snick
+import yaml
 from rich.console import Console
 
 from vantage_cli.exceptions import Abort
@@ -24,7 +25,7 @@ from vantage_cli.exceptions import Abort
 
 def check_microk8s_available() -> None:
     """Check if MicroK8s is available and provide installation instructions if not.
-    
+
     Raises:
         Abort: If MicroK8s is not found, with installation instructions
     """
@@ -54,66 +55,63 @@ def check_microk8s_available() -> None:
 
 def check_microk8s_addons() -> None:
     """Check if required MicroK8s addons are enabled and provide installation help.
-    
+
     Checks the following required addons:
     - dns: CoreDNS for cluster DNS resolution
-    - hostpath-storage: Storage provisioner for persistent volumes  
+    - hostpath-storage: Storage provisioner for persistent volumes
     - metallb: Load balancer for services
     - helm3: Helm package manager for application deployment
-    
+
     Raises:
         Abort: If any required addons are missing, with installation instructions
     """
     required_addons = {
         "dns": {
             "description": "CoreDNS for cluster DNS resolution",
-            "enable_command": "sudo microk8s.enable dns"
+            "enable_command": "sudo microk8s.enable dns",
         },
         "hostpath-storage": {
             "description": "Storage provisioner for persistent volumes",
-            "enable_command": "sudo microk8s.enable hostpath-storage"
+            "enable_command": "sudo microk8s.enable hostpath-storage",
         },
         "metallb": {
             "description": "Load balancer for services",
             "enable_command": "sudo microk8s.enable metallb:10.64.140.43-10.64.140.49",
-            "note": "Adjust the IP range (10.64.140.43-10.64.140.49) to match your network"
+            "note": "Adjust the IP range (10.64.140.43-10.64.140.49) to match your network",
         },
         "helm3": {
-            "description": "Helm package manager for application deployment", 
-            "enable_command": "sudo microk8s.enable helm3"
-        }
+            "description": "Helm package manager for application deployment",
+            "enable_command": "sudo microk8s.enable helm3",
+        },
     }
-    
+
     try:
         # Get MicroK8s status in YAML format
         result = subprocess.run(
-            ["microk8s", "status", "--format", "yaml"],
-            capture_output=True,
-            text=True,
-            check=True
+            ["microk8s", "status", "--format", "yaml"], capture_output=True, text=True, check=True
         )
         status_data = yaml.safe_load(result.stdout)
     except subprocess.CalledProcessError as e:
         raise Abort(
             "Failed to get MicroK8s status. Please ensure MicroK8s is properly installed and running.",
             subject="MicroK8s Status Error",
-            log_message=f"microk8s status failed: {e}"
+            log_message=f"microk8s status failed: {e}",
         )
     except yaml.YAMLError as e:
         raise Abort(
             "Failed to parse MicroK8s status output.",
-            subject="MicroK8s Status Parse Error", 
-            log_message=f"YAML parse error: {e}"
+            subject="MicroK8s Status Parse Error",
+            log_message=f"YAML parse error: {e}",
         )
-    
+
     # Check if MicroK8s is running
     if not status_data.get("microk8s", {}).get("running", False):
         raise Abort(
             "MicroK8s is not running. Please start it with: sudo microk8s start",
             subject="MicroK8s Not Running",
-            log_message="MicroK8s service is not running"
+            log_message="MicroK8s service is not running",
         )
-    
+
     # Get enabled addons
     enabled_addons: set[str] = set()
     addons_list = status_data.get("addons", [])
@@ -122,43 +120,42 @@ def check_microk8s_addons() -> None:
             addon_name = addon.get("name")
             if addon_name:
                 enabled_addons.add(addon_name)
-    
+
     # Check for missing addons
     missing_addons: list[tuple[str, dict[str, str]]] = []
     enabled_status: list[str] = []
-    
+
     for addon_name, addon_info in required_addons.items():
         if addon_name in enabled_addons:
             enabled_status.append(f"✓ {addon_name}: {addon_info['description']}")
         else:
             missing_addons.append((addon_name, addon_info))
-    
+
     # Show status and handle missing addons
     if missing_addons:
         message_parts: list[str] = []
-        
+
         if enabled_status:
             message_parts.append("✅ Enabled addons:")
             for status in enabled_status:
                 message_parts.append(f"  {status}")
             message_parts.append("")
-        
+
         message_parts.append("❌ Missing required addons:")
         for addon_name, addon_info in missing_addons:
             message_parts.append(f"  • {addon_name}: {addon_info['description']}")
             message_parts.append(f"    Command: {addon_info['enable_command']}")
             if "note" in addon_info:
                 message_parts.append(f"    Note: {addon_info['note']}")
-        
-        message_parts.extend([
-            "",
-            "Please enable all missing addons before proceeding with deployment."
-        ])
-        
+
+        message_parts.extend(
+            ["", "Please enable all missing addons before proceeding with deployment."]
+        )
+
         raise Abort(
             "\n".join(message_parts),
             subject="MicroK8s Addons Required",
-            log_message=f"Missing addons: {[name for name, _ in missing_addons]}"
+            log_message=f"Missing addons: {[name for name, _ in missing_addons]}",
         )
     else:
         # All addons are enabled - could optionally show success message
@@ -168,10 +165,10 @@ def check_microk8s_addons() -> None:
 
 def check_existing_deployment() -> None:
     """Check if a SLURM deployment already exists on MicroK8s.
-    
+
     Checks for the presence of 'slinky' and 'slurm' namespaces which indicate
     an existing SLURM deployment.
-    
+
     Raises:
         Abort: If deployment already exists, with cleanup instructions
     """
@@ -181,55 +178,55 @@ def check_existing_deployment() -> None:
             ["microk8s.kubectl", "get", "namespaces", "-o", "name"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
-        
+
         # Parse namespace names
         existing_namespaces: set[str] = set()
-        for line in result.stdout.strip().split('\n'):
-            if line.startswith('namespace/'):
-                namespace_name = line.replace('namespace/', '')
+        for line in result.stdout.strip().split("\n"):
+            if line.startswith("namespace/"):
+                namespace_name = line.replace("namespace/", "")
                 existing_namespaces.add(namespace_name)
-        
+
         # Check for SLURM-related namespaces
-        slurm_namespaces = {'slinky', 'slurm'}
+        slurm_namespaces = {"slinky", "slurm"}
         found_namespaces = slurm_namespaces.intersection(existing_namespaces)
-        
+
         if found_namespaces:
             message = snick.dedent(
                 f"""
                 🔍 Existing SLURM deployment detected!
-                
+
                 Found the following SLURM-related namespaces:
-                {chr(10).join(f'  • {ns}' for ns in sorted(found_namespaces))}
-                
+                {chr(10).join(f"  • {ns}" for ns in sorted(found_namespaces))}
+
                 📋 Options:
-                
+
                 1️⃣ Clean up existing deployment first:
                    vantage deployment slurm-microk8s-localhost cleanup
-                
+
                 2️⃣ Check current deployment status:
                    microk8s.kubectl get pods -n slinky
                    microk8s.kubectl get pods -n slurm
-                
+
                 3️⃣ Connect to existing deployment (if running):
                    # Get connection details
                    SLURM_LOGIN_IP="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{{.status.loadBalancer.ingress[0].ip}}')"
                    SLURM_LOGIN_PORT="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{{.spec.ports[0].port}}')"
-                   
+
                    # Connect via SSH
                    ssh -p ${{SLURM_LOGIN_PORT:-22}} ${{USER}}@${{SLURM_LOGIN_IP}}
-                
+
                 ℹ️ To proceed with a new deployment, please clean up the existing one first.
                 """
             ).strip()
-            
+
             raise Abort(
                 message,
                 subject="SLURM Deployment Already Exists",
-                log_message=f"Found existing namespaces: {found_namespaces}"
+                log_message=f"Found existing namespaces: {found_namespaces}",
             )
-            
+
     except subprocess.CalledProcessError:
         # If kubectl command fails, it might mean MicroK8s is not running properly
         # Let the deployment continue and let other checks handle this
@@ -238,6 +235,7 @@ def check_existing_deployment() -> None:
         # kubectl command not found or other file system issues
         # Let the deployment continue and let other checks handle this
         pass
+
 
 EXTRA_SSHD_CONF = dedent(
     """\
@@ -524,48 +522,50 @@ def get_chart_values_slurm_cluster() -> dict[str, Any]:
 
 def show_getting_started_help(console: Console) -> None:
     """Show getting started help after successful MicroK8s SLURM deployment.
-    
+
     Displays connection instructions and useful commands for accessing the deployed cluster.
     """
     from rich.panel import Panel
-    
+
     help_message = snick.dedent(
         """
         🎉 SLURM cluster deployment completed successfully!
-        
+
         📋 Next Steps:
-        
+
         1️⃣ Check cluster status:
            microk8s.kubectl get pods -A --namespace slurm
-        
+
         2️⃣ Get SLURM login service connection details:
            SLURM_LOGIN_IP="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
            SLURM_LOGIN_PORT="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.spec.ports[0].port}')"
-        
+
         3️⃣ Connect to SLURM login node:
            # Using root access (if rootSshAuthorizedKeys was configured):
            ssh -p ${SLURM_LOGIN_PORT:-22} root@${SLURM_LOGIN_IP}
-           
+
            # Using SSSD user authentication (if SSSD is configured):
            ssh -p ${SLURM_LOGIN_PORT:-22} ${USER}@${SLURM_LOGIN_IP}
-        
+
         4️⃣ Useful SLURM commands once connected:
            sinfo                    # Show cluster information
            squeue                   # Show job queue
            srun hostname            # Run simple test job
            sbatch <script.sh>       # Submit batch job
-        
+
         📚 Additional Resources:
            • MicroK8s docs: https://microk8s.io/docs
            • SLURM docs: https://slurm.schedmd.com/documentation.html
            • Troubleshooting: microk8s.kubectl logs -n slurm <pod-name>
         """
     ).strip()
-    
-    console.print(Panel(
-        help_message,
-        title="🚀 Getting Started with Your SLURM Cluster",
-        title_align="left",
-        border_style="green",
-        padding=(1, 2)
-    ))
+
+    console.print(
+        Panel(
+            help_message,
+            title="🚀 Getting Started with Your SLURM Cluster",
+            title_align="left",
+            border_style="green",
+            padding=(1, 2),
+        )
+    )

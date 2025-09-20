@@ -434,7 +434,9 @@ class TestClusterDelete:
             mock_list_deployments.assert_called_once_with("test-cluster", mock_context.obj.console)
 
             # Verify cleanup was called
-            mock_cleanup.assert_called_once_with(mock_context, {"id": "cluster-123", "clientId": "client-123"})
+            mock_cleanup.assert_called_once_with(
+                mock_context, {"id": "cluster-123", "clientId": "client-123"}
+            )
 
             # Verify deployment was removed with console parameter
             mock_remove_deployment.assert_called_once_with(

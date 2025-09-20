@@ -35,12 +35,12 @@ from vantage_cli.apps.common import (
 from vantage_cli.apps.slurm_juju_localhost.utils import check_juju_available
 from vantage_cli.commands.cluster.schema import VantageClusterContext
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import handle_abort
 from vantage_cli.constants import (
     ENV_CLIENT_SECRET,
     JUJU_APPLICATION_NAME,
     JUJU_SECRET_NAME,
 )
+from vantage_cli.exceptions import handle_abort
 
 from .bundle_yaml import VANTAGE_JUPYTERHUB_YAML
 
@@ -266,7 +266,7 @@ async def deploy_command(
     """Deploy a Vantage JupyterHub SLURM cluster using Juju localhost."""
     # Check for Juju early before doing any other work
     check_juju_available()
-    
+
     ctx.obj.console.print(Panel("Juju Localhost SLURM Application"))
     ctx.obj.console.print("Deploying juju localhost slurm application...")
 

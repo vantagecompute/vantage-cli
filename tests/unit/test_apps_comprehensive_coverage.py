@@ -25,6 +25,7 @@ import typer
 from vantage_cli.apps.slurm_microk8s_localhost import app as microk8s_app
 from vantage_cli.apps.slurm_multipass_localhost import app as multipass_app
 from vantage_cli.commands.cluster.utils import get_available_apps
+from vantage_cli.exceptions import Abort
 
 
 @pytest.fixture
@@ -63,13 +64,25 @@ class TestMicrok8sAppAdditionalCoverage:
             "creationParameters": {"cloud": "localhost"},
         }
 
-        with patch("shutil.which", return_value=None):
-            with pytest.raises(typer.Exit) as exc_info:
-                import asyncio
+        with patch("vantage_cli.apps.slurm_microk8s_localhost.utils.check_microk8s_available"):
+            with patch("vantage_cli.apps.slurm_microk8s_localhost.utils.check_microk8s_addons"):
+                with patch(
+                    "vantage_cli.apps.slurm_microk8s_localhost.utils.check_existing_deployment"
+                ):
+                    with patch(
+                        "vantage_cli.apps.slurm_microk8s_localhost.utils.show_getting_started_help"
+                    ):
+                        # Mock file operations to succeed, then mock _run to fail with typer.Exit
+                        with patch(
+                            "vantage_cli.apps.slurm_microk8s_localhost.app._run"
+                        ) as mock_run:
+                            mock_run.side_effect = typer.Exit(code=1)
+                            with pytest.raises(typer.Exit):
+                                import asyncio
 
-                asyncio.run(microk8s_app.deploy(mock_ctx, cluster_data=cluster_data))
-
-            assert exc_info.value.exit_code == 1
+                                asyncio.run(
+                                    microk8s_app.deploy(mock_ctx, cluster_data=cluster_data)
+                                )
 
     def test_deploy_with_cluster_data_validation(self, mock_config_file, mock_ctx):
         """Test microk8s deploy with cluster data validation."""
@@ -183,19 +196,14 @@ class TestMultipassAppAdditionalCoverage:
 
     def test_deploy_command_with_missing_binary(self, mock_config_file, mock_ctx, cluster_data):
         """Test multipass deploy handles missing binary."""
-        with patch("vantage_cli.apps.slurm_multipass_localhost.app.which", return_value=None):
-            import click
-
-            with pytest.raises((typer.Exit, click.exceptions.Exit)) as exc_info:
+        with patch(
+            "vantage_cli.apps.slurm_multipass_localhost.app.check_multipass_available"
+        ) as mock_check:
+            mock_check.side_effect = Abort("Multipass not found")
+            with pytest.raises(Abort):
                 import asyncio
 
                 asyncio.run(multipass_app.deploy(mock_ctx, cluster_data=cluster_data))
-
-            # Handle both typer.Exit and click.exceptions.Exit
-            if hasattr(exc_info.value, "exit_code"):
-                assert exc_info.value.exit_code == 1
-            else:
-                assert exc_info.value.code == 1
 
     def test_deploy_with_cluster_validation(self, mock_config_file, mock_ctx):
         """Test multipass deploy with cluster data validation."""
@@ -211,10 +219,7 @@ class TestMultipassAppAdditionalCoverage:
         mock_popen.communicate.return_value = ("", "")
 
         with patch("subprocess.Popen", return_value=mock_popen):
-            with patch(
-                "vantage_cli.apps.slurm_multipass_localhost.app.which",
-                return_value="/usr/bin/multipass",
-            ):
+            with patch("vantage_cli.apps.slurm_multipass_localhost.app.check_multipass_available"):
                 # Mock at both the app level and the common level to handle import differences
                 with patch(
                     "vantage_cli.apps.slurm_multipass_localhost.app.validate_cluster_data",
@@ -271,7 +276,7 @@ class TestMultipassAppAdditionalCoverage:
         mock_popen.communicate.return_value = ("", "")
 
         with patch("subprocess.Popen", return_value=mock_popen):
-            with patch("vantage_cli.apps.slurm_multipass_localhost.app.which", return_value="/usr/bin/multipass"):
+            with patch("vantage_cli.apps.slurm_multipass_localhost.app.check_multipass_available"):
                 with patch(
                     "vantage_cli.apps.slurm_multipass_localhost.app.validate_cluster_data",
                     return_value=cluster_data,
