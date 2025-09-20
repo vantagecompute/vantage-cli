@@ -14,11 +14,10 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -28,27 +27,46 @@ async def get_storage(
     storage_id: Annotated[str, typer.Argument(help="ID of the storage volume to retrieve")],
 ):
     """Get details of a specific storage volume."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "storage_id": storage_id,
-                "name": "web-data-volume",
-                "size_gb": 100,
-                "storage_type": "ssd",
-                "zone": "us-west-2a",
-                "status": "available",
-                "description": "Primary data storage for web application",
-                "created_at": "2025-09-01T09:00:00Z",
-                "updated_at": "2025-09-10T10:00:00Z",
-                "attached_to": "instance-456",
-                "mount_point": "/data",
-                "iops": 3000,
-                "throughput_mbps": 125,
-            }
-        )
-    else:
-        # Rich console output
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # Mock storage data
+    storage_data = {
+        "storage_id": storage_id,
+        "name": "web-data-volume",
+        "size_gb": 100,
+        "storage_type": "ssd",
+        "zone": "us-west-2a",
+        "status": "available",
+        "description": "Primary data storage for web application",
+        "created_at": "2025-09-01T09:00:00Z",
+        "updated_at": "2025-09-10T10:00:00Z",
+        "attached_to": "instance-456",
+        "mount_point": "/data",
+        "iops": 3000,
+        "throughput_mbps": 125,
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Get Storage '{storage_id}'",
+        step_names=[] if json_output else ["Fetching storage details", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(storage_data)
+
+    with renderer:
+        renderer.complete_step("Fetching storage details")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print(f"💾 Storage Volume: [bold blue]{storage_id}[/bold blue]")
         ctx.obj.console.print("   Name: [green]web-data-volume[/green]")
         ctx.obj.console.print("   Size: [yellow]100 GB[/yellow]")
@@ -62,3 +80,5 @@ async def get_storage(
         ctx.obj.console.print("   Throughput: [magenta]125 MB/s[/magenta]")
         ctx.obj.console.print("   Created: 2025-09-01T09:00:00Z")
         ctx.obj.console.print("   Updated: 2025-09-10T10:00:00Z")
+
+        renderer.complete_step("Formatting output")

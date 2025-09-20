@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Optional, cast
 import typer
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
+from vantage_cli.render import RenderStepOutput
 
 from .render import render_notebooks_table
 
@@ -42,6 +42,15 @@ async def list_notebooks(
     ] = None,
 ):
     """List notebook servers."""
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name="List Notebooks",
+        step_names=["Complete"],  # "Querying", "Rendering"],
+        use_panel=False,
+        show_start_message=False,
+        command_start_time=getattr(ctx.obj, "command_start_time", None) if ctx.obj else None,
+    )
+
     query = """
     query NotebookServers($first: Int) {
         notebookServers(first: $first) {
@@ -96,17 +105,18 @@ async def list_notebooks(
         # but the CLI parameters are kept for potential future use
 
         # Get effective JSON output setting from context
-        json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-        effective_json = get_effective_json_output(ctx, json_output)
+        json_output = getattr(ctx.obj, "json_output", False)
+        if json_output:
+            renderer.json_bypass(notebooks_list)
+            return
 
-        # Render results using consistent formatting
-        render_notebooks_table(
+        notebooks_table = render_notebooks_table(
             notebooks_list,
             title="Notebook Servers",
-            total_count=len(notebooks_list),
-            json_output=effective_json,
-            console=ctx.obj.console,
         )
+        with renderer:
+            renderer.table_step(notebooks_table)
+            renderer.complete_step("Complete")
 
     except Exception as e:
         if "GraphQL errors:" in str(e):

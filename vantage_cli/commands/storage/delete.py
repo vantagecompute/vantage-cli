@@ -14,11 +14,10 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -29,21 +28,51 @@ async def delete_storage(
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
 ):
     """Delete a storage volume."""
-    if not force:
-        if not typer.confirm(f"Are you sure you want to delete storage volume {storage_id}?"):
-            ctx.obj.console.print("❌ Storage deletion cancelled.")
-            return
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
 
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "storage_id": storage_id,
-                "status": "deleted",
-                "deleted_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # Mock delete response data
+    delete_data = {
+        "storage_id": storage_id,
+        "status": "deleted",
+        "deleted_at": "2025-09-10T10:00:00Z",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Delete Storage '{storage_id}'",
+        step_names=[]
+        if json_output
+        else ["Confirming deletion", "Deleting storage volume", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        # Still need confirmation for JSON mode
+        if not force:
+            if not typer.confirm(f"Are you sure you want to delete storage volume {storage_id}?"):
+                ctx.obj.console.print("❌ Storage deletion cancelled.")
+                return
+        return renderer.json_bypass(delete_data)
+
+    with renderer:
+        renderer.start_step("Confirming deletion")
+        if not force:
+            if not typer.confirm(f"Are you sure you want to delete storage volume {storage_id}?"):
+                ctx.obj.console.print("❌ Storage deletion cancelled.")
+                return
+        renderer.complete_step("Confirming deletion")
+
+        renderer.complete_step("Deleting storage volume")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print(f"🗑️ Deleting storage volume [bold red]{storage_id}[/bold red]")
         ctx.obj.console.print("✅ Storage volume deleted successfully!")
+
+        renderer.complete_step("Formatting output")

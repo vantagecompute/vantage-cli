@@ -13,7 +13,27 @@
 
 from pathlib import Path
 
+# Cloud and deployment type constants
+CLOUD_LOCALHOST = "localhost"
+CLOUD_AWS = "aws"
+CLOUD_GCP = "gcp"
+CLOUD_AZURE = "azure"
+
+CLOUD_TYPE_K8S = "k8s"
+CLOUD_TYPE_VM = "vm"
+CLOUD_TYPE_CONTAINER = "container"
+
+
+PROVIDER_SUBSTRATE_MAPPINGS = {
+    "localhost": ["multipass", "microk8s", "lxd"],
+    "aws": ["eks"],
+    "azure": ["aks"],  # Azure Kubernetes Service
+    "gcp": ["gke"],
+}
+
 VANTAGE_CLI_LOCAL_USER_BASE_DIR: Path = Path.home() / ".vantage-cli"
+VANTAGE_CLI_DEV_APPS_DIR: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "vantage_cli_dev_apps"
+VANTAGE_CLI_DEPLOYMENTS_CACHE_PATH: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "deployments"
 VANTAGE_CLI_ACTIVE_PROFILE: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "active_profile"
 
 USER_CONFIG_FILE: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "config.json"
@@ -23,7 +43,6 @@ USER_TOKEN_CACHE_DIR: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "token_cache"
 # Common deployment constants
 DEFAULT_CLUSTER_NAME = "vantage-cluster"
 DEFAULT_MODEL_PREFIX = "vantage"
-
 # Multipass-specific constants
 MULTIPASS_ARCH = "arm64"
 MULTIPASS_CLOUD_IMAGE_URL = "https://vantage-public-assets.s3.us-west-2.amazonaws.com/multipass-singlenode/multipass-singlenode.img"

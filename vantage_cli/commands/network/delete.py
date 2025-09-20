@@ -11,14 +11,13 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Delete network command."""
 
-from typing import Annotated
+from typing import Annotated, Any, Dict
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -29,21 +28,59 @@ async def delete_network(
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
 ):
     """Delete a virtual network."""
-    if not force:
-        if not typer.confirm(f"Are you sure you want to delete network {network_id}?"):
-            ctx.obj.console.print("❌ Network deletion cancelled.")
-            return
+    # Get command timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
 
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "network_id": network_id,
-                "status": "deleted",
-                "deleted_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(f"🗑️ Deleting virtual network [bold red]{network_id}[/bold red]")
-        ctx.obj.console.print("✅ Virtual network deleted successfully!")
+    # Check for JSON output mode
+    json_output = getattr(ctx.obj, "json_output", False)
+
+    # If JSON mode, bypass all visual rendering
+    if json_output:
+        result: Dict[str, Any] = {
+            "network_id": network_id,
+            "status": "deleted",
+            "force": force,
+            "message": f"Network {network_id} deleted successfully",
+        }
+        RenderStepOutput.json_bypass(result)
+        return
+
+    # Regular rendering for non-JSON mode
+    step_names = [
+        "Validating network",
+        "Detaching instances",
+        "Removing subnets",
+        "Deleting network",
+    ]
+    if force:
+        step_names = ["Validating network", "Force deleting network"]
+
+    console = ctx.obj.console
+
+    with RenderStepOutput(
+        console=console,
+        operation_name="Deleting network",
+        step_names=step_names,
+        json_output=json_output,
+        command_start_time=command_start_time,
+    ) as renderer:
+        renderer.advance("Validating network", "starting")
+        # Simulate validation
+        renderer.advance("Validating network", "completed")
+
+        if force:
+            renderer.advance("Force deleting network", "starting")
+            # Simulate force deletion
+            renderer.advance("Force deleting network", "completed")
+        else:
+            renderer.advance("Detaching instances", "starting")
+            # Simulate detaching instances
+            renderer.advance("Detaching instances", "completed")
+
+            renderer.advance("Removing subnets", "starting")
+            # Simulate subnet removal
+            renderer.advance("Removing subnets", "completed")
+
+            renderer.advance("Deleting network", "starting")
+            # Simulate network deletion
+            renderer.advance("Deleting network", "completed")

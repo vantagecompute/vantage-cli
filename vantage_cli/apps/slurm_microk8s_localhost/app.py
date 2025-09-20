@@ -9,385 +9,380 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""MicroK8s application support for deploying the Slurm Operator & Slurm cluster.
+"""MicroK8s application support for deploying the Slurm Operator & Slurm cluster."""
 
-Implements the manual steps documented in the local README:
-
-1. Add Helm repositories (jetstack, prometheus-community)
-2. Install cert-manager, Prometheus stack, Slurm Operator CRDs
-3. Install a Slurm cluster release
-
-microk8s.helm repo add jetstack https://charts.jetstack.io
-microk8s.helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-microk8s.helm repo add jamesbeedy-slinky-slurm https://jamesbeedy.github.io/slurm-operator
-
-microk8s.helm repo update
-
-# Cert Manager
-microk8s.helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
-    --set 'crds.enabled=true' \
-    --namespace cert-manager \
-    --create-namespace \
-    --version v1.18.2
-
-# Prometheus
-microk8s.helm install prometheus prometheus-community/kube-prometheus-stack \
-    --namespace prometheus \
-    --create-namespace
-
-# Install slurm crds
-# Patch until the crds are available upstream
-microk8s.helm install slurm-operator-crds jamesbeedy-slinky-slurm/slurm-operator-crds --version 0.4.0
-
-# Install slurm-operator
-curl -L https://raw.githubusercontent.com/jamesbeedy/slurm-operator/refs/tags/v0.4.0/helm/slurm-operator/values.yaml -o values-operator.yaml
-microk8s.helm install slurm-operator oci://ghcr.io/slinkyproject/charts/slurm-operator --values=values-operator.yaml --version=0.4.0 --namespace=slinky --create-namespace
-
-# Install SLURM Cluster
-curl -L https://raw.githubusercontent.com/jamesbeedy/slurm-operator/refs/tags/v0.4.0/helm/slurm/values.yaml -o values-slurm.yaml
-microk8s.helm install slurm oci://ghcr.io/slinkyproject/charts/slurm --values=values-slurm.yaml --version=0.4.0 --namespace=slurm --create-namespace
-
-Notes:
-- These steps are inherently idempotent; failures on already-installed/ enabled
-  components are treated as warnings (not fatal) when safe.
-- This command invokes system binaries (sudo microk8s.* & curl). The user must
-  have the appropriate privileges. We intentionally keep the logic simple and
-  transparent; advanced lifecycle management belongs in a dedicated orchestrator.
-"""
-
-from __future__ import annotations
-
-import shutil
 import subprocess
-from pathlib import Path
+import time
 from typing import Any, Dict, Optional
 
 import typer
-import yaml
 from rich.console import Console
-from rich.panel import Panel
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
+    create_deployment_with_init_status,
+    generate_default_deployment_name,
     generate_dev_cluster_data,
-    validate_client_credentials,
+    update_deployment_status,
     validate_cluster_data,
 )
-from vantage_cli.apps.slurm_microk8s_localhost.utils import (
-    get_chart_values_slurm_cluster,
-    get_chart_values_slurm_operator,
+from vantage_cli.apps.slurm_microk8s_localhost.constants import (
+    APP_NAME,
+    CHART_CERT_MANAGER,
+    CHART_PROMETHEUS,
+    CHART_SLURM_CLUSTER,
+    CHART_SLURM_OPERATOR,
+    CHART_SLURM_OPERATOR_CRDS,
+    DEFAULT_NAMESPACE_CERT_MANAGER,
+    DEFAULT_NAMESPACE_PROMETHEUS,
+    DEFAULT_NAMESPACE_SLINKY,
+    DEFAULT_NAMESPACE_SLURM,
+    DEFAULT_RELEASE_CERT_MANAGER,
+    DEFAULT_RELEASE_PROMETHEUS,
+    DEFAULT_RELEASE_SLURM_CLUSTER,
+    DEFAULT_RELEASE_SLURM_OPERATOR,
+    DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
+    REPO_JETSTACK_URL,
+    REPO_PROMETHEUS_URL,
+    REPO_SLURM_URL,
+)
+from vantage_cli.apps.slurm_microk8s_localhost.render import (
+    format_deployment_failure_content,
+    format_deployment_success_content,
+)
+from vantage_cli.apps.utils import (
+    PrerequisiteStatus,
+    check_prerequisites,
+    create_complete_prerequisite_checks,
+    create_k8s_namespace,
+    helm_repo_add,
+    helm_repo_update,
+    microk8s_deploy_chart,
 )
 from vantage_cli.config import attach_settings
+from vantage_cli.constants import CLOUD_LOCALHOST, CLOUD_TYPE_K8S
+from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput, TerminalOutputManager
 
 
-def _run(
-    command: list[str],
-    console: Console,
-    allow_fail: bool = False,
-    env: Optional[Dict[str, str]] = None,
-) -> subprocess.CompletedProcess:
-    """Run a subprocess command with error handling and return the result.
+def _add_helm_repositories() -> None:
+    """Add required Helm repositories."""
+    repos = [
+        ("jetstack", REPO_JETSTACK_URL),
+        ("prometheus-community", REPO_PROMETHEUS_URL),
+        ("jamesbeedy-slinky-slurm", REPO_SLURM_URL),
+    ]
 
-    Args:
-        command: List of command arguments to execute
-        console: Rich console for output
-        allow_fail: If True, non-zero exit codes don't raise exceptions
-        env: Optional environment variables
+    for name, url in repos:
+        if not helm_repo_add(name, url, update=False):
+            raise subprocess.CalledProcessError(
+                1, ["helm", "repo", "add"], stderr=f"Failed to add repository {name}"
+            )
 
-    Returns:
-        subprocess.CompletedProcess: Result of the command execution
-
-    Raises:
-        typer.Exit: If command fails and allow_fail is False
-    """
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=False, env=env)
-        if result.returncode != 0:
-            stderr_msg = getattr(result, "stderr", "Unknown error")
-            if allow_fail:
-                console.print(
-                    f"[yellow]Warning: Command failed (non-fatal): {' '.join(command)}[/yellow]"
-                )
-                console.print(f"[yellow]Error: {stderr_msg}[/yellow]")
-            else:
-                console.print(f"[red]Error running command: {' '.join(command)}[/red]")
-                console.print(f"[red]Error: {stderr_msg}[/red]")
-                raise typer.Exit(code=result.returncode)
-        else:
-            console.print(f"[green]✓ {' '.join(command)}[/green]")
-        return result
-    except FileNotFoundError:
-        console.print(f"[red]Error: Command not found: {command[0]}[/red]")
-        if allow_fail:
-            return subprocess.CompletedProcess(command, 127, stdout="", stderr="Command not found")
-        raise typer.Exit(code=1)
+    # Update all repositories at once
+    if not helm_repo_update():
+        raise subprocess.CalledProcessError(
+            1, ["helm", "repo", "update"], stderr="Failed to update Helm repositories"
+        )
 
 
-def _run_command(command: list[str], console: Console, allow_fail: bool = False) -> None:
-    """Run a subprocess command with error handling.
+def _install_cert_manager() -> None:
+    """Install cert-manager with Helm."""
+    set_values = {"crds.enabled": "true"}
 
-    Args:
-        command: List of command arguments to execute
-        console: Console instance for output
-        allow_fail: If True, non-zero exit codes are treated as warnings
+    success = microk8s_deploy_chart(
+        namespace=DEFAULT_NAMESPACE_CERT_MANAGER,
+        release_name=DEFAULT_RELEASE_CERT_MANAGER,
+        chart_repo=CHART_CERT_MANAGER,
+        set_values=set_values,
+        timeout="300s",
+        upgrade=True,
+    )
 
-    Raises:
-        typer.Exit: If command fails and allow_fail is False
-    """
-    _run(command, console, allow_fail)
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install cert-manager"
+        )
 
 
-async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+def _install_prometheus() -> None:
+    """Install Prometheus with Helm."""
+    success = microk8s_deploy_chart(
+        namespace=DEFAULT_NAMESPACE_PROMETHEUS,
+        release_name=DEFAULT_RELEASE_PROMETHEUS,
+        chart_repo=CHART_PROMETHEUS,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install Prometheus"
+        )
+
+
+def _install_slurm_operator_crds() -> None:
+    """Install SLURM operator CRDs."""
+    # For CRDs, we need to use global namespace (pass empty string instead of None)
+    success = microk8s_deploy_chart(
+        namespace="",  # CRDs are cluster-scoped, empty string for global
+        release_name=DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
+        chart_repo=CHART_SLURM_OPERATOR_CRDS,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install SLURM operator CRDs"
+        )
+
+
+def _install_slurm_operator() -> None:
+    """Install SLURM operator."""
+    success = microk8s_deploy_chart(
+        namespace=DEFAULT_NAMESPACE_SLINKY,
+        release_name=DEFAULT_RELEASE_SLURM_OPERATOR,
+        chart_repo=CHART_SLURM_OPERATOR,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install SLURM operator"
+        )
+
+
+def _install_slurm_cluster() -> None:
+    """Install SLURM cluster."""
+    success = microk8s_deploy_chart(
+        namespace=DEFAULT_NAMESPACE_SLURM,
+        release_name=DEFAULT_RELEASE_SLURM_CLUSTER,
+        chart_repo=CHART_SLURM_CLUSTER,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install SLURM cluster"
+        )
+
+
+async def deploy(
+    ctx: typer.Context,
+    cluster_data: Dict[str, Any],
+    verbose: bool = False,
+    force: bool = False,
+    renderer: Optional[RenderStepOutput] = None,
+) -> None:
     """Deploy SLURM cluster on MicroK8s using Helm.
 
-    Implements the steps documented in the module docstring:
-    1. Check for required binaries (microk8s, helm)
-    2. Add Helm repositories
-    3. Install cert-manager, Prometheus, and SLURM components
-    4. Deploy SLURM cluster with generated values
+    This function is called by the Vantage cluster management system
+    when creating a new cluster with this app.
 
     Args:
         ctx: Typer context containing settings and configuration
-        cluster_data: Dictionary containing cluster configuration (optional for MicroK8s)
+        cluster_data: Dictionary containing cluster configuration
+        verbose: Whether to enable verbose output
+        force: Whether to force deployment even if cluster exists
+        renderer: Optional renderer for updating deployment progress
 
     Raises:
-        typer.Exit: If deployment fails due to missing dependencies or command errors
+        typer.Exit: If deployment fails
     """
-    ctx.obj.console.print(Panel("MicroK8s SLURM Application"))
-    ctx.obj.console.print("Deploying SLURM cluster on MicroK8s...")
+    console = ctx.obj.console if hasattr(ctx.obj, "console") else Console()
+    json_mode = cluster_data.get("json_mode", False)
 
-    # Check for required binaries
-    if not shutil.which("microk8s"):
-        ctx.obj.console.print(
-            "[red]Error: microk8s not found. Please install MicroK8s first.[/red]"
-        )
-        raise typer.Exit(code=1)
+    # Validate cluster data and credentials
+    cluster_data = validate_cluster_data(cluster_data, console)
 
-    # Verify microk8s.helm is available (we only use microk8s.helm, not standalone helm)
-    ctx.obj.console.print("✓ microk8s.helm version")
-    _run_command(["microk8s.helm", "version"], ctx.obj.console)
+    # Generate deployment ID and create deployment with init status
+    cluster_name = cluster_data.get("name", "unknown")
+    deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
+    client_id = cluster_data.get("client_id", "unknown")
 
-    # Validate cluster data if provided (optional for localhost deployment)
-    cluster_data = validate_cluster_data(cluster_data, ctx.obj.console)
-    client_id, client_secret = validate_client_credentials(cluster_data, ctx.obj.console)
-
-    # Get client secret from API if not in cluster data (import locally to avoid circular import)
-    if not client_secret:
-        from vantage_cli.commands.cluster import utils as cluster_utils
-
-        client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
-
-    ctx.obj.console.print(
-        f"[blue]Deploying for cluster: {cluster_data.get('name', 'unknown')} (client: {client_id[:8]}...)[/blue]"
+    create_deployment_with_init_status(
+        deployment_id=deployment_id,
+        app_name=APP_NAME,
+        cluster_name=cluster_name,
+        cluster_data=cluster_data,
+        console=console,
+        verbose=verbose,
+        cloud=CLOUD_LOCALHOST,
+        cloud_type=CLOUD_TYPE_K8S,
+        k8s_namespaces=[],  # Will be populated as namespaces are created
     )
 
-    # Check MicroK8s status first (fatal if not ready)
-    # ctx.obj.console.print("Checking MicroK8s status...")
-    _run_command(["microk8s", "status", "--wait-ready"], ctx.obj.console)
+    if json_mode:
+        # JSON mode: execute without UI panels
+        try:
+            # Check prerequisites
+            checks = create_complete_prerequisite_checks()
+            all_met, _ = check_prerequisites(checks, console, verbose=verbose, show_table=False)
 
-    # Enable required MicroK8s addons (allow failures as they might already be enabled)
-    # ctx.obj.console.print("Enabling MicroK8s addons...")
-    # _run_command(["microk8s", "enable", "dns"], ctx.obj.console, allow_fail=True)
-    # _run_command(["microk8s", "enable", "storage"], ctx.obj.console, allow_fail=True)
-    # _run_command(["microk8s", "enable", "helm3"], ctx.obj.console, allow_fail=True)
+            if not all_met:
+                update_deployment_status(deployment_id, "failed", console)
+                raise typer.Exit(1)
 
-    # Add Helm repositories
-    ctx.obj.console.print("Adding Helm repositories...")
-    _run_command(
-        ["microk8s.helm", "repo", "add", "jetstack", "https://charts.jetstack.io"],
-        ctx.obj.console,
-        allow_fail=True,
-    )
-    _run_command(
-        [
-            "microk8s.helm",
-            "repo",
-            "add",
-            "prometheus-community",
-            "https://prometheus-community.github.io/helm-charts",
-        ],
-        ctx.obj.console,
-        allow_fail=True,
-    )
-    _run_command(
-        [
-            "microk8s.helm",
-            "repo",
-            "add",
-            "jamesbeedy-slinky-slurm",
-            "https://jamesbeedy.github.io/slurm-operator",
-        ],
-        ctx.obj.console,
-        allow_fail=True,
-    )
+            # Perform deployment steps
+            _add_helm_repositories()
 
-    # Update Helm repositories
-    ctx.obj.console.print("Updating Helm repositories...")
-    _run_command(["microk8s.helm", "repo", "update"], ctx.obj.console, allow_fail=True)
+            # Create namespaces
+            for namespace in [
+                DEFAULT_NAMESPACE_CERT_MANAGER,
+                DEFAULT_NAMESPACE_PROMETHEUS,
+                DEFAULT_NAMESPACE_SLINKY,
+                DEFAULT_NAMESPACE_SLURM,
+            ]:
+                if not create_k8s_namespace(namespace):
+                    update_deployment_status(deployment_id, "failed", console)
+                    raise typer.Exit(1)
 
-    # Install cert-manager
-    ctx.obj.console.print("Installing cert-manager...")
-    _run_command(
-        [
-            "microk8s.helm",
-            "install",
-            "cert-manager",
-            "oci://quay.io/jetstack/charts/cert-manager",
-            "--set",
-            "crds.enabled=true",
-            "--namespace",
-            "cert-manager",
-            "--create-namespace",
-            "--version",
-            "v1.18.2",
-        ],
-        ctx.obj.console,
-        allow_fail=True,
-    )
+            # Install components
+            _install_cert_manager()
+            _install_prometheus()
+            _install_slurm_operator_crds()
+            _install_slurm_operator()
+            _install_slurm_cluster()
 
-    # Install Prometheus
-    ctx.obj.console.print("Installing Prometheus...")
-    _run_command(
-        [
-            "microk8s.helm",
-            "install",
-            "prometheus",
-            "prometheus-community/kube-prometheus-stack",
-            "--namespace",
-            "prometheus",
-            "--create-namespace",
-        ],
-        ctx.obj.console,
-        allow_fail=True,
-    )
+            # Update deployment status to active on success
+            update_deployment_status(deployment_id, "active", console)
 
-    # Install SLURM operator CRDs
-    ctx.obj.console.print("Installing SLURM operator CRDs...")
-    _run_command(
-        [
-            "microk8s.helm",
-            "install",
-            "slurm-operator-crds",
-            "jamesbeedy-slinky-slurm/slurm-operator-crds",
-            "--version",
-            "0.4.0",
-        ],
-        ctx.obj.console,
-        allow_fail=True,
-    )
+        except Exception as e:
+            update_deployment_status(deployment_id, "failed", console)
+            error_msg = f"Deployment failed: {str(e)}"
+            if renderer:
+                renderer.json_bypass({"error": error_msg})
+            else:
+                console.print(f"[red]Error:[/red] {error_msg}")
+            raise typer.Exit(1)
+    else:
+        # Interactive mode with TerminalOutputManager
+        with TerminalOutputManager(
+            console=console,
+            operation_name="🚀 SLURM MicroK8S Deployment Progress",
+            verbose=verbose,
+            json_output=getattr(ctx.obj, "json_output", False),
+            use_live_panel=True,
+        ) as output:
+            try:
+                # Step 1: Check prerequisites
+                output.status("🔍 Checking prerequisites...")
 
-    slurm_operator_chart_values = get_chart_values_slurm_operator()
-    slurm_operator_values_yaml = yaml.dump(slurm_operator_chart_values)
-    tmp_file_operator_values = Path.home() / "myslurmoperatorchartvalues.yaml"
-    tmp_file_operator_values.write_text(slurm_operator_values_yaml)
-    tmp_file_operator_values.chmod(0o600)
-    # Install SLURM operator
-    ctx.obj.console.print("Installing SLURM operator...")
-    _run_command(
-        [
-            "microk8s.helm",
-            "install",
-            "slurm-operator",
-            "oci://ghcr.io/slinkyproject/charts/slurm-operator",
-            f"--values={tmp_file_operator_values}",
-            "--version=0.4.0",
-            "--namespace=slinky",
-            "--create-namespace",
-        ],
-        ctx.obj.console,
-        allow_fail=True,
-    )
-    # Patchable sleep for tests
-    try:
-        import sys
-        from time import sleep
+                checks = create_complete_prerequisite_checks()
+                all_met, results = check_prerequisites(
+                    checks, console, verbose=verbose, show_table=False
+                )
 
-        if "pytest" in sys.modules:
-            sleep(0.1)
-        else:
-            sleep(20)
-    except ImportError:
-        pass
+                if not all_met:
+                    missing_tools: list[str] = []
+                    for result in results:
+                        if result.status != PrerequisiteStatus.AVAILABLE:
+                            missing_tools.append(
+                                f"{result.name}: {result.error_message or 'Missing'}"
+                            )
 
-    slurm_cluster_chart_values = get_chart_values_slurm_cluster()
+                    error_msg = f"Missing prerequisites: {'; '.join(missing_tools)}"
+                    output.set_final_content(
+                        format_deployment_failure_content(error_msg), success=False
+                    )
+                    update_deployment_status(deployment_id, "failed", console)
+                    raise typer.Exit(1)
 
-    user_ssh_rsa_pub_key = Path.home() / ".ssh" / "id_rsa.pub"
-    user_ssh_ed25519_pub_key = Path.home() / ".ssh" / "id_ed25519.pub"
+                output.success("Prerequisites check passed")
+                time.sleep(1)
 
-    ssh_authorized_keys = []
+                # Step 2: Setup Helm repositories
+                output.status("📦 Setting up Helm repositories...")
+                _add_helm_repositories()
+                output.success("Helm repositories configured")
+                time.sleep(1)
 
-    if user_ssh_rsa_pub_key.exists():
-        ssh_authorized_keys.append(user_ssh_rsa_pub_key.read_text().strip())
-        ctx.obj.console.print(f"[blue]Found SSH RSA public key: {user_ssh_rsa_pub_key}[/blue]")
-    if user_ssh_ed25519_pub_key.exists():
-        ssh_authorized_keys.append(user_ssh_ed25519_pub_key.read_text().strip())
-        ctx.obj.console.print(
-            f"[blue]Found SSH ED25519 public key: {user_ssh_ed25519_pub_key}[/blue]"
-        )
+                # Step 3: Create namespaces
+                output.status("🔧 Creating Kubernetes namespaces...")
+                namespaces = [
+                    DEFAULT_NAMESPACE_CERT_MANAGER,
+                    DEFAULT_NAMESPACE_PROMETHEUS,
+                    DEFAULT_NAMESPACE_SLINKY,
+                    DEFAULT_NAMESPACE_SLURM,
+                ]
+                for namespace in namespaces:
+                    if not create_k8s_namespace(namespace):
+                        error_msg = f"Failed to create namespace '{namespace}'"
+                        output.set_final_content(
+                            format_deployment_failure_content(error_msg), success=False
+                        )
+                        update_deployment_status(deployment_id, "failed", console)
+                        raise typer.Exit(1)
+                output.success("Namespaces created")
+                time.sleep(1)
 
-    if len(ssh_authorized_keys) > 0:
-        ctx.obj.console.print("[blue]Using SSH public keys:[/blue]")
-        for key in ssh_authorized_keys:
-            ctx.obj.console.print(f" - {key}")
-        slurm_cluster_chart_values["loginsets"]["slinky"]["rootSshAuthorizedKeys"] = "\n".join(
-            ssh_authorized_keys
-        )
-    slurm_cluster_chart_values["loginsets"]["slinky"]["login"]["env"] = [
-        {"name": "OIDC_CLIENT_ID", "value": client_id},
-        {"name": "OIDC_CLIENT_SECRET", "value": client_secret},
-        {"name": "OIDC_DOMAIN", "value": ctx.obj.settings.oidc_domain},
-        {"name": "DEFAULT_SLURM_WORK_DIR", "value": "/tmp"},
-        {"name": "TASK_JOBS_INTERVAL_SECONDS", "value": "10"},
-    ]
+                # Step 4: Install cert-manager
+                output.status("🔒 Installing cert-manager...")
+                _install_cert_manager()
+                output.success("cert-manager installed")
+                time.sleep(1)
 
-    slurm_cluster_values_yaml = yaml.dump(slurm_cluster_chart_values)
+                # Step 5: Install Prometheus
+                output.status("📊 Installing Prometheus...")
+                _install_prometheus()
+                output.success("Prometheus installed")
+                time.sleep(1)
 
-    tmp_slurm_cluster_values = Path.home() / "myslurmclusterchartvalues.yaml"
-    tmp_slurm_cluster_values.write_text(slurm_cluster_values_yaml)
-    tmp_slurm_cluster_values.chmod(0o600)
-    # Install SLURM cluster
-    ctx.obj.console.print("Installing SLURM cluster...")
-    _run_command(
-        [
-            "microk8s.helm",
-            "install",
-            "slurm",
-            "oci://ghcr.io/slinkyproject/charts/slurm",
-            f"--values={tmp_slurm_cluster_values}",
-            "--version=0.4.0",
-            "--namespace=slurm",
-            "--create-namespace",
-        ],
-        ctx.obj.console,
-        allow_fail=True,
-    )
+                # Step 6: Install SLURM operator CRDs
+                output.status("⚙️ Installing SLURM operator CRDs...")
+                _install_slurm_operator_crds()
+                output.success("SLURM operator CRDs installed")
+                time.sleep(1)
 
-    ctx.obj.console.print("[green]✅ MicroK8s SLURM deployment completed successfully![/green]")
-    ctx.obj.console.print("[green]✅ MicroK8s SLURM operator namespace: slinky![/green]")
-    ctx.obj.console.print("[green]✅ MicroK8s SLURM cluster namespace: slurm![/green]")
-    ctx.obj.console.print("[green]✅ MicroK8s Prometheus namespace: prometheus![/green]")
-    ctx.obj.console.print("[green]✅ MicroK8s Cert Manager namespace: cert-manager![/green]")
+                # Step 7: Install SLURM operator
+                output.status("🎛️ Installing SLURM operator...")
+                _install_slurm_operator()
+                output.success("SLURM operator installed")
+                time.sleep(1)
 
-    ctx.obj.console.print(
-        "[blue]Use 'microk8s.kubectl get pods -A --namespace slurm' to check pod status[/blue]"
-    )
+                # Step 8: Install SLURM cluster
+                output.status("🖥️ Installing SLURM cluster...")
+                _install_slurm_cluster()
+                output.success("SLURM cluster installed")
+                time.sleep(1)
+
+                # Step 9: Finalize
+                output.status("🎉 Finalizing deployment...")
+                update_deployment_status(deployment_id, "active", console)
+
+                # Set beautiful success content
+                output.set_final_content(
+                    format_deployment_success_content(client_id), success=True
+                )
+
+            except Exception as e:
+                update_deployment_status(deployment_id, "failed", console)
+                error_msg = f"Deployment failed: {str(e)}"
+                output.set_final_content(
+                    format_deployment_failure_content(error_msg), success=False
+                )
+                raise typer.Exit(1)
 
 
-# Typer CLI commands
+# Command functions that the deployment system will discover
+@handle_abort
 @attach_settings
 async def deploy_command(
     ctx: typer.Context,
     cluster_name: Annotated[
-        str,
+        Optional[str],
         typer.Argument(help="Name of the cluster to deploy"),
-    ],
+    ] = None,
     dev_run: Annotated[
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
 ) -> None:
-    """Deploy a Vantage SLURM cluster on MicroK8s."""
-    ctx.obj.console.print(Panel("MicroK8s SLURM Application"))
-    ctx.obj.console.print("Deploying MicroK8s SLURM application...")
+    """Deploy SLURM cluster to MicroK8s."""
+    if cluster_name is None:
+        cluster_name = "unknown"
 
     cluster_data = generate_dev_cluster_data(cluster_name)
     if not dev_run:
@@ -404,108 +399,107 @@ async def deploy_command(
     await deploy(ctx=ctx, cluster_data=cluster_data)
 
 
-async def cleanup_microk8s_localhost(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
-    """Clean up a MicroK8s localhost deployment by deleting the namespaces.
-
-    This function deletes the namespaces created during deployment:
-    - cert-manager
-    - prometheus
-    - slinky
-    - slurm
-
-    Args:
-        ctx: The typer context object for console access.
-        cluster_data: Dictionary containing deployment metadata with deployment_name
-
-    Raises:
-        Exception: If cleanup fails
-    """
-    # Get deployment name from cluster data
-    deployment_name = cluster_data.get("deployment_name", "")
-    if not deployment_name:
-        ctx.obj.console.print("[red]Error: No deployment_name found in cluster data[/red]")
-        raise Exception("Missing deployment_name in cluster data")
-
-    # Define the namespaces that were created during deployment
-    namespaces = ["slurm", "slinky"]
-
-    ctx.obj.console.print(f"[yellow]Cleaning up MicroK8s deployment: {deployment_name}[/yellow]")
-
-    # Check if microk8s is available
-    if not shutil.which("microk8s"):
-        ctx.obj.console.print("[red]Error: microk8s not found. Cannot perform cleanup.[/red]")
-        raise Exception("microk8s command not found")
-
-    # Delete each namespace
-    for namespace in namespaces:
-        try:
-            ctx.obj.console.print(f"[yellow]Deleting namespace: {namespace}[/yellow]")
-            result = _run(
-                [
-                    "microk8s",
-                    "kubectl",
-                    "delete",
-                    "namespace",
-                    namespace,
-                    "--ignore-not-found=true",
-                ],
-                console=ctx.obj.console,
-                allow_fail=True,
-            )
-
-            if result.returncode == 0:
-                ctx.obj.console.print(
-                    f"[green]✓ Successfully deleted namespace '{namespace}'[/green]"
-                )
-            else:
-                ctx.obj.console.print(
-                    f"[yellow]Warning: Failed to delete namespace '{namespace}' (may not exist)[/yellow]"
-                )
-
-        except Exception as e:
-            ctx.obj.console.print(
-                f"[yellow]Warning: Error deleting namespace '{namespace}': {e}[/yellow]"
-            )
-            # Continue with other namespaces even if one fails
-
-    ctx.obj.console.print(
-        f"[green]✓ MicroK8s cleanup completed for deployment '{deployment_name}'[/green]"
-    )
-
-
-# Typer CLI commands
+@handle_abort
 @attach_settings
-async def cleanup_command(
+async def status_command(
     ctx: typer.Context,
-    deployment_name: Annotated[
-        str,
-        typer.Argument(help="Name of the deployment to clean up"),
-    ],
-    dev_run: Annotated[
-        bool,
-        typer.Option("--dev-run", help="Use dummy cluster data for development"),
-    ] = False,
 ) -> None:
-    """Clean up a Vantage SLURM cluster on MicroK8s."""
-    from vantage_cli.commands.cluster import utils as cluster_utils
+    """Check SLURM deployment status."""
+    console = ctx.obj.console if hasattr(ctx.obj, "console") else Console()
 
-    ctx.obj.console.print(Panel("MicroK8s SLURM Deployment Cleanup"))
-    ctx.obj.console.print(f"Cleanup MicroK8s SLURM Deployment {deployment_name}...")
+    try:
+        namespaces = [
+            DEFAULT_NAMESPACE_SLURM,
+            DEFAULT_NAMESPACE_SLINKY,
+            DEFAULT_NAMESPACE_PROMETHEUS,
+            DEFAULT_NAMESPACE_CERT_MANAGER,
+        ]
 
-    cluster_data = None
-
-    if dev_run:
-        ctx.obj.console.print(
-            f"[blue]Using dev run mode with dummy cluster data for '{deployment_name}'[/blue]"
-        )
-        cluster_data = generate_dev_cluster_data(deployment_name)
-    else:
-        cluster_data = await cluster_utils.get_cluster_by_name(
-            ctx=ctx, cluster_name=deployment_name
-        )
-
-    if cluster_data is None:
-        ctx.obj.console.print(f"[red]Error: Cluster '{deployment_name}' not found[/red]")
+        for namespace in namespaces:
+            console.print(f"[cyan]Checking namespace: {namespace}[/cyan]")
+            result = subprocess.run(
+                ["microk8s", "kubectl", "get", "pods", "-n", namespace],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            console.print(result.stdout)
+            console.print()
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]✗[/red] Failed to get deployment status: {e}")
         raise typer.Exit(1)
 
-    await cleanup_microk8s_localhost(ctx=ctx, cluster_data=cluster_data)
+
+@handle_abort
+@attach_settings
+async def remove_command(
+    ctx: typer.Context,
+    cluster_name: Annotated[
+        Optional[str],
+        typer.Argument(help="Name of the cluster to remove"),
+    ] = None,
+    force: Annotated[bool, typer.Option(help="Force removal without confirmation")] = False,
+) -> None:
+    """Remove SLURM deployment."""
+    console = ctx.obj.console if hasattr(ctx.obj, "console") else Console()
+
+    if cluster_name is None:
+        cluster_name = "unknown"
+
+    if not force:
+        confirm = typer.confirm(
+            f"Are you sure you want to remove SLURM deployment for '{cluster_name}'?"
+        )
+        if not confirm:
+            console.print("Operation cancelled.")
+            return
+
+    try:
+        namespaces = [
+            DEFAULT_NAMESPACE_SLURM,
+            DEFAULT_NAMESPACE_SLINKY,
+            DEFAULT_NAMESPACE_PROMETHEUS,
+            DEFAULT_NAMESPACE_CERT_MANAGER,
+        ]
+
+        for namespace in namespaces:
+            try:
+                subprocess.run(
+                    [
+                        "microk8s",
+                        "kubectl",
+                        "delete",
+                        "namespace",
+                        namespace,
+                        "--ignore-not-found=true",
+                    ],
+                    capture_output=True,
+                    check=True,
+                )
+                console.print(f"[green]✓[/green] Successfully removed namespace '{namespace}'")
+            except subprocess.CalledProcessError:
+                console.print(
+                    f"[yellow]Warning:[/yellow] Namespace '{namespace}' not found or already removed"
+                )
+
+        console.print(
+            f"[green]✓[/green] Successfully removed SLURM deployment for '{cluster_name}'"
+        )
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to remove deployment: {e}")
+        raise typer.Exit(1)
+
+
+async def cleanup_microk8s_localhost(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+    """Clean up a MicroK8s localhost deployment.
+
+    Args:
+        ctx: Typer context (unused but required for signature compatibility)
+        cluster_data: Dictionary containing cluster information including 'cluster_name'
+    """
+    cluster_name = cluster_data.get("cluster_name")
+    if not cluster_name:
+        raise ValueError("cluster_name is required in cluster_data")
+
+    # Use the existing remove_command function
+    remove_command(cluster_name)

@@ -14,10 +14,10 @@
 import typer
 from rich.table import Table
 
-from vantage_cli.commands.cluster.utils import get_available_apps
+from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.format import render_json
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -26,15 +26,16 @@ async def list_apps(
     ctx: typer.Context,
 ) -> None:
     """List all available applications for deployment."""
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
+    # Access options directly from context (automatically set by AsyncTyper)
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
 
     try:
         # Get available apps
         available_apps = get_available_apps()
 
         if json_output:
-            # Format for JSON output
+            # JSON output - bypass progress system entirely
             apps_data = []
             for app_name, app_info in available_apps.items():
                 app_data = {
@@ -56,47 +57,65 @@ async def list_apps(
 
                 apps_data.append(app_data)
 
-            render_json({"apps": apps_data})
+            RenderStepOutput.json_bypass({"apps": apps_data})
             return
 
-        # Rich table output
-        if not available_apps:
-            ctx.obj.console.print("[yellow]No applications found.[/yellow]")
-            return
-
-        table = Table(
-            title="Available Applications", show_header=True, header_style="bold magenta"
+        renderer = RenderStepOutput(
+            console=ctx.obj.console,
+            operation_name="Listing applications",
+            step_names=["Loading available apps", "Formatting output"],
+            verbose=verbose,
+            command_start_time=ctx.obj.command_start_time,
         )
-        table.add_column("App Name", style="cyan", width=20)
-        table.add_column("Module", style="green", width=30)
-        table.add_column("Description", style="white", width=50)
 
-        for app_name, app_info in available_apps.items():
-            # Get module name
-            module_name = "unknown"
-            if "module" in app_info:
-                module_name = (
-                    app_info["module"].__name__
-                    if hasattr(app_info["module"], "__name__")
-                    else "unknown"
-                )
+        with renderer:
+            # Step 1: Get available apps (already done above)
+            renderer.complete_step("Loading available apps")
 
-            # Get description from docstring
-            description = "No description available"
-            if "deploy_function" in app_info:
-                func = app_info["deploy_function"]
-                if hasattr(func, "__doc__") and func.__doc__:
-                    # Get first line of docstring
-                    description = func.__doc__.strip().split("\n")[0]
+            # Step 2: Format and display output
+            renderer.start_step("Formatting output")
+
+            # Rich table output
+            if not available_apps:
+                ctx.obj.console.print("[yellow]No applications found.[/yellow]")
+                renderer.complete_step("Formatting output")
+                return
+
+            table = Table(
+                title="Available Applications", show_header=True, header_style="bold magenta"
+            )
+            table.add_column("App Name", style="cyan")
+            table.add_column("Module", style="green")
+            table.add_column("Description", style="white")
+
+            for app_name, app_info in available_apps.items():
+                # Get module name
+                module_name = "unknown"
+                if "module" in app_info:
+                    module_name = (
+                        app_info["module"].__name__
+                        if hasattr(app_info["module"], "__name__")
+                        else "unknown"
+                    )
+
+                # Get description from docstring
+                description = "No description available"
+                if "deploy_function" in app_info:
+                    func = app_info["deploy_function"]
+                    if hasattr(func, "__doc__") and func.__doc__:
+                        # Get first line of docstring
+                        description = func.__doc__.strip().split("\n")[0]
+                    else:
+                        description = "No description available"
                 else:
-                    description = "No description available"
-            else:
-                description = "No deploy function available"
+                    description = "No deploy function available"
 
-            table.add_row(app_name, module_name, description)
+                table.add_row(app_name, module_name, description)
 
-        ctx.obj.console.print(table)
-        ctx.obj.console.print(f"\n[bold]Found {len(available_apps)} application(s)[/bold]")
+            ctx.obj.console.print(table)
+            ctx.obj.console.print(f"\n[bold]Found {len(available_apps)} application(s)[/bold]")
+
+            renderer.complete_step("Formatting output")
 
     except Exception as e:
         ctx.obj.console.print(f"[bold red]Error listing applications: {e}[/bold red]")

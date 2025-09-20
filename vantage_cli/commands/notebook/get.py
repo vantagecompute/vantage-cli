@@ -11,15 +11,15 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Get notebook command."""
 
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, cast
 
 import typer
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
+from vantage_cli.render import RenderStepOutput
 
 from .render import render_notebook_details
 
@@ -29,9 +29,16 @@ from .render import render_notebook_details
 async def get_notebook(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Notebook server name")],
-    cluster: Annotated[Optional[str], typer.Option("--cluster", "-c", help="Cluster name")] = None,
 ):
     """Get notebook server details."""
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name="Get a Notebook",
+        step_names=["Complete"],
+        use_panel=False,
+        show_start_message=False,
+        command_start_time=getattr(ctx.obj, "command_start_time", None) if ctx.obj else None,
+    )
     # Since the API doesn't support a singular notebookServer query,
     # we'll use the notebookServers list query and filter by name
     query = """
@@ -75,23 +82,15 @@ async def get_notebook(
         matching_notebooks = []
         for notebook in notebooks:
             if notebook.get("name") == name:
-                if cluster is None or notebook.get("clusterName") == cluster:
-                    matching_notebooks.append(notebook)
+                matching_notebooks.append(notebook)
 
         if not matching_notebooks:
-            if cluster:
-                raise Abort(f"Notebook server '{name}' not found in cluster '{cluster}'")
-            else:
-                raise Abort(f"Notebook server '{name}' not found")
+            raise Abort(f"Notebook server '{name}' not found")
 
         if len(matching_notebooks) > 1:
             ctx.obj.console.print(
                 "[yellow]Warning: Multiple notebook servers found with the same name[/yellow]"
             )
-            if cluster is None:
-                ctx.obj.console.print(
-                    "[yellow]Consider specifying a cluster with --cluster to disambiguate[/yellow]"
-                )
 
         notebook_response = matching_notebooks[0]  # Use the first match
 
@@ -99,17 +98,19 @@ async def get_notebook(
         notebook_response_dict = cast(Dict[str, Any], notebook_response)
 
         # Get effective JSON output setting from context
-        json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-        effective_json = get_effective_json_output(ctx, json_output)
+        if getattr(ctx.obj, "json_output", False):
+            renderer.json_bypass(notebook_response_dict)
+            return
 
-        # Render results using consistent formatting
-        render_notebook_details(
+        notebook_panel = render_notebook_details(
             notebook_response_dict,
-            json_output=effective_json,
-            console=ctx.obj.console,
         )
 
+        with renderer:
+            renderer.panel_step(notebook_panel)
+            renderer.complete_step("Complete")
+
     except Exception as e:
-        if "GraphQL errors:" in str(e) or "Notebook server not found:" in str(e):
+        if "GraphQL errors:" in str(e) or "notebook server not found" in str(e):
             raise
         raise Abort(f"Failed to get notebook server: {e}")

@@ -11,14 +11,13 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update network command."""
 
-from typing import Annotated, Optional
+from typing import Annotated, Any, Dict, Optional
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -38,33 +37,42 @@ async def update_network(
     ] = None,
 ):
     """Update a virtual network configuration."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        updates = {}
-        if name:
-            updates["name"] = name
-        if description:
-            updates["description"] = description
-        if enable_dns is not None:
-            updates["enable_dns"] = enable_dns
+    # Get command timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
 
-        print_json(
-            data={
-                "network_id": network_id,
-                "updates": updates,
-                "status": "updated",
-                "updated_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(f"🔄 Updating virtual network [bold blue]{network_id}[/bold blue]")
+    # Check for JSON output mode
+    json_output = getattr(ctx.obj, "json_output", False)
 
-        if name:
-            ctx.obj.console.print(f"   Name: [green]{name}[/green]")
-        if description:
-            ctx.obj.console.print(f"   Description: {description}")
-        if enable_dns is not None:
-            ctx.obj.console.print(f"   DNS Enabled: [cyan]{enable_dns}[/cyan]")
+    # If JSON mode, bypass all visual rendering
+    if json_output:
+        result: Dict[str, Any] = {
+            "network_id": network_id,
+            "updates": {"name": name, "description": description, "enable_dns": enable_dns},
+            "status": "updated",
+            "message": f"Network {network_id} updated successfully",
+        }
+        RenderStepOutput.json_bypass(result)
+        return
 
-        ctx.obj.console.print("✅ Virtual network updated successfully!")
+    # Regular rendering for non-JSON mode
+    step_names = ["Validating network", "Applying configuration changes", "Updating DNS settings"]
+    console = ctx.obj.console
+
+    with RenderStepOutput(
+        console=console,
+        operation_name="Updating network",
+        step_names=step_names,
+        json_output=json_output,
+        command_start_time=command_start_time,
+    ) as renderer:
+        renderer.advance("Validating network", "starting")
+        # Simulate validation
+        renderer.advance("Validating network", "completed")
+
+        renderer.advance("Applying configuration changes", "starting")
+        # Simulate applying changes
+        renderer.advance("Applying configuration changes", "completed")
+
+        renderer.advance("Updating DNS settings", "starting")
+        # Simulate DNS updates
+        renderer.advance("Updating DNS settings", "completed")

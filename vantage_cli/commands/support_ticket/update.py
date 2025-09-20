@@ -16,7 +16,6 @@ from typing import Annotated
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -28,7 +27,7 @@ async def update_support_ticket(
     ticket_id: Annotated[str, typer.Argument(help="ID of the support ticket to update")],
 ):
     """Update a support ticket."""
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         print_json(data={"ticket_id": ticket_id, "status": "updated"})
     else:
         ctx.obj.console.print(f"🔄 Support ticket {ticket_id} updated successfully!")

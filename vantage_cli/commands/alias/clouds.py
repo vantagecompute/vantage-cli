@@ -18,14 +18,16 @@ from vantage_cli.exceptions import handle_abort
 
 
 @handle_abort
-def clouds_command(
+async def clouds_command(
     ctx: typer.Context,
 ) -> None:
     """List all configured cloud providers.
 
     This is an alias for 'vantage cloud list'.
     """
-    list_command(ctx)
+    import time
+
+    await list_command(ctx, command_start_time=time.time())
 
 
 def main():

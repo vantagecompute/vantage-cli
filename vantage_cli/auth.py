@@ -29,7 +29,7 @@ from vantage_cli.client import make_oauth_request
 from vantage_cli.config import Settings
 from vantage_cli.constants import USER_CONFIG_FILE
 from vantage_cli.exceptions import Abort
-from vantage_cli.format import terminal_message
+from vantage_cli.render import terminal_message
 from vantage_cli.schemas import CliContext, DeviceCodeData, IdentityData, Persona, TokenSet
 from vantage_cli.time_loop import TimeLoop
 

@@ -11,14 +11,14 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """List networks command."""
 
-from typing import Annotated, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 import typer
-from rich import print_json
+from rich.table import Table
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -36,55 +36,90 @@ async def list_networks(
     ] = 10,
 ):
     """List all virtual networks."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        networks = [
-            {
-                "network_id": "network-123",
-                "name": "production-vpc",
-                "cidr": "10.0.0.0/16",
-                "region": "us-west-2",
-                "status": "active",
-                "subnets_count": 2,
-            },
-            {
-                "network_id": "network-124",
-                "name": "development-vpc",
-                "cidr": "172.16.0.0/16",
-                "region": "us-east-1",
-                "status": "creating",
-                "subnets_count": 1,
-            },
-        ]
+    # Get command timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
 
-        # Apply filters
-        if region:
-            networks = [n for n in networks if n["region"] == region]
-        if status:
-            networks = [n for n in networks if n["status"] == status]
+    # Check for JSON output mode
+    json_output = getattr(ctx.obj, "json_output", False)
 
-        print_json(
-            data={
-                "networks": networks[:limit] if limit else networks,
-                "total": len(networks),
-                "filters": {"region": region, "status": status, "limit": limit},
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("🌐 Virtual Networks:")
-        ctx.obj.console.print()
+    # Mock network data
+    networks: List[Dict[str, Any]] = [
+        {
+            "id": "net-123",
+            "name": "production-vpc",
+            "region": "us-west-2",
+            "status": "active",
+            "cidr": "10.0.0.0/16",
+            "created_at": "2025-01-01T12:00:00Z",
+        },
+        {
+            "id": "net-456",
+            "name": "staging-vpc",
+            "region": "us-east-1",
+            "status": "active",
+            "cidr": "10.1.0.0/16",
+            "created_at": "2025-01-02T12:00:00Z",
+        },
+        {
+            "id": "net-789",
+            "name": "dev-vpc",
+            "region": "us-west-2",
+            "status": "pending",
+            "cidr": "10.2.0.0/16",
+            "created_at": "2025-01-03T12:00:00Z",
+        },
+    ]
 
-        networks = [
-            ("network-123", "production-vpc", "10.0.0.0/16", "us-west-2", "active"),
-            ("network-124", "development-vpc", "172.16.0.0/16", "us-east-1", "creating"),
-        ]
+    # Apply filters
+    if region:
+        networks = [n for n in networks if n["region"] == region]
+    if status:
+        networks = [n for n in networks if n["status"] == status]
+    if limit:
+        networks = networks[:limit]
 
-        for net_id, name, cidr, reg, stat in networks:
-            ctx.obj.console.print(f"  🏷️  [bold blue]{net_id}[/bold blue] - {name}")
-            ctx.obj.console.print(
-                f"      CIDR: [cyan]{cidr}[/cyan] | Region: [yellow]{reg}[/yellow] | Status: [green]{stat}[/green]"
+    # If JSON mode, bypass all visual rendering
+    if json_output:
+        result = {"networks": networks, "count": len(networks)}
+        RenderStepOutput.json_bypass(result)
+        return
+
+    # Regular rendering for non-JSON mode
+    step_names = ["Fetching networks", "Applying filters"]
+    console = ctx.obj.console
+
+    with RenderStepOutput(
+        console=console,
+        operation_name="Listing networks",
+        step_names=step_names,
+        json_output=json_output,
+        command_start_time=command_start_time,
+    ) as renderer:
+        renderer.advance("Fetching networks", "starting")
+        # Simulate fetch
+        renderer.advance("Fetching networks", "completed")
+
+        renderer.advance("Applying filters", "starting")
+        # Simulate filtering
+        renderer.advance("Applying filters", "completed")
+
+        # Create and display table
+        table = Table(title="Virtual Networks")
+        table.add_column("ID", style="cyan", no_wrap=True)
+        table.add_column("Name", style="magenta")
+        table.add_column("Region", style="green")
+        table.add_column("Status", style="yellow")
+        table.add_column("CIDR", style="blue")
+        table.add_column("Created", style="dim")
+
+        for network in networks:
+            table.add_row(
+                network["id"],
+                network["name"],
+                network["region"],
+                network["status"],
+                network["cidr"],
+                network["created_at"],
             )
-            ctx.obj.console.print()
 
-        ctx.obj.console.print(f"📊 Total networks: {len(networks)}")
+        renderer.table_step(table)

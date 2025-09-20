@@ -14,11 +14,10 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -38,28 +37,51 @@ async def update_storage(
     iops: Annotated[Optional[int], typer.Option("--iops", help="New IOPS setting")] = None,
 ):
     """Update a storage volume configuration."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        updates = {}
-        if name:
-            updates["name"] = name
-        if size:
-            updates["size_gb"] = size
-        if description:
-            updates["description"] = description
-        if iops:
-            updates["iops"] = iops
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
 
-        print_json(
-            data={
-                "storage_id": storage_id,
-                "updates": updates,
-                "status": "updated",
-                "updated_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # Build updates object
+    updates = {}
+    if name:
+        updates["name"] = name
+    if size:
+        updates["size_gb"] = size
+    if description:
+        updates["description"] = description
+    if iops:
+        updates["iops"] = iops
+
+    # Mock update response data
+    update_data = {
+        "storage_id": storage_id,
+        "updates": updates,
+        "status": "updated",
+        "updated_at": "2025-09-10T10:00:00Z",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Update Storage '{storage_id}'",
+        step_names=[]
+        if json_output
+        else ["Validating updates", "Applying changes", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(update_data)
+
+    with renderer:
+        renderer.complete_step("Validating updates")
+        renderer.complete_step("Applying changes")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print(f"🔄 Updating storage volume [bold blue]{storage_id}[/bold blue]")
 
         if name:
@@ -72,3 +94,5 @@ async def update_storage(
             ctx.obj.console.print(f"   IOPS: [cyan]{iops}[/cyan]")
 
         ctx.obj.console.print("✅ Storage volume updated successfully!")
+
+        renderer.complete_step("Formatting output")

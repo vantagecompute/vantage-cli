@@ -22,11 +22,12 @@ Test isolation strategy:
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, Generator, Optional
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pendulum
 import pytest
@@ -73,7 +74,11 @@ def _global_patch_base_dir():
                                     "vantage_cli.config.VANTAGE_CLI_ACTIVE_PROFILE",
                                     _test_home / "active_profile",
                                 ):
-                                    yield
+                                    with patch(
+                                        "vantage_cli.constants.VANTAGE_CLI_DEPLOYMENTS_CACHE_PATH",
+                                        _test_home / "deployments",
+                                    ):
+                                        yield
 
 
 @pytest.fixture(scope="session")
@@ -123,6 +128,28 @@ class MockConsole:
         self.print = MagicMock()
         self.log = MagicMock()
         self.print_json = MagicMock()
+        self.set_live = MagicMock()  # For Rich Live compatibility
+        self.show_cursor = MagicMock()  # For Rich console cursor control
+        self.push_render_hook = MagicMock()  # For Rich Live integration
+        self.pop_render_hook = MagicMock()  # For Rich Live integration
+        self.line = MagicMock()  # For Rich line method
+        self.is_terminal = True  # Rich console compatibility
+        self.is_dumb_terminal = False  # Rich console compatibility
+        self.is_jupyter = False  # Rich console compatibility
+        self.options = MagicMock()  # Rich console options
+        self._live_stack = []  # Required for Rich Live integration
+
+    def clear_live(self):
+        """Clear live displays."""
+        self._live_stack.clear()
+
+    def __enter__(self):
+        """Support context manager protocol for Rich."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Support context manager protocol for Rich."""
+        pass
 
 
 # Enhanced JWT Testing Fixtures
@@ -259,7 +286,99 @@ def override_cache_dir(tmp_path, mocker):
 
 
 @pytest.fixture
-def cluster_data():
+def mock_json_bypass():
+    """Mock RenderStepOutput.json_bypass for tests that check JSON output.
+
+    This fixture provides a mock for the json_bypass class method that captures
+    the data passed to it, allowing tests to verify JSON output without needing
+    to check actual console output.
+    """
+    with patch("vantage_cli.render.RenderStepOutput.json_bypass") as mock:
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def mock_subprocess() -> Generator[Dict[str, Any], None, None]:
+    """Globally mock all subprocess calls to prevent real commands from running during tests.
+
+    This fixture automatically mocks subprocess.run, subprocess.call, subprocess.check_output,
+    and subprocess.Popen to ensure no real system commands are executed during testing.
+
+    Individual tests can override this mock if they need specific subprocess behavior.
+    """
+
+    def smart_subprocess_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        """Smart subprocess mock that returns appropriate responses based on command."""
+        command_args = args[0] if args else kwargs.get("args", [])
+
+        # Handle microk8s status --format yaml
+        if (
+            isinstance(command_args, list)
+            and len(command_args) >= 3
+            and command_args[0] == "microk8s"
+            and command_args[1] == "status"
+            and "--format" in command_args
+            and "yaml" in command_args
+        ):
+            return subprocess.CompletedProcess(
+                args=command_args,
+                returncode=0,
+                stdout="""microk8s:
+  running: true
+  version: 1.28.3
+addons:
+  - name: dns
+    status: enabled
+  - name: helm3
+    status: enabled
+  - name: hostpath-storage
+    status: enabled
+  - name: metallb
+    status: enabled
+  - name: storage
+    status: enabled
+  - name: registry
+    status: disabled
+  - name: ingress
+    status: disabled""",
+                stderr="",
+            )
+
+        # Default successful subprocess result
+        final_args: list[str] = (
+            command_args if isinstance(command_args, list) else ["mocked_command"]
+        )
+        return subprocess.CompletedProcess(
+            args=final_args, returncode=0, stdout="mocked output", stderr=""
+        )
+
+    with (
+        patch("subprocess.run", side_effect=smart_subprocess_run) as mock_run,
+        patch("subprocess.call", return_value=0) as mock_call,
+        patch("subprocess.check_output", return_value=b"mocked output") as mock_check_output,
+        patch("subprocess.Popen") as mock_popen,
+    ):
+        # Configure Popen mock to return a mock process
+        mock_process = MagicMock()
+        mock_process.returncode = 0
+        mock_process.stdout = "mocked output"
+        mock_process.stderr = ""
+        mock_process.communicate.return_value = ("mocked output", "")
+        mock_process.poll.return_value = 0
+        mock_process.wait.return_value = 0
+        mock_popen.return_value = mock_process
+
+        yield {
+            "run": mock_run,
+            "call": mock_call,
+            "check_output": mock_check_output,
+            "popen": mock_popen,
+            "process": mock_process,
+        }
+
+
+@pytest.fixture
+def cluster_data() -> Dict[str, Any]:
     """Mock cluster data for testing app deployments."""
     return {
         "name": "test-cluster",
@@ -267,3 +386,122 @@ def cluster_data():
         "clientSecret": "test-secret",
         "creationParameters": {"cloud": "localhost"},
     }
+
+
+# Mock GraphQL Client for preventing real API calls during tests
+
+
+class MockGraphQLClient:
+    """Mock GraphQL client that provides canned responses for common operations."""
+
+    def __init__(self):
+        """Initialize mock GraphQL client with default responses."""
+        self.execute_async = MagicMock()
+        self._setup_default_responses()
+
+    def _setup_default_responses(self):
+        """Set up default mock responses for common GraphQL operations."""
+        # Default getClusters response
+        default_clusters_response = {
+            "clusters": {
+                "edges": [
+                    {
+                        "node": {
+                            "name": "test-cluster",
+                            "status": "RUNNING",
+                            "clientId": "test-cluster-0d317c8b-1cfe-423e-a518-57f97fd50c6e",
+                            "description": "Test cluster",
+                            "ownerEmail": "test@example.com",
+                            "provider": "localhost",
+                            "cloudAccountId": None,
+                            "creationParameters": {"cloud": "localhost"},
+                        }
+                    }
+                ],
+                "total": 1,
+            }
+        }
+
+        # Default createCluster response
+        default_create_response = {
+            "createCluster": {
+                "name": "test-cluster",
+                "status": "CREATING",
+                "clientId": "test-cluster-123",
+                "description": "Test cluster",
+            }
+        }
+
+        # Default deleteCluster response
+        default_delete_response = {"deleteCluster": {"message": "Cluster deleted successfully"}}
+
+        # Configure execute_async to return appropriate responses based on query
+        async def mock_execute_async(
+            query: Any, variables: Optional[Dict[str, Any]] = None, **kwargs: Any
+        ) -> Dict[str, Any]:
+            query_str = str(query)
+
+            # Handle getClusters query
+            if "getClusters" in query_str or "query getClusters" in query_str:
+                return default_clusters_response
+
+            # Handle createCluster mutation
+            elif "createCluster" in query_str or "mutation createCluster" in query_str:
+                return default_create_response
+
+            # Handle deleteCluster mutation
+            elif "deleteCluster" in query_str or "mutation deleteCluster" in query_str:
+                return default_delete_response
+
+            # Default fallback response
+            else:
+                return {"data": {"result": "mocked"}}
+
+        self.execute_async.side_effect = mock_execute_async
+
+
+@pytest.fixture(autouse=True)
+def mock_graphql_client() -> Generator[MockGraphQLClient, None, None]:
+    """Globally mock GraphQL client creation to prevent real API calls during tests.
+
+    This fixture automatically patches create_async_graphql_client and related functions
+    to return a MockGraphQLClient instead of making real HTTP requests to GraphQL APIs.
+
+    Individual tests can override this mock if they need specific GraphQL behavior.
+    """
+    mock_client = MockGraphQLClient()
+
+    # Mock the main factory function used throughout the codebase
+    with patch("vantage_cli.gql_client.create_async_graphql_client", return_value=mock_client):
+        # Also patch any import paths where the factory might be used
+        with patch(
+            "vantage_cli.commands.cluster.create.create_async_graphql_client",
+            return_value=mock_client,
+        ):
+            with patch(
+                "vantage_cli.commands.cluster.list.create_async_graphql_client",
+                return_value=mock_client,
+            ):
+                with patch(
+                    "vantage_cli.commands.cluster.delete.create_async_graphql_client",
+                    return_value=mock_client,
+                ):
+                    with patch(
+                        "vantage_cli.commands.cluster.utils.create_async_graphql_client",
+                        return_value=mock_client,
+                    ):
+                        # Mock httpx AsyncClient used for HTTP requests
+                        with patch("httpx.AsyncClient") as mock_httpx:
+                            # Create a proper async context manager
+                            async def mock_aenter(*args: Any, **kwargs: Any) -> Mock:
+                                mock_client = Mock()
+                                mock_client.post = AsyncMock()
+                                mock_client.get = AsyncMock()
+                                return mock_client
+
+                            async def mock_aexit_http(*args: Any) -> None:
+                                pass
+
+                            mock_httpx.return_value.__aenter__ = mock_aenter
+                            mock_httpx.return_value.__aexit__ = mock_aexit_http
+                            yield mock_client

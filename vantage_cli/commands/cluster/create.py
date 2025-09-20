@@ -21,7 +21,7 @@ from loguru import logger
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import track_deployment
-from vantage_cli.commands.cluster.utils import get_available_apps
+from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
@@ -204,7 +204,8 @@ async def create_cluster(
             ctx.obj.console.print()
 
             # Display detailed cluster information
-            render_cluster_details(create_result, ctx.obj.console, json_output=False)
+            cluster_table = render_cluster_details(create_result)
+            ctx.obj.console.print(cluster_table)
 
             # Deploy application if --app option was provided
             if app:

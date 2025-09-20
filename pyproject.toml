@@ -95,6 +95,7 @@ filterwarnings = [
 # Spell checking tools configuration
 [tool.codespell]
 skip = ".venv,venv,icon.svg,.tox,.git,.mypy_cache,.ruff_cache,.pytest_cache,.vscode,.coverage,.venv,cover"
+ignore-words-list = "aks"
 
 # Formatting tools configuration
 [tool.black]

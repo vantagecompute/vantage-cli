@@ -12,12 +12,11 @@
 """Get federation command."""
 
 import typer
-from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -27,23 +26,40 @@ async def get_federation(
     name: Annotated[str, typer.Argument(help="Name of the federation to retrieve")],
 ):
     """Get details of a specific Vantage federation."""
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-    # Determine output format
-    use_json = get_effective_json_output(ctx, json_output)
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
 
-    if use_json:
-        # TODO: Implement actual federation retrieval logic
-        print_json(
-            data={
-                "name": name,
-                "status": "active",
-                "clusters": [],
-                "created_at": "2025-09-10T00:00:00Z",
-                "message": "Federation get command not yet implemented",
-            }
-        )
-    else:
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # TODO: Implement actual federation retrieval logic
+    federation_data = {
+        "name": name,
+        "status": "active",
+        "clusters": [],
+        "created_at": "2025-09-10T00:00:00Z",
+        "message": "Federation get command not yet implemented",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Get Federation '{name}'",
+        step_names=[] if json_output else ["Fetching federation details", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(federation_data)
+
+    with renderer:
+        renderer.complete_step("Fetching federation details")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print("🔗 [bold blue]Federation Get Command[/bold blue]")
         ctx.obj.console.print(f"📖 Retrieving federation: [bold]{name}[/bold]")
         ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+
+        renderer.complete_step("Formatting output")

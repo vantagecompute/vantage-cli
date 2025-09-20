@@ -13,8 +13,6 @@
 
 from typing import Any, Dict, List, Optional
 
-from rich import print_json
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
@@ -23,31 +21,16 @@ from vantage_cli.render import StyleMapper
 
 def render_notebooks_table(
     notebooks: List[Dict[str, Any]],
-    console: Console,
     title: str = "Notebook Servers",
-    total_count: Optional[int] = None,
-    json_output: bool = False,
-) -> None:
+) -> Table:
     """Render a list of notebooks in a Rich table format.
 
     Args:
         notebooks: List of notebook dictionaries
-        console: Rich console for output
         title: Title for the table
-        total_count: Total number of notebooks available
-        json_output: If True, output as JSON instead of a table
     """
-    if json_output:
-        # Output as JSON with Rich formatting
-        output = {"notebooks": notebooks, "total": total_count or len(notebooks)}
-        print_json(data=output)
-        return
-
     if not notebooks:
-        console.print()
-        console.print(Panel("No notebook servers found.", title="[yellow]No Results"))
-        console.print()
-        return
+        return Table("No notebook servers found.", title="[yellow]No Results")
 
     # Define notebook-specific styling
     style_mapper = StyleMapper(
@@ -63,7 +46,7 @@ def render_notebooks_table(
     # Create the table
     table = Table(
         title=title,
-        caption=f"Items: {len(notebooks)}{f' of {total_count}' if total_count else ''}",
+        caption=f"Items: {len(notebooks)}",
         show_header=True,
         header_style="bold white",
     )
@@ -101,19 +84,13 @@ def render_notebooks_table(
                     value = str(value) if value is not None else ""
                 row_values.append(str(value))
         table.add_row(*row_values)
-
-    # Display the table
-    console.print()
-    console.print(table)
-    console.print()
+    return table
 
 
 def render_notebook_details(
     notebook: Dict[str, Any],
-    console: Console,
     title: Optional[str] = None,
-    json_output: bool = False,
-) -> None:
+) -> Panel:
     """Render notebook server details in a formatted panel.
 
     Args:
@@ -122,10 +99,6 @@ def render_notebook_details(
         title: Optional title for the panel
         json_output: If True, output as JSON instead of a panel
     """
-    if json_output:
-        print_json(data=notebook)
-        return
-
     # Generate title if not provided
     if title is None:
         title = f"[bold cyan]Notebook Server: {notebook.get('name', '')}[/bold cyan]"
@@ -142,13 +115,4 @@ def render_notebook_details(
     details.append(f"[bold]Created:[/bold] {notebook.get('createdAt', '')}")
     details.append(f"[bold]Updated:[/bold] {notebook.get('updatedAt', '')}")
 
-    panel_content = "\n".join(details)
-    panel = Panel(
-        panel_content,
-        title=title,
-        expand=False,
-    )
-
-    console.print()
-    console.print(panel)
-    console.print()
+    return Panel("\n".join(details), title=title, expand=False)

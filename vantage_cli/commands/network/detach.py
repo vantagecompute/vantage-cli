@@ -11,14 +11,13 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Detach network command."""
 
-from typing import Annotated
+from typing import Annotated, Any, Dict
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -32,26 +31,55 @@ async def detach_network(
     ] = False,
 ):
     """Detach a network interface from an instance."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "network_id": network_id,
-                "instance_id": instance_id,
-                "status": "detached",
-                "force": force,
-                "detached_at": "2025-09-10T10:00:00Z",
-                "interface_id": "eni-abc123",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(
-            f"🔗 Detaching network [bold blue]{network_id}[/bold blue] from instance [bold green]{instance_id}[/bold green]"
-        )
+    # Get command timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
+
+    # Check for JSON output mode
+    json_output = getattr(ctx.obj, "json_output", False)
+
+    # If JSON mode, bypass all visual rendering
+    if json_output:
+        result: Dict[str, Any] = {
+            "network_id": network_id,
+            "instance_id": instance_id,
+            "force": force,
+            "status": "detached",
+            "message": "Network interface detached successfully",
+        }
+        RenderStepOutput.json_bypass(result)
+        return
+
+    # Regular rendering for non-JSON mode
+    step_names = [
+        "Validating network interface",
+        "Gracefully stopping connections",
+        "Detaching network interface",
+    ]
+    if force:
+        step_names = ["Validating network interface", "Force detaching network interface"]
+
+    console = ctx.obj.console
+
+    with RenderStepOutput(
+        console=console,
+        operation_name="Detaching network interface",
+        step_names=step_names,
+        json_output=json_output,
+        command_start_time=command_start_time,
+    ) as renderer:
+        renderer.advance("Validating network interface", "starting")
+        # Simulate validation
+        renderer.advance("Validating network interface", "completed")
+
         if force:
-            ctx.obj.console.print(
-                "   [bold red]Force mode enabled - no graceful shutdown[/bold red]"
-            )
-        ctx.obj.console.print("   Interface ID: [magenta]eni-abc123[/magenta]")
-        ctx.obj.console.print("✅ Network interface detached successfully!")
+            renderer.advance("Force detaching network interface", "starting")
+            # Simulate force detach
+            renderer.advance("Force detaching network interface", "completed")
+        else:
+            renderer.advance("Gracefully stopping connections", "starting")
+            # Simulate graceful shutdown
+            renderer.advance("Gracefully stopping connections", "completed")
+
+            renderer.advance("Detaching network interface", "starting")
+            # Simulate detach
+            renderer.advance("Detaching network interface", "completed")

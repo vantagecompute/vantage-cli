@@ -14,11 +14,10 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -35,21 +34,43 @@ async def attach_storage(
     ] = False,
 ):
     """Attach a storage volume to an instance."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "storage_id": storage_id,
-                "instance_id": instance_id,
-                "mount_point": mount_point,
-                "read_only": read_only,
-                "status": "attached",
-                "attached_at": "2025-09-10T10:00:00Z",
-                "device_path": "/dev/xvdf",
-            }
-        )
-    else:
-        # Rich console output
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # Mock attachment response data
+    attach_data = {
+        "storage_id": storage_id,
+        "instance_id": instance_id,
+        "mount_point": mount_point,
+        "read_only": read_only,
+        "status": "attached",
+        "attached_at": "2025-09-10T10:00:00Z",
+        "device_path": "/dev/xvdf",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Attach Storage '{storage_id}'",
+        step_names=[]
+        if json_output
+        else ["Validating parameters", "Attaching storage volume", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(attach_data)
+
+    with renderer:
+        renderer.complete_step("Validating parameters")
+        renderer.complete_step("Attaching storage volume")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print(
             f"📎 Attaching storage volume [bold blue]{storage_id}[/bold blue] to instance [bold green]{instance_id}[/bold green]"
         )
@@ -57,3 +78,5 @@ async def attach_storage(
         ctx.obj.console.print(f"   Read-Only: [cyan]{read_only}[/cyan]")
         ctx.obj.console.print("   Device Path: [magenta]/dev/xvdf[/magenta]")
         ctx.obj.console.print("✅ Storage volume attached successfully!")
+
+        renderer.complete_step("Formatting output")

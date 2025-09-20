@@ -14,11 +14,10 @@
 import typer
 from loguru import logger
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
-from vantage_cli.render import render_quick_start_guide
+from vantage_cli.render import RenderStepOutput
 
 from .render import render_clusters_table
 
@@ -29,6 +28,10 @@ async def list_clusters(
     ctx: typer.Context,
 ):
     """List all Vantage clusters."""
+    # Get JSON flag from context
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+
     # GraphQL query to fetch clusters
     query = """
     query getClusters($first: Int!) {
@@ -66,22 +69,45 @@ async def list_clusters(
         clusters = [edge["node"] for edge in clusters_data.get("edges", [])]
         total_count = clusters_data.get("total", 0)
 
-        # Get effective JSON output setting from context
-        json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-        effective_json = get_effective_json_output(ctx, json_output)
+        if json_output:
+            # JSON output - bypass progress system entirely
+            RenderStepOutput.json_bypass(response_data)
+            return
 
-        # Render results using Rich table
-        render_clusters_table(
-            clusters,
-            ctx.obj.console,
-            title="Clusters List",
-            total_count=total_count,
-            json_output=effective_json,
+        # Rich output with progress system
+        command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+        renderer = RenderStepOutput(
+            console=ctx.obj.console,
+            operation_name="Listing clusters",
+            step_names=["Connecting to Vantage API", "Fetching cluster data", "Formatting output"],
+            verbose=verbose,
+            command_start_time=command_start_time,
         )
 
-        # Show quick start guide after listing clusters (only if not JSON output)
-        if clusters and not effective_json:
-            render_quick_start_guide()
+        with renderer:
+            # Step 1: Connection (already done)
+            renderer.complete_step("Connecting to Vantage API")
+
+            # Step 2: Data fetch (already done)
+            renderer.complete_step("Fetching cluster data")
+
+            # Step 3: Format and display output
+            renderer.start_step("Formatting output")
+
+            # Render results using Rich table
+            render_clusters_table(
+                clusters,
+                ctx.obj.console,
+                title="Clusters List",
+                total_count=total_count,
+                json_output=False,
+            )
+
+            # Show quick start guide after listing clusters
+            if clusters:
+                renderer.show_quick_start()
+
+            renderer.complete_step("Formatting output")
 
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages

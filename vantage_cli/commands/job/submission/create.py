@@ -14,7 +14,6 @@
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -23,7 +22,7 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 async def create_job_submission(ctx: typer.Context):
     """Create a new job submission."""
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         print_json(data={"submission_id": "sub-12345", "status": "created"})
     else:
         ctx.obj.console.print("✅ Job submission sub-12345 created successfully!")

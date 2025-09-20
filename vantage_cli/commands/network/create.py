@@ -11,14 +11,14 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Create network command."""
 
-from typing import Annotated, Optional
+import uuid
+from typing import Annotated, Any, Dict, Optional
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -38,27 +38,60 @@ async def create_network(
     ] = None,
 ):
     """Create a new virtual network."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "network_id": "network-new-123",
-                "name": name,
-                "cidr": cidr,
-                "region": region,
-                "enable_dns": enable_dns,
-                "description": description,
-                "status": "creating",
-                "created_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(f"🌐 Creating virtual network [bold blue]{name}[/bold blue]")
-        ctx.obj.console.print(f"   CIDR: [green]{cidr}[/green]")
-        if region:
-            ctx.obj.console.print(f"   Region: [yellow]{region}[/yellow]")
-        ctx.obj.console.print(f"   DNS Enabled: [cyan]{enable_dns}[/cyan]")
-        if description:
-            ctx.obj.console.print(f"   Description: {description}")
-        ctx.obj.console.print("✅ Virtual network creation initiated!")
+    # Get command timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
+
+    # Check for JSON output mode
+    json_output = getattr(ctx.obj, "json_output", False)
+
+    # Generate network ID and prepare result
+    network_id = f"net-{str(uuid.uuid4())[:8]}"
+    default_region = region or "us-west-2"
+
+    result: Dict[str, Any] = {
+        "id": network_id,
+        "name": name,
+        "cidr": cidr,
+        "region": default_region,
+        "enable_dns": enable_dns,
+        "description": description,
+        "status": "creating",
+        "created_at": "2025-01-15T12:00:00Z",
+    }
+
+    # If JSON mode, bypass all visual rendering
+    if json_output:
+        RenderStepOutput.json_bypass(result)
+        return
+
+    # Regular rendering for non-JSON mode
+    step_names = [
+        "Validating CIDR block",
+        "Creating network infrastructure",
+        "Configuring DNS settings",
+        "Finalizing network",
+    ]
+    console = ctx.obj.console
+
+    with RenderStepOutput(
+        console=console,
+        operation_name="Creating network",
+        step_names=step_names,
+        json_output=json_output,
+        command_start_time=command_start_time,
+    ) as renderer:
+        renderer.advance("Validating CIDR block", "starting")
+        # Simulate validation
+        renderer.advance("Validating CIDR block", "completed")
+
+        renderer.advance("Creating network infrastructure", "starting")
+        # Simulate infrastructure creation
+        renderer.advance("Creating network infrastructure", "completed")
+
+        renderer.advance("Configuring DNS settings", "starting")
+        # Simulate DNS configuration
+        renderer.advance("Configuring DNS settings", "completed")
+
+        renderer.advance("Finalizing network", "starting")
+        # Simulate finalization
+        renderer.advance("Finalizing network", "completed")

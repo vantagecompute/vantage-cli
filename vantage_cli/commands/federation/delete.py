@@ -15,7 +15,6 @@ import typer
 from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -30,10 +29,10 @@ async def delete_federation(
     ] = False,
 ):
     """Delete a Vantage federation."""
-    # Determine output format
-    use_json = get_effective_json_output(ctx)
+    # Determine output format using direct context access
+    json_output = getattr(ctx.obj, "json_output", False)
 
-    if not force and not use_json:
+    if not force and not json_output:
         # Ask for confirmation
         ctx.obj.console.print(f"⚠️  You are about to delete federation '[red]{name}[/red]'")
         ctx.obj.console.print("This action cannot be undone!")
@@ -43,7 +42,7 @@ async def delete_federation(
             ctx.obj.console.print("Deletion cancelled.")
             return
 
-    if use_json:
+    if json_output:
         # TODO: Implement actual federation deletion logic
         print_json(
             data={

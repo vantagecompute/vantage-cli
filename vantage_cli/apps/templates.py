@@ -14,23 +14,10 @@
 import io
 from typing import Any, Dict, List
 
-from pydantic import BaseModel
 from ruamel.yaml import YAML
 
 from vantage_cli.exceptions import ConfigurationError
-
-
-class DeploymentContext(BaseModel):
-    """Base context for deployment template generation."""
-
-    cluster_name: str
-    client_id: str
-    client_secret: str
-    base_api_url: str
-    oidc_domain: str
-    oidc_base_url: str
-    tunnel_api_url: str
-    jupyterhub_token: str
+from vantage_cli.schemas import VantageClusterContext
 
 
 class CloudInitTemplate:
@@ -42,7 +29,7 @@ class CloudInitTemplate:
         self.yaml.preserve_quotes = True
         self.yaml.width = 4096
 
-    def generate_multipass_config(self, context: DeploymentContext) -> str:
+    def generate_multipass_config(self, context: VantageClusterContext) -> str:
         """Generate cloud-init configuration for multipass instances."""
         try:
             # Build the cloud-config as a proper Python dictionary
@@ -65,7 +52,7 @@ class CloudInitTemplate:
         except (AttributeError, KeyError, TypeError) as e:
             raise ConfigurationError(f"Failed to generate multipass cloud-init config: {e}")
 
-    def _build_runcmd_list(self, context: DeploymentContext) -> List[str]:
+    def _build_runcmd_list(self, context: VantageClusterContext) -> List[str]:
         """Build the runcmd list for cloud-init."""
         commands = []
 
@@ -122,7 +109,7 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
 
         return commands
 
-    def _generate_agent_config(self, agent_name: str, context: DeploymentContext) -> List[str]:
+    def _generate_agent_config(self, agent_name: str, context: VantageClusterContext) -> List[str]:
         """Generate base agent configuration commands."""
         return [
             f"snap set {agent_name} base-api-url={context.base_api_url}",
@@ -133,7 +120,7 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
         ]
 
     def _generate_vantage_agent_cloud_init_snap_config(
-        self, context: DeploymentContext
+        self, context: VantageClusterContext
     ) -> List[str]:
         """Generate vantage-agent specific cloud-init snap configuration."""
         base_config = self._generate_agent_config("vantage-agent", context)
@@ -141,7 +128,7 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
         return base_config + vantage_specific
 
     def _generate_jobbergate_agent_cloud_init_snap_config(
-        self, context: DeploymentContext
+        self, context: VantageClusterContext
     ) -> List[str]:
         """Generate jobbergate-agent specific cloud-init snap configuration."""
         base_config = self._generate_agent_config("jobbergate-agent", context)
@@ -151,7 +138,7 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
         ]
         return base_config + jobbergate_specific
 
-    def _generate_jupyterhub_config(self, context: DeploymentContext) -> List[str]:
+    def _generate_jupyterhub_config(self, context: VantageClusterContext) -> List[str]:
         """Generate JupyterHub configuration commands."""
         return [
             'echo "JUPYTERHUB_VENV_DIR=/srv/vantage-nfs/vantage-jupyterhub" >> /etc/default/vantage-jupyterhub',
@@ -169,7 +156,7 @@ class JujuBundleTemplate:
     """Template engine for Juju bundle configurations."""
 
     @staticmethod
-    def generate_bundle_config(context: DeploymentContext) -> Dict[str, Any]:
+    def generate_bundle_config(context: VantageClusterContext) -> Dict[str, Any]:
         """Generate Juju bundle configuration."""
         # This would contain the bundle configuration
         # For now, returning a basic structure

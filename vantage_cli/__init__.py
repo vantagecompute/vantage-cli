@@ -14,7 +14,8 @@
 import asyncio
 import importlib.metadata
 import inspect
-from typing import Any, Callable, Optional
+import time
+from typing import Any, Callable, List, Optional  # noqa: F401
 
 import typer
 from pydantic import BaseModel, ConfigDict
@@ -61,6 +62,60 @@ inherited_command_parameters = [
 
 class AsyncTyper(typer.Typer):
     """A Typer subclass that automatically wraps async functions with asyncio.run()."""
+
+    @staticmethod
+    def format_elapsed_time(start_time: float) -> str:
+        """Format elapsed time from start_time to current time with high granularity.
+
+        Args:
+            start_time: Start time from time.time()
+
+        Returns:
+            Formatted time string like "0:05.123", "1:23:45.678", or "0.123s"
+        """
+        elapsed = time.time() - start_time
+
+        # For very short times (< 1 second), show milliseconds only
+        if elapsed < 1.0:
+            return f"{elapsed:.3f}s"
+
+        # For times >= 1 second, show with millisecond precision
+        hours = int(elapsed // 3600)
+        minutes = int((elapsed % 3600) // 60)
+        seconds = elapsed % 60  # Keep as float for milliseconds
+
+        if hours > 0:
+            return f"{hours}:{minutes:02d}:{seconds:06.3f}"
+        else:
+            return f"{minutes}:{seconds:06.3f}"
+
+    @staticmethod
+    def get_elapsed_time(ctx: typer.Context) -> str:
+        """Get formatted elapsed time from context.
+
+        Args:
+            ctx: Typer context with command_start_time attribute
+
+        Returns:
+            Formatted elapsed time or "0.000s" if no timing available
+        """
+        if hasattr(ctx, "obj") and ctx.obj and hasattr(ctx.obj, "command_start_time"):
+            return AsyncTyper.format_elapsed_time(ctx.obj.command_start_time)
+        return "0.000s"
+
+    @staticmethod
+    def get_command_start_time(ctx: typer.Context) -> Optional[float]:
+        """Get command start time from context.
+
+        Args:
+            ctx: Typer context with command_start_time attribute
+
+        Returns:
+            Command start time or None if not available
+        """
+        if hasattr(ctx, "obj") and ctx.obj and hasattr(ctx.obj, "command_start_time"):
+            return ctx.obj.command_start_time
+        return None
 
     @staticmethod
     def maybe_run_async(func: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -131,8 +186,14 @@ class AsyncTyper(typer.Typer):
 
             # Create a wrapper that handles the injected parameters
             def command_wrapper(ctx: typer.Context, *args: Any, **kwargs: Any) -> Any:
+                # Start timing the command execution
+                command_start_time = time.time()
+
                 # Extract and store injected parameters in context
                 if hasattr(ctx, "obj") and ctx.obj is not None:
+                    # Store the start time in the context for later use
+                    ctx.obj.command_start_time = command_start_time
+
                     # Handle json parameter
                     json_flag = kwargs.pop("json", False)
                     ctx.obj.json_output = json_flag or getattr(ctx.obj, "json_output", False)
@@ -215,8 +276,10 @@ class AsyncTyper(typer.Typer):
         Usage:
             @app.app_command()
             def my_command(ctx: typer.Context, name: str, json_output: JsonOption = False):
-                use_json = should_use_json(ctx, json_output)
-                # ... command logic
+                if should_use_json(ctx):
+                    # JSON output logic
+                else:
+                    # Rich/interactive output logic
         """
         return self.command(
             name=name,

@@ -17,7 +17,6 @@ import typer
 from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -40,10 +39,8 @@ async def update_federation(
     ] = None,
 ):
     """Update a Vantage federation."""
-    # Determine output format
-    use_json = get_effective_json_output(ctx)
-
-    if use_json:
+    # Determine output format using direct context access
+    if getattr(ctx.obj, "json_output", False):
         # TODO: Implement actual federation update logic
         print_json(
             data={

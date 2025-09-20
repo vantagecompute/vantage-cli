@@ -17,7 +17,6 @@ import typer
 from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
@@ -87,7 +86,7 @@ async def delete_notebook(
         if "not found" in message.lower() or "does not exist" in message.lower():
             raise Abort(f"Notebook server not found: {message}")
 
-        if get_effective_json_output(ctx):
+        if getattr(ctx.obj, "json_output", False):
             result = {
                 "name": name,
                 "cluster": cluster,

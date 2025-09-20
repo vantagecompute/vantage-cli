@@ -12,17 +12,15 @@
 """Get command for cloud provider configurations."""
 
 import typer
-from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_utils import should_use_json
+from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-from .render import render_cloud_operation_result
 
 
 @handle_abort
-def get_command(
+@attach_settings
+async def get_command(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the cloud configuration to retrieve")],
 ) -> None:
@@ -35,29 +33,4 @@ def get_command(
         ctx: The Typer context
         name: Name of the cloud configuration to retrieve
     """
-    use_json = should_use_json(ctx)
-
-    # Mock cloud data - in a real implementation, this would fetch from the backend
-    mock_cloud = {
-        "name": name,
-        "provider": "aws",
-        "region": "us-west-2",
-        "status": "active",
-        "created_at": "2025-09-10T05:00:00Z",
-        "last_used": "2025-09-10T05:50:00Z",
-        "credentials_configured": True,
-        "default_region": "us-west-2",
-        "available_regions": ["us-west-2", "us-east-1", "eu-west-1"],
-    }
-
-    if use_json:
-        print_json(data=mock_cloud)
-    else:
-        render_cloud_operation_result(
-            operation="Get Cloud Configuration",
-            console=ctx.obj.console,
-            success=True,
-            cloud_name=name,
-            details=mock_cloud,
-            json_output=False,
-        )
+    pass

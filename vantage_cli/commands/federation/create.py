@@ -12,12 +12,11 @@
 """Create federation command."""
 
 import typer
-from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @attach_settings
@@ -28,24 +27,32 @@ async def create_federation(
     description: Annotated[
         str, typer.Option("--description", "-d", help="Description of the federation")
     ] = "",
+    command_start_time: float = 0.0,
 ):
     """Create a new Vantage federation."""
-    # Determine output format
-    use_json = get_effective_json_output(ctx)
+    json_output = getattr(ctx.obj, "json_output", False)
 
-    if use_json:
-        # TODO: Implement actual federation creation logic
-        print_json(
-            data={
-                "name": name,
-                "description": description,
-                "status": "created",
-                "message": "Federation create command not yet implemented",
-            }
-        )
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Create Federation '{name}'",
+        step_names=[] if json_output else ["Creating federation"],
+        command_start_time=command_start_time,
+    )
+
+    federation_data = {
+        "name": name,
+        "description": description,
+        "status": "created",
+        "message": "Federation create command not yet implemented",
+    }
+
+    if json_output:
+        renderer.json_bypass(federation_data)
     else:
-        ctx.obj.console.print("🔗 [bold blue]Federation Create Command[/bold blue]")
-        ctx.obj.console.print(f"📝 Creating federation: [bold]{name}[/bold]")
-        if description:
-            ctx.obj.console.print(f"📋 Description: {description}")
-        ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+        with renderer:
+            renderer.advance("Creating federation")
+            ctx.obj.console.print("🔗 [bold blue]Federation Create Command[/bold blue]")
+            ctx.obj.console.print(f"📝 Creating federation: [bold]{name}[/bold]")
+            if description:
+                ctx.obj.console.print(f"📋 Description: {description}")
+            ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")

@@ -125,22 +125,6 @@ def attach_settings(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
-def with_global_options(func: Callable[..., Any]) -> Callable[..., Any]:
-    """Enhanced decorator that automatically adds common CLI options and settings.
-
-    This decorator combines the functionality of @attach_settings while also
-    ensuring that commands have access to common options like --json.
-
-    Usage:
-        @with_global_options
-        async def my_command(ctx: typer.Context, name: str, json_output: JsonOption = False):
-            use_json = get_effective_json_output(ctx, json_output)
-            # ... rest of command logic
-    """
-    # First apply the attach_settings functionality
-    return attach_settings(func)
-
-
 def dump_settings(profile: str, settings: Settings) -> None:
     """Save settings to the user configuration file."""
     logger.debug(f"Saving settings to {USER_CONFIG_FILE}")

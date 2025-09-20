@@ -12,6 +12,8 @@
 """Main typer app for vantage-cli."""
 
 import datetime
+import os
+import subprocess
 import sys
 from typing import Optional
 
@@ -53,6 +55,7 @@ from vantage_cli.config import (
     ensure_default_profile_exists,
     get_active_profile,
 )
+from vantage_cli.constants import VANTAGE_CLI_LOCAL_USER_BASE_DIR
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.schemas import CliContext, Persona, TokenSet
 
@@ -109,9 +112,7 @@ def setup_logging(verbose: bool = False):
 
 @app.callback(invoke_without_command=True)
 @handle_abort
-def main(
-    ctx: typer.Context,
-):
+def main(ctx: typer.Context):
     """Handle global options for the application."""
     # If no subcommand is invoked, display help
     if ctx.invoked_subcommand is None:
@@ -133,12 +134,44 @@ def main(
     setup_logging(verbose=verbose)
 
     # Create a single console instance for the entire application
-    console = Console(width=99)
+    # console = Console(width=150)
+    console = Console()
 
     cli_ctx = CliContext(
         profile=active_profile, verbose=verbose, json_output=json_output, console=console
     )
     ctx.obj = cli_ctx
+
+
+@app.command()
+@handle_abort
+@with_cache
+@attach_settings
+async def dev_init(ctx: typer.Context):
+    """Initialize the vantage-cli dev apps directory by cloning from GitHub."""
+    gh_pat = os.environ.get("GH_PAT")
+    if gh_pat:
+        clone_url = f"https://{gh_pat}@github.com/vantagecompute/vantage-cli-dev-apps.git"
+        try:
+            _ = subprocess.run(
+                [
+                    "git",
+                    "clone",
+                    clone_url,
+                    str(VANTAGE_CLI_LOCAL_USER_BASE_DIR / "vantage_cli_dev_apps"),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            logger.info(f"Successfully cloned dev apps to {VANTAGE_CLI_LOCAL_USER_BASE_DIR}")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to clone dev apps: {e.stderr}")
+            typer.echo(f"Error: Failed to clone repository - {e.stderr}", err=True)
+            raise typer.Exit(1)
+    else:
+        typer.echo("Error: GH_PAT environment variable not found", err=True)
+        raise typer.Exit(1)
 
 
 def _check_existing_login(profile: str) -> Optional[str]:

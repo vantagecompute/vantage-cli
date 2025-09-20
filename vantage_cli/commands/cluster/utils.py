@@ -11,62 +11,18 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Shared utilities for cluster commands."""
 
-import importlib
-import logging
 import textwrap
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
 import typer
 from loguru import logger
 
+from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.auth import extract_persona
 from vantage_cli.config import Settings
 from vantage_cli.exceptions import Abort
 from vantage_cli.gql_client import create_async_graphql_client
-
-
-def get_available_apps() -> Dict[str, Dict[str, Any]]:
-    """Dynamically discover available deployment apps."""
-    apps: Dict[str, Dict[str, Any]] = {}
-
-    # Register the apps maintained with the vantage cli
-    apps_dir = Path(__file__).parent.parent.parent / "apps"
-
-    if not apps_dir.exists():
-        logging.warning(f"Apps directory not found: {apps_dir}")
-        return apps
-
-    # Scan each app directory
-    for app_path in apps_dir.iterdir():
-        if app_path.is_dir() and not app_path.name.startswith("__"):
-            app_name = app_path.name
-            app_module_path = app_path / "app.py"
-
-            if app_module_path.exists():
-                # Convert directory name to the command name (e.g., "juju_localhost" -> "juju-localhost")
-                command_name = app_name.replace("_", "-")
-
-                try:
-                    # Dynamically import the app module
-                    app_module = importlib.import_module(f"vantage_cli.apps.{app_name}.app")
-
-                    # Check if deploy function exists
-                    if hasattr(app_module, "deploy"):
-                        deploy_function = getattr(app_module, "deploy")
-                        # Use command_name (with hyphens) as key so CLI can find it
-                        apps[command_name] = {
-                            "module": app_module,
-                            "deploy_function": deploy_function,
-                        }
-                except (ImportError, AttributeError, ModuleNotFoundError) as e:
-                    logger.warning(f"Failed to import app '{app_name}': {e}")
-                except Exception as e:
-                    logger.error(f"Unexpected error importing app '{app_name}': {e}")
-                    logger.debug(f"Full traceback for {app_name}", exc_info=True)
-
-    return apps
 
 
 def get_cloud_choices() -> list[str]:

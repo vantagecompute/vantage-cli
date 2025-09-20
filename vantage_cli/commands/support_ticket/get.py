@@ -14,11 +14,10 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -28,17 +27,40 @@ async def get_support_ticket(
     ticket_id: Annotated[str, typer.Argument(help="ID of the support ticket to retrieve")],
 ):
     """Get details of a specific support ticket."""
-    if get_effective_json_output(ctx):
-        print_json(
-            data={
-                "ticket_id": ticket_id,
-                "subject": "Help request",
-                "status": "open",
-                "priority": "medium",
-            }
-        )
-    else:
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # Mock data
+    ticket_data = {
+        "ticket_id": ticket_id,
+        "subject": "Help request",
+        "status": "open",
+        "priority": "medium",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Get Support Ticket '{ticket_id}'",
+        step_names=[] if json_output else ["Fetching ticket details", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(ticket_data)
+
+    with renderer:
+        renderer.complete_step("Fetching ticket details")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print(f"🎫 Support ticket details for {ticket_id}")
         ctx.obj.console.print("  Subject: Help request")
         ctx.obj.console.print("  Status: open")
         ctx.obj.console.print("  Priority: medium")
+
+        renderer.complete_step("Formatting output")

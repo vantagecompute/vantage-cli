@@ -16,7 +16,6 @@ from typing import Annotated
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -30,7 +29,7 @@ async def set_team_member_role(
     role: Annotated[str, typer.Argument(help="Role to assign (admin/member)")],
 ):
     """Set member role in team."""
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         print_json(
             data={"team_id": team_id, "user_id": user_id, "role": role, "status": "updated"}
         )

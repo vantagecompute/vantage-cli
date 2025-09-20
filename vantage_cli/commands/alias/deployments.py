@@ -11,7 +11,10 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Alias command for apps -> deployment list."""
 
+from typing import Optional
+
 import typer
+from typing_extensions import Annotated
 
 from vantage_cli.commands.deployment.list import list_deployments
 from vantage_cli.exceptions import handle_abort
@@ -20,6 +23,12 @@ from vantage_cli.exceptions import handle_abort
 @handle_abort
 async def deployments_command(
     ctx: typer.Context,
+    cloud: Annotated[
+        Optional[str],
+        typer.Option(
+            "--cloud", help="Filter deployments by cloud type (e.g., localhost, aws, gcp)"
+        ),
+    ] = None,
 ):
     """List all deployments (alias for 'vantage deployment list')."""
-    await list_deployments(ctx)
+    await list_deployments(ctx, cloud=cloud)
