@@ -133,7 +133,8 @@ def main(
     setup_logging(verbose=verbose)
 
     # Create a single console instance for the entire application
-    console = Console(width=99)
+    #console = Console(width=99)
+    console = Console()
 
     cli_ctx = CliContext(
         profile=active_profile, verbose=verbose, json_output=json_output, console=console

@@ -32,8 +32,10 @@ from vantage_cli.apps.common import (
     validate_client_credentials,
     validate_cluster_data,
 )
+from vantage_cli.apps.slurm_juju_localhost.utils import check_juju_available
 from vantage_cli.commands.cluster.schema import VantageClusterContext
 from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import handle_abort
 from vantage_cli.constants import (
     ENV_CLIENT_SECRET,
     JUJU_APPLICATION_NAME,
@@ -192,6 +194,9 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     ctx.obj.console.print(Panel("Juju Localhost SLURM Application"))
     ctx.obj.console.print("Deploying juju localhost slurm application...")
 
+    # Check for Juju early before doing any other work
+    check_juju_available()
+
     # Validate cluster data and extract credentials
     cluster_data = validate_cluster_data(cluster_data, ctx.obj.console)
     client_id, client_secret = validate_client_credentials(cluster_data, ctx.obj.console)
@@ -246,6 +251,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
 
 
 # Typer CLI commands
+@handle_abort
 @attach_settings
 async def deploy_command(
     ctx: typer.Context,
@@ -258,6 +264,9 @@ async def deploy_command(
     ] = False,
 ) -> None:
     """Deploy a Vantage JupyterHub SLURM cluster using Juju localhost."""
+    # Check for Juju early before doing any other work
+    check_juju_available()
+    
     ctx.obj.console.print(Panel("Juju Localhost SLURM Application"))
     ctx.obj.console.print("Deploying juju localhost slurm application...")
 

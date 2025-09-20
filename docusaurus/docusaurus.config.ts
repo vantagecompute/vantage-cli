@@ -263,8 +263,29 @@ const config: Config = {
       copyright: 'Copyright &copy; ' + new Date().getFullYear() + ' Vantage Compute.',
     },
     prism: {
-      theme: prismThemes.github,
+    // dracula
+    // duotoneDark
+    // duotoneLight
+    // github
+    // gruvboxMaterialDark
+    // gruvboxMaterialLight
+    // jettwaveDark
+    // jettwaveLight
+    // nightOwl
+    // nightOwlLight
+    // oceanicNext
+    // okaidia
+    // oneDark
+    // oneLight
+    // palenight
+    // shadesOfPurple
+    // synthwave84
+    // ultramin
+    // vsDark
+    // vsLight
+      theme: prismThemes.vsLight,
       darkTheme: prismThemes.dracula,
+      additionalLanguages: ['shell-session', 'python', 'bash'],
     },
     tableOfContents: {
       minHeadingLevel: 2,

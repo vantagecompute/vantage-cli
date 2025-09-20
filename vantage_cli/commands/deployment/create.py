@@ -15,7 +15,6 @@ import uuid
 from typing import Optional
 
 import typer
-from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
     generate_default_deployment_name,
@@ -33,21 +32,10 @@ from vantage_cli.exceptions import handle_abort
 @handle_abort
 async def create_deployment(
     ctx: typer.Context,
-    app_name: Annotated[
-        str, typer.Argument(help="Name of the cluster infrastructure application to deploy")
-    ],
-    cluster_name: Annotated[
-        str, typer.Argument(help="Name of the cluster in Vantage you would like to link to")
-    ],
-    name: Annotated[
-        Optional[str],
-        typer.Option(
-            "--name", help="Custom name for the deployment (default: <app>-<cluster>-<timestamp>)"
-        ),
-    ] = None,
-    dev_run: Annotated[
-        bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
-    ] = False,
+    app_name: str,
+    cluster_name: str,
+    name: Optional[str] = None,
+    dev_run: bool = False,
 ) -> None:
     """Create a slurm cluster deployment and link it to a cluster entity in Vantage."""
     try:

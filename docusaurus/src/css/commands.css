@@ -2,12 +2,10 @@
 
 /* Center H1 and H2 headers and apply custom colors */
 h1 {
-    text-align: center !important;
     color: #262572 !important;
 }
 
 h2 {
-    text-align: center !important;
     color: #0A0618 !important;
 }
 
@@ -15,14 +13,12 @@ h2 {
 .markdown h1,
 article h1,
 .theme-doc-markdown h1 {
-    text-align: center !important;
     color: #262572 !important;
 }
 
 .markdown h2,
 article h2,
 .theme-doc-markdown h2 {
-    text-align: center !important;
     color: #0A0618 !important;
 }
 

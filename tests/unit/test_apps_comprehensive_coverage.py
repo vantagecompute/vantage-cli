@@ -183,7 +183,7 @@ class TestMultipassAppAdditionalCoverage:
 
     def test_deploy_command_with_missing_binary(self, mock_config_file, mock_ctx, cluster_data):
         """Test multipass deploy handles missing binary."""
-        with patch("shutil.which", return_value=None):
+        with patch("vantage_cli.apps.slurm_multipass_localhost.app.which", return_value=None):
             import click
 
             with pytest.raises((typer.Exit, click.exceptions.Exit)) as exc_info:
@@ -271,7 +271,7 @@ class TestMultipassAppAdditionalCoverage:
         mock_popen.communicate.return_value = ("", "")
 
         with patch("subprocess.Popen", return_value=mock_popen):
-            with patch("shutil.which", return_value="/usr/bin/multipass"):
+            with patch("vantage_cli.apps.slurm_multipass_localhost.app.which", return_value="/usr/bin/multipass"):
                 with patch(
                     "vantage_cli.apps.slurm_multipass_localhost.app.validate_cluster_data",
                     return_value=cluster_data,

@@ -74,10 +74,15 @@ from vantage_cli.apps.common import (
     validate_cluster_data,
 )
 from vantage_cli.apps.slurm_microk8s_localhost.utils import (
+    check_microk8s_available,
+    check_microk8s_addons,
+    check_existing_deployment,
     get_chart_values_slurm_cluster,
     get_chart_values_slurm_operator,
+    show_getting_started_help,
 )
 from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import Abort, handle_abort
 
 
 def _run(
@@ -157,11 +162,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     ctx.obj.console.print("Deploying SLURM cluster on MicroK8s...")
 
     # Check for required binaries
-    if not shutil.which("microk8s"):
-        ctx.obj.console.print(
-            "[red]Error: microk8s not found. Please install MicroK8s first.[/red]"
-        )
-        raise typer.Exit(code=1)
+    check_microk8s_available()
 
     # Verify microk8s.helm is available (we only use microk8s.helm, not standalone helm)
     ctx.obj.console.print("✓ microk8s.helm version")
@@ -340,6 +341,12 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
         {"name": "TASK_JOBS_INTERVAL_SECONDS", "value": "10"},
     ]
 
+    extra_sssd_conf = cluster_data.get("extra", {}).get("sssd_conf", "")
+    if extra_sssd_conf:
+        ctx.obj.console.print("[blue]Using extra SSSD configuration:[/blue]")
+        ctx.obj.console.print(extra_sssd_conf)
+        slurm_cluster_chart_values["loginsets"]["slinky"]["sssdConf"] = extra_sssd_conf
+
     slurm_cluster_values_yaml = yaml.dump(slurm_cluster_chart_values)
 
     tmp_slurm_cluster_values = Path.home() / "myslurmclusterchartvalues.yaml"
@@ -372,8 +379,12 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
         "[blue]Use 'microk8s.kubectl get pods -A --namespace slurm' to check pod status[/blue]"
     )
 
+    # Show getting started help
+    show_getting_started_help(ctx.obj.console)
+
 
 # Typer CLI commands
+@handle_abort
 @attach_settings
 async def deploy_command(
     ctx: typer.Context,
@@ -384,8 +395,21 @@ async def deploy_command(
     dev_run: Annotated[
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
+    sssd_conf: Annotated[
+        str,
+        typer.Option("--sssd-conf", help="Extra SSSD configuration to append: --sssd-conf='$(cat mysssd.conf)'"),
+    ] = "",
 ) -> None:
     """Deploy a Vantage SLURM cluster on MicroK8s."""
+    # Check for MicroK8s early before doing any other work
+    check_microk8s_available()
+    
+    # Check that all required addons are enabled
+    check_microk8s_addons()
+    
+    # Check if deployment already exists
+    check_existing_deployment()
+    
     ctx.obj.console.print(Panel("MicroK8s SLURM Application"))
     ctx.obj.console.print("Deploying MicroK8s SLURM application...")
 
@@ -400,6 +424,12 @@ async def deploy_command(
         ctx.obj.console.print(
             f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
         )
+
+    cluster_data["extra"] = {}
+    if sssd_conf != "":
+        ctx.obj.console.print("[blue]Using extra SSSD configuration:[/blue]")
+        ctx.obj.console.print(sssd_conf)
+        cluster_data["extra"]["sssd_conf"] = sssd_conf
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
 
@@ -474,6 +504,7 @@ async def cleanup_microk8s_localhost(ctx: typer.Context, cluster_data: Dict[str,
 
 
 # Typer CLI commands
+@handle_abort
 @attach_settings
 async def cleanup_command(
     ctx: typer.Context,
@@ -507,5 +538,7 @@ async def cleanup_command(
     if cluster_data is None:
         ctx.obj.console.print(f"[red]Error: Cluster '{deployment_name}' not found[/red]")
         raise typer.Exit(1)
+
+    cluster_data["deployment_name"] = deployment_name
 
     await cleanup_microk8s_localhost(ctx=ctx, cluster_data=cluster_data)

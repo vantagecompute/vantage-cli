@@ -28,8 +28,10 @@ from vantage_cli.apps.common import (
     validate_client_credentials,
     validate_cluster_data,
 )
+from vantage_cli.apps.slurm_multipass_localhost.utils import check_multipass_available
 from vantage_cli.apps.templates import CloudInitTemplate, DeploymentContext
 from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import handle_abort
 from vantage_cli.constants import (
     ERROR_MULTIPASS_NOT_FOUND,
     MULTIPASS_CLOUD_IMAGE_DEST,
@@ -54,11 +56,8 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
     ctx.obj.console.print(Panel("Multipass Singlenode Application"))
     ctx.obj.console.print("Deploying multipass singlenode application...")
 
-    multipass = which("multipass")  # Ensure multipass is installed
-    if not multipass:
-        ctx.obj.console.print(ERROR_MULTIPASS_NOT_FOUND)
-        ctx.obj.console.print(f"{os.environ.get('PATH')}")  # Print the PATH environment variable
-        raise typer.Exit(code=1)
+    # Ensure multipass is installed
+    check_multipass_available()
 
         # Validate cluster data and extract credentials
     cluster_data = validate_cluster_data(cluster_data, ctx.obj.console)
@@ -173,6 +172,7 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
 
 
 # Typer CLI commands
+@handle_abort
 @attach_settings
 async def deploy_command(
     ctx: typer.Context,
@@ -185,6 +185,9 @@ async def deploy_command(
     ] = False,
 ) -> None:
     """Deploy a Vantage Multipass Singlenode SLURM cluster."""
+    # Check for Multipass early before doing any other work
+    check_multipass_available()
+    
     ctx.obj.console.print(Panel("Multipass Singlenode SLURM Application"))
     ctx.obj.console.print("Deploying multipass singlenode slurm application...")
 
