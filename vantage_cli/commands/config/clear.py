@@ -12,46 +12,67 @@
 """Clear configuration command for Vantage CLI."""
 
 import typer
-from rich import print_json
 from rich.panel import Panel
 
 from vantage_cli.config import clear_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
-def clear_config(
+async def clear_config(
     ctx: typer.Context,
     force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ):
     """Clear all user tokens and configuration."""
     json_output = getattr(ctx.obj, "json_output", False)
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
 
-    if not force:
-        # Ask for confirmation
-        ctx.obj.console.print()
-        ctx.obj.console.print(
-            "⚠️  [bold yellow]Warning[/bold yellow]: This will clear all configuration "
-            "files and cached tokens for all profiles."
-        )
-        ctx.obj.console.print()
-
-        confirm = typer.confirm("Are you sure you want to continue?")
-        if not confirm:
-            if json_output:
-                print_json(data={"cleared": False, "message": "Operation cancelled"})
-            else:
-                ctx.obj.console.print("Operation cancelled.")
-            return
-
-    # Clear the settings
-    clear_settings()
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name="Clear Configuration",
+        step_names=[] if json_output else ["Validating parameters", "Clearing configuration"],
+        verbose=not json_output,
+        command_start_time=command_start_time,
+    )
 
     if json_output:
-        print_json(
-            data={"cleared": True, "message": "All configuration and tokens cleared successfully"}
+        # Handle confirmation for JSON output
+        if not force:
+            confirm = typer.confirm("Are you sure you want to continue?")
+            if not confirm:
+                return renderer.json_bypass({"cleared": False, "message": "Operation cancelled"})
+
+        # Clear the settings
+        clear_settings()
+
+        return renderer.json_bypass(
+            {"cleared": True, "message": "All configuration and tokens cleared successfully"}
         )
-    else:
+
+    with renderer:
+        # Ask for confirmation if not forced
+        if not force:
+            # Ask for confirmation
+            ctx.obj.console.print()
+            ctx.obj.console.print(
+                "⚠️  [bold yellow]Warning[/bold yellow]: This will clear all configuration "
+                "files and cached tokens for all profiles."
+            )
+            ctx.obj.console.print()
+
+            confirm = typer.confirm("Are you sure you want to continue?")
+            if not confirm:
+                ctx.obj.console.print("Operation cancelled.")
+                return
+
+        renderer.complete_step("Validating parameters")
+
+        # Clear the settings
+        clear_settings()
+
+        renderer.complete_step("Clearing configuration")
+
         ctx.obj.console.print()
         ctx.obj.console.print(
             Panel(

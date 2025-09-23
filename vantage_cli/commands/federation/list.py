@@ -12,32 +12,39 @@
 """List federations command."""
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @attach_settings
 @handle_abort
 async def list_federations(
     ctx: typer.Context,
+    command_start_time: float,
 ):
     """List all Vantage federations."""
-    # Determine output format
-    use_json = get_effective_json_output(ctx)
+    json_output = getattr(ctx.obj, "json_output", False)
 
-    if use_json:
-        # TODO: Implement actual federation listing logic
-        print_json(
-            data={
-                "federations": [],
-                "total": 0,
-                "message": "Federation list command not yet implemented",
-            }
-        )
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name="List Federations",
+        step_names=[] if json_output else ["Loading federations"],
+        command_start_time=command_start_time,
+    )
+
+    federation_data = {
+        "federations": [],
+        "total": 0,
+        "message": "Federation list command not yet implemented",
+    }
+
+    if json_output:
+        renderer.json_bypass(federation_data)
     else:
-        ctx.obj.console.print("🔗 [bold blue]Federation List Command[/bold blue]")
-        ctx.obj.console.print("📋 This command will list all federations")
-        ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+        with renderer:
+            renderer.advance("Loading federations")
+            ctx.obj.console.print("🔗 [bold blue]Federation List Command[/bold blue]")
+            ctx.obj.console.print("📋 This command will list all federations")
+            ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")

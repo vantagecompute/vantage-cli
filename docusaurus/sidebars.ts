@@ -23,7 +23,7 @@ const sidebars: SidebarsConfig = {
         'installation',
         'usage',
         'private-vantage-installation',
-        'deployment-applications',
+        'deployment-applications/index',
         'notebooks',
       ],
     },

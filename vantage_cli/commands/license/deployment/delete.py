@@ -16,7 +16,6 @@ from typing import Annotated
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -34,7 +33,7 @@ async def delete_license_deployment(
             ctx.obj.console.print("❌ Deployment deletion cancelled.")
             return
 
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         # JSON output
         print_json(
             data={

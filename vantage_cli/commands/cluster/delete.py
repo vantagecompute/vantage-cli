@@ -19,12 +19,13 @@ from rich.console import Console
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import list_deployments_by_cluster, remove_deployment
-from vantage_cli.command_base import get_effective_json_output
+from vantage_cli.commands.cluster.utils import get_cluster_by_name
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
+from vantage_cli.render import RenderStepOutput
 
-from .render import render_cluster_deletion_result
+from .render import render_cluster_deletion_table
 
 
 @handle_abort
@@ -43,12 +44,24 @@ async def delete_cluster(
 ):
     """Delete a Vantage cluster."""
     # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-    # Get effective JSON output setting
-    effective_json = get_effective_json_output(ctx, json_output)
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
+
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Deleting cluster '{cluster_name}'",
+        step_names=[
+            "Deleting cluster",
+            "Complete",
+        ],
+        verbose=verbose,
+        command_start_time=command_start_time,
+        json_output=json_output,
+    )
 
     # Confirmation prompt unless force is used
-    if not force and not effective_json:
+    if not force and not json_output:
         from rich.prompt import Confirm
 
         ctx.obj.console.print(
@@ -81,38 +94,51 @@ async def delete_cluster(
     """
 
     try:
-        # Create async GraphQL client
-        profile = getattr(ctx.obj, "profile", "default")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+        with renderer:
+            profile = getattr(ctx.obj, "profile", "default")
+            graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
 
-        # Prepare deletion variables
-        delete_variables = {"clusterName": cluster_name}
+            # Prepare deletion variables
+            delete_variables = {"clusterName": cluster_name}
 
-        # Execute the deletion mutation
-        logger.debug(f"Deleting cluster: {cluster_name}")
-        delete_response = await graphql_client.execute_async(delete_mutation, delete_variables)
+            renderer.start_step("Querying backend for cluster details")
 
-        # Extract deletion result
-        deletion_data = delete_response.get("deleteCluster", {})
+            cluster = await get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+            if not cluster:
+                raise Abort(
+                    f"No cluster found with name '{cluster_name}'.",
+                    subject="Cluster Not Found",
+                    log_message=f"Cluster '{cluster_name}' not found",
+                )
 
-        # Log the response for debugging
-        logger.debug(f"Delete response: {deletion_data}")
+            renderer.complete_step(f"Found cluster: {cluster_name}")
+            renderer.start_step(f"Requesting cluster deletion for: {cluster_name}")
 
-        # Determine success - if we get any response it likely succeeded
-        # The GraphQL union types make it tricky to detect success vs failure
-        success = bool(deletion_data)  # If we got a response without error, consider it success
+            # Execute the deletion mutation
+            logger.debug(f"Deleting cluster: {cluster_name}")
+            delete_response = await graphql_client.execute_async(delete_mutation, delete_variables)
+            deletion_data = delete_response.get("deleteCluster", {})
+            logger.debug(f"Delete response: {deletion_data}")
+            renderer.complete_step(f"Cluster: {cluster_name} successfully deleted")
 
-        # If cluster deletion was successful and app cleanup was requested
-        if success and app:
-            await _cleanup_app_deployments(ctx, cluster_name, app, effective_json, ctx.obj.console)
+            success = bool(deletion_data)
+            if success and app:
+                renderer.start_step(f"Performing application cleanup for: {app}")
+                await _cleanup_app_deployments(
+                    ctx, cluster_name, app, json_output, ctx.obj.console
+                )
+                renderer.complete_step(f"Successfully cleanup up application: {app}")
 
-        # Render deletion result
-        render_cluster_deletion_result(
-            cluster_name=cluster_name,
-            console=ctx.obj.console,
-            success=success,
-            json_output=effective_json,
-        )
+            if json_output:
+                renderer.json_bypass(deletion_data)
+                return
+
+            deletion_table = render_cluster_deletion_table(
+                cluster_name=cluster_name, success=success
+            )
+            renderer.start_step(f"Deleting cluster: {cluster_name}")
+            renderer.table_step(deletion_table)
+            renderer.complete_step("Complete")
 
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages

@@ -14,10 +14,10 @@
 import typer
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.commands.cluster.utils import get_cluster_by_name
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
+from vantage_cli.render import RenderStepOutput
 
 from .render import render_cluster_details
 
@@ -29,6 +29,21 @@ async def get_cluster(
     cluster_name: Annotated[str, typer.Argument(help="Name of the cluster to get details for")],
 ):
     """Get details of a specific Vantage cluster."""
+    verbose = getattr(ctx.obj, "verbose", False)
+    json_output = getattr(ctx.obj, "json_output", False)
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Getting cluster '{cluster_name}'",
+        step_names=[
+            "Fetching cluster details",
+            "Complete",
+        ],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
     cluster = await get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
     if not cluster:
         raise Abort(
@@ -37,8 +52,12 @@ async def get_cluster(
             log_message=f"Cluster '{cluster_name}' not found",
         )
 
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-    render_cluster_details(
-        cluster, ctx.obj.console, json_output=get_effective_json_output(ctx, json_output)
-    )
+    # Handle JSON output first
+    if json_output:
+        renderer.json_bypass(cluster)
+        return
+
+    with renderer:
+        renderer.start_step("Fetching cluster details")
+        renderer.table_step(render_cluster_details(cluster))
+        renderer.complete_step("Complete")

@@ -16,7 +16,6 @@ from typing import Annotated, Optional
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -43,7 +42,7 @@ async def update_license_deployment(
     ] = None,
 ):
     """Update a license deployment."""
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         # JSON output
         updates = {}
         if name:

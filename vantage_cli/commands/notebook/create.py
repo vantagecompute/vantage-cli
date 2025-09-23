@@ -18,7 +18,6 @@ from loguru import logger
 from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
@@ -108,7 +107,7 @@ async def create_notebook(
             Abort.require_condition(False, result_dict["message"])
 
         # Success case - it's a NotebookServer
-        if get_effective_json_output(ctx):
+        if getattr(ctx.obj, "json_output", False):
             print_json(data=result_dict)
         else:
             ctx.obj.console.print("📓 Creating notebook server...")

@@ -22,7 +22,7 @@ uv pip install vantage-cli
 
 Or from source:
 
-```bash
+```shell-session
 git clone https://github.com/vantagecompute/vantage-cli
 cd vantage-cli
 uv sync

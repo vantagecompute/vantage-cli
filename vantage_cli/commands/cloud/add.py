@@ -11,20 +11,19 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Add cloud command."""
 
-import logging
 from pathlib import Path
 from typing import Optional
 
 import typer
 from typing_extensions import Annotated
 
+from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-
-logger = logging.getLogger(__name__)
 
 
 @handle_abort
-def add_command(
+@attach_settings
+async def add_command(
     ctx: typer.Context,
     cloud_name: Annotated[str, typer.Argument(help="Name of the cloud to add")],
     provider: Annotated[
@@ -57,37 +56,4 @@ def add_command(
     ] = None,
 ):
     """Add a new cloud configuration."""
-    verbose = ctx.obj.get("verbose", False)
-    settings = ctx.obj.get("settings")
-
-    logger.info(f"Adding cloud configuration: {cloud_name}")
-
-    if verbose:
-        logger.debug(f"Provider: {provider}")
-        logger.debug(f"Region: {region}")
-        logger.debug(f"Config file: {config_file}")
-        logger.debug(f"Credentials file: {credentials_file}")
-        logger.debug(f"Settings: {settings}")
-
-    # TODO: Validate that cloud doesn't already exist
-
-    if config_file:
-        logger.info(f"Using config file: {config_file}")
-        typer.echo(f"Adding cloud '{cloud_name}' with config file: {config_file}")
-    else:
-        typer.echo(f"Adding cloud '{cloud_name}' with provider: {provider}")
-        if region:
-            typer.echo(f"Default region: {region}")
-
-    if credentials_file:
-        logger.info(f"Using credentials file: {credentials_file}")
-        typer.echo(f"Credentials file: {credentials_file}")
-
-    # TODO: Implement actual cloud configuration addition logic
-    # This would typically:
-    # 1. Validate the cloud configuration
-    # 2. Store the cloud config in the appropriate location
-    # 3. Update the supported clouds list
-
-    logger.info(f"Cloud {cloud_name} added successfully")
-    typer.echo(f"✅ Cloud '{cloud_name}' added successfully")
+    pass

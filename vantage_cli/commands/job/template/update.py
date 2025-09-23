@@ -16,7 +16,6 @@ from typing import Annotated
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -28,7 +27,7 @@ async def update_job_template(
     template_id: Annotated[str, typer.Argument(help="ID of the job template to update")],
 ):
     """Update a job template."""
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         print_json(data={"template_id": template_id, "status": "updated"})
     else:
         ctx.obj.console.print(f"🔄 Job template {template_id} updated successfully!")

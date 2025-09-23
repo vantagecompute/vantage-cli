@@ -11,14 +11,14 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Get network command."""
 
-from typing import Annotated
+from typing import Annotated, Any, Dict
 
 import typer
-from rich import print_json
+from rich.panel import Panel
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -28,34 +28,65 @@ async def get_network(
     network_id: Annotated[str, typer.Argument(help="ID of the network to retrieve")],
 ):
     """Get details of a specific virtual network."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "network_id": network_id,
-                "name": "production-vpc",
-                "cidr": "10.0.0.0/16",
-                "region": "us-west-2",
-                "status": "active",
-                "enable_dns": True,
-                "description": "Production VPC for web services",
-                "created_at": "2025-09-01T09:00:00Z",
-                "updated_at": "2025-09-10T10:00:00Z",
-                "subnets": ["subnet-123", "subnet-456"],
-                "route_tables": ["rtb-789"],
-                "internet_gateway": "igw-abc",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(f"🌐 Virtual Network: [bold blue]{network_id}[/bold blue]")
-        ctx.obj.console.print("   Name: [green]production-vpc[/green]")
-        ctx.obj.console.print("   CIDR: [yellow]10.0.0.0/16[/yellow]")
-        ctx.obj.console.print("   Region: [cyan]us-west-2[/cyan]")
-        ctx.obj.console.print("   Status: [green]active[/green]")
-        ctx.obj.console.print("   DNS Enabled: [magenta]True[/magenta]")
-        ctx.obj.console.print("   Description: Production VPC for web services")
-        ctx.obj.console.print("   Subnets: [blue]subnet-123, subnet-456[/blue]")
-        ctx.obj.console.print("   Internet Gateway: [yellow]igw-abc[/yellow]")
-        ctx.obj.console.print("   Created: 2025-09-01T09:00:00Z")
-        ctx.obj.console.print("   Updated: 2025-09-10T10:00:00Z")
+    # Get command timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
+
+    # Check for JSON output mode
+    json_output = getattr(ctx.obj, "json_output", False)
+
+    # Mock network data
+    network: Dict[str, Any] = {
+        "id": network_id,
+        "name": f"network-{network_id}",
+        "region": "us-west-2",
+        "status": "active",
+        "cidr": "10.0.0.0/16",
+        "dns_servers": ["8.8.8.8", "8.8.4.4"],
+        "subnets": [
+            {"id": "subnet-123", "cidr": "10.0.1.0/24", "availability_zone": "us-west-2a"},
+            {"id": "subnet-456", "cidr": "10.0.2.0/24", "availability_zone": "us-west-2b"},
+        ],
+        "created_at": "2025-01-01T12:00:00Z",
+        "updated_at": "2025-01-15T10:30:00Z",
+    }
+
+    # If JSON mode, bypass all visual rendering
+    if json_output:
+        RenderStepOutput.json_bypass(network)
+        return
+
+    # Regular rendering for non-JSON mode
+    step_names = ["Fetching network details", "Loading subnets"]
+
+    with RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name="Getting network details",
+        step_names=step_names,
+        json_output=json_output,
+        command_start_time=command_start_time,
+    ) as renderer:
+        renderer.advance("Fetching network details", "starting")
+        # Simulate fetch
+        renderer.advance("Fetching network details", "completed")
+
+        renderer.advance("Loading subnets", "starting")
+        # Simulate subnet loading
+        renderer.advance("Loading subnets", "completed")
+
+        # Create and display network details panel
+        details = f"""[bold]Network ID:[/bold] {network["id"]}
+[bold]Name:[/bold] {network["name"]}
+[bold]Region:[/bold] {network["region"]}
+[bold]Status:[/bold] {network["status"]}
+[bold]CIDR:[/bold] {network["cidr"]}
+[bold]DNS Servers:[/bold] {", ".join(network["dns_servers"])}
+[bold]Created:[/bold] {network["created_at"]}
+[bold]Updated:[/bold] {network["updated_at"]}
+
+[bold]Subnets:[/bold]"""
+
+        for subnet in network["subnets"]:
+            details += f"\n  • {subnet['id']} - {subnet['cidr']} ({subnet['availability_zone']})"
+
+        panel = Panel(details, title="Network Details", border_style="blue")
+        renderer.panel_step(panel)

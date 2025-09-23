@@ -76,6 +76,17 @@ vantage cluster create my-slurm-microk8s-cluster \
     --app slurm-microk8s-localhost
 ```
 
+#### Add SSSD Configuration to MicroK8S Slurm Deployment
+
+```bash
+vantage deployment slurm-microk8s-localhost deploy \
+    --sssd-conf="$(juju exec --unit nfs-home/leader 'cat /etc/sssd/sssd.conf')"
+```
+
+```bash
+microk8s.kubectl port-forward --address 0.0.0.0 -n jupyter-test service/proxy-public 8080:80
+```
+
 ## 📚 Documentation
 
 Visit our comprehensive documentation site:

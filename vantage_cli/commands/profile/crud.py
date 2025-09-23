@@ -22,7 +22,6 @@ from rich.panel import Panel
 from rich.table import Table
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import (
     Settings,
     dump_settings,
@@ -32,11 +31,13 @@ from vantage_cli.config import (
 )
 from vantage_cli.constants import USER_CONFIG_FILE, USER_TOKEN_CACHE_DIR
 from vantage_cli.exceptions import Abort, handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
-def create_profile(
+async def create_profile(
     ctx: typer.Context,
+    command_start_time: float,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to create")],
     api_base_url: Annotated[
         str, typer.Option("--api-url", help="API base URL")
@@ -65,86 +66,108 @@ def create_profile(
     ] = False,
 ):
     """Create a new Vantage CLI profile."""
-    # Get the effective JSON output preference
-    effective_json = get_effective_json_output(ctx, json_output)
+    # Use the json_output parameter directly
+    effective_json = json_output
 
-    # Check if profile already exists
-    existing_profiles = _get_all_profiles()
+    # Check for JSON bypass early
+    if effective_json:
+        # For JSON output, we bypass the progress rendering entirely and handle in-line
+        pass
 
-    if profile_name in existing_profiles and not force:
-        message = f"Profile '{profile_name}' already exists. Use --force to overwrite."
-        if effective_json:
-            result = {"success": False, "profile_name": profile_name, "message": message}
-            print_json(data=result)
-            return
-        else:
-            raise Abort(
-                message,
-                subject="Profile Exists",
-                log_message=f"Profile '{profile_name}' already exists",
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Create Profile '{profile_name}'",
+        step_names=["Validating parameters", "Creating profile", "Configuring settings"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    with renderer:
+        # Check if profile already exists
+        existing_profiles = _get_all_profiles()
+
+        if profile_name in existing_profiles and not force:
+            message = f"Profile '{profile_name}' already exists. Use --force to overwrite."
+            if effective_json:
+                result = {"success": False, "profile_name": profile_name, "message": message}
+                print_json(data=result)
+                return
+            else:
+                raise Abort(
+                    message,
+                    subject="Profile Exists",
+                    log_message=f"Profile '{profile_name}' already exists",
+                )
+
+        renderer.complete_step("Validating parameters")
+
+        # Create the settings
+        try:
+            settings = Settings(
+                api_base_url=api_base_url,
+                oidc_base_url=oidc_base_url,
+                tunnel_api_url=tunnel_api_url,
+                oidc_client_id=oidc_client_id,
+                oidc_max_poll_time=oidc_max_poll_time,
             )
 
-    # Create the settings
-    try:
-        settings = Settings(
-            api_base_url=api_base_url,
-            oidc_base_url=oidc_base_url,
-            tunnel_api_url=tunnel_api_url,
-            oidc_client_id=oidc_client_id,
-            oidc_max_poll_time=oidc_max_poll_time,
-        )
+            renderer.complete_step("Creating profile")
 
-        # Initialize filesystem for this profile
-        init_user_filesystem(profile_name)
+            # Initialize filesystem for this profile
+            init_user_filesystem(profile_name)
 
-        # Save the settings
-        dump_settings(profile_name, settings)
+            # Save the settings
+            dump_settings(profile_name, settings)
 
-        # Set as active profile if requested
-        if activate:
-            set_active_profile(profile_name)
-            logger.info(f"Set '{profile_name}' as active profile")
-
-        logger.info(f"Created profile '{profile_name}'")
-
-        if effective_json:
-            result = {
-                "success": True,
-                "profile_name": profile_name,
-                "settings": settings.model_dump(),
-                "is_active": activate,
-                "message": f"Profile '{profile_name}' created successfully",
-            }
+            # Set as active profile if requested
             if activate:
-                result["message"] += " and set as active"
-            print_json(data=result)
-        else:
-            ctx.obj.console.print()
-            message = f"✅ Profile '[bold cyan]{profile_name}[/bold cyan]' created successfully!"
-            if activate:
-                message += "\n🎯 Set as active profile!"
-            ctx.obj.console.print(
-                Panel(message, title="[green]Profile Created[/green]", border_style="green")
-            )
+                set_active_profile(profile_name)
+                logger.info(f"Set '{profile_name}' as active profile")
 
-            # Show profile details
-            _render_profile_details(profile_name, settings, ctx.obj.console)
+            renderer.complete_step("Configuring settings")
 
-    except Exception as e:
-        logger.error(f"Failed to create profile '{profile_name}': {str(e)}")
-        if effective_json:
-            result = {
-                "success": False,
-                "profile_name": profile_name,
-                "message": f"Failed to create profile: {str(e)}",
-            }
-            print_json(data=result)
-        else:
-            raise Abort(
-                f"Failed to create profile '{profile_name}': {str(e)}",
-                subject="Profile Creation Failed",
-                log_message=f"Profile creation error: {str(e)}",
-            )
+            logger.info(f"Created profile '{profile_name}'")
+
+            if effective_json:
+                result = {
+                    "success": True,
+                    "profile_name": profile_name,
+                    "settings": settings.model_dump(),
+                    "is_active": activate,
+                    "message": f"Profile '{profile_name}' created successfully",
+                }
+                if activate:
+                    result["message"] += " and set as active"
+                print_json(data=result)
+            else:
+                ctx.obj.console.print()
+                message = (
+                    f"✅ Profile '[bold cyan]{profile_name}[/bold cyan]' created successfully!"
+                )
+                if activate:
+                    message += "\n🎯 Set as active profile!"
+                ctx.obj.console.print(
+                    Panel(message, title="[green]Profile Created[/green]", border_style="green")
+                )
+
+                # Show profile details
+                _render_profile_details(profile_name, settings, ctx.obj.console)
+
+        except Exception as e:
+            logger.error(f"Failed to create profile '{profile_name}': {str(e)}")
+            if effective_json:
+                result = {
+                    "success": False,
+                    "profile_name": profile_name,
+                    "message": f"Failed to create profile: {str(e)}",
+                }
+                print_json(data=result)
+            else:
+                raise Abort(
+                    f"Failed to create profile '{profile_name}': {str(e)}",
+                    subject="Profile Creation Failed",
+                    log_message=f"Profile creation error: {str(e)}",
+                )
 
 
 @handle_abort
@@ -160,9 +183,8 @@ def delete_profile(
     ] = False,
 ):
     """Delete a Vantage CLI profile."""
-    # Get the effective JSON output preference
-    effective_json = get_effective_json_output(ctx, json_output)
-    effective_json = get_effective_json_output(ctx, json_output)
+    # Use the json_output parameter directly
+    effective_json = json_output
 
     # Check if profile exists
     existing_profiles = _get_all_profiles()
@@ -276,8 +298,8 @@ def get_profile(
     ] = False,
 ):
     """Get details of a specific Vantage CLI profile."""
-    # Get the effective JSON output preference
-    effective_json = get_effective_json_output(ctx, json_output)
+    # Use the json_output parameter directly
+    effective_json = json_output
 
     # Check if profile exists
     existing_profiles = _get_all_profiles()
@@ -338,8 +360,8 @@ def list_profiles(
     ] = False,
 ):
     """List all Vantage CLI profiles."""
-    # Get the effective JSON output preference
-    effective_json = get_effective_json_output(ctx, json_output)
+    # Use the json_output parameter directly
+    effective_json = json_output
 
     try:
         # Get active profile from file system
@@ -350,8 +372,9 @@ def list_profiles(
 
         if not all_profiles:
             if effective_json:
-                result = {"profiles": [], "total": 0, "current_profile": active_profile}
-                print_json(data=result)
+                from vantage_cli.render import render_json
+
+                render_json({"profiles": [], "total": 0, "current_profile": active_profile})
             else:
                 ctx.obj.console.print()
                 ctx.obj.console.print(Panel("No profiles found.", title="[yellow]No Profiles"))
@@ -359,7 +382,7 @@ def list_profiles(
             return
 
         if effective_json:
-            # Prepare profiles with additional metadata
+            # JSON output - bypass progress system entirely
             profiles_list = []
             for name, settings_data in all_profiles.items():
                 profile_info = {
@@ -374,15 +397,39 @@ def list_profiles(
                 "total": len(profiles_list),
                 "current_profile": active_profile,
             }
-            print_json(data=result)
-        else:
+            from vantage_cli.render import render_json
+
+            render_json(result)
+            return
+
+        # Rich output with progress system
+        command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+        renderer = RenderStepOutput(
+            console=ctx.obj.console,
+            operation_name="List Profiles",
+            step_names=["Loading profiles", "Formatting output"],
+            verbose=verbose,
+            command_start_time=command_start_time,
+        )
+
+        with renderer:
+            # Step 1: Loading (already done)
+            renderer.complete_step("Loading profiles")
+
+            # Step 2: Format and display output
+            renderer.start_step("Formatting output")
+
             _render_profiles_table(all_profiles, active_profile, ctx.obj.console)
+
+            renderer.complete_step("Formatting output")
 
     except Exception as e:
         logger.error(f"Failed to list profiles: {str(e)}")
         if effective_json:
+            from vantage_cli.render import render_json
+
             result = {"success": False, "message": f"Failed to list profiles: {str(e)}"}
-            print_json(data=result)
+            render_json(result)
         else:
             raise Abort(
                 f"Failed to list profiles: {str(e)}",
@@ -403,8 +450,8 @@ def use_profile(
     ] = False,
 ):
     """Activate a profile for use in the current session."""
-    # Get the effective JSON output preference
-    effective_json = get_effective_json_output(ctx, json_output)
+    # Use the json_output parameter directly
+    effective_json = json_output
 
     # Check if profile exists
     existing_profiles = _get_all_profiles()

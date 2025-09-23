@@ -7,7 +7,7 @@ import CodeBlock from '@theme/CodeBlock';
 This document provides a comprehensive reference for all available CLI commands and their options.
 
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="bash" title="CLI Help">
                                                                                 
  Usage: vantage [OPTIONS] COMMAND [ARGS]...                  
                                                                                 
@@ -47,7 +47,7 @@ This document provides a comprehensive reference for all available CLI commands 
 
 ### Login
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage login [OPTIONS]                              
                                                                                 
@@ -65,7 +65,7 @@ This document provides a comprehensive reference for all available CLI commands 
 
 ### Logout
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage logout [OPTIONS]                             
                                                                                 
@@ -83,7 +83,7 @@ This document provides a comprehensive reference for all available CLI commands 
 
 ### Whoami
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage whoami [OPTIONS]                             
                                                                                 
@@ -101,7 +101,7 @@ This document provides a comprehensive reference for all available CLI commands 
 
 ## Version Information
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage version [OPTIONS]                            
                                                                                 
@@ -122,7 +122,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="app" label="🔹 app">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage app [OPTIONS] COMMAND [ARGS]...              
                                                                                 
@@ -141,7 +141,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage app list [OPTIONS]                           
                                                                                 
@@ -166,7 +166,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="cloud" label="🔹 cloud">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cloud [OPTIONS] COMMAND [ARGS]...            
                                                                                 
@@ -190,7 +190,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="add" label="add">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cloud add [OPTIONS] CLOUD_NAME               
                                                                                 
@@ -218,7 +218,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="delete" label="delete">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cloud delete [OPTIONS] CLOUD_NAME            
                                                                                 
@@ -243,7 +243,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="get" label="get">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cloud get [OPTIONS] NAME                     
                                                                                 
@@ -271,7 +271,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cloud list [OPTIONS]                         
                                                                                 
@@ -295,7 +295,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="update" label="update">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cloud update [OPTIONS] CLOUD_NAME            
                                                                                 
@@ -328,7 +328,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="cluster" label="🔹 cluster">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cluster [OPTIONS] COMMAND [ARGS]...          
                                                                                 
@@ -351,7 +351,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="create" label="create">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cluster create [OPTIONS] CLUSTER_NAME        
                                                                                 
@@ -387,7 +387,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="delete" label="delete">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cluster delete [OPTIONS] CLUSTER_NAME        
                                                                                 
@@ -414,7 +414,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="get" label="get">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cluster get [OPTIONS] CLUSTER_NAME           
                                                                                 
@@ -438,7 +438,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cluster list [OPTIONS]                       
                                                                                 
@@ -458,7 +458,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="federation" label="federation">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage cluster federation [OPTIONS] COMMAND         
                                                       [ARGS]...                 
@@ -488,7 +488,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="license" label="🔹 license">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage license [OPTIONS] COMMAND [ARGS]...          
                                                                                 
@@ -512,7 +512,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="server" label="server">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage license server [OPTIONS] COMMAND [ARGS]...   
                                                                                 
@@ -536,7 +536,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="product" label="product">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage license product [OPTIONS] COMMAND [ARGS]...  
                                                                                 
@@ -560,7 +560,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="configuration" label="configuration">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage license configuration [OPTIONS] COMMAND      
                                                          [ARGS]...              
@@ -585,7 +585,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="deployment" label="deployment">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage license deployment [OPTIONS] COMMAND         
                                                       [ARGS]...                 
@@ -615,7 +615,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="network" label="🔹 network">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network [OPTIONS] COMMAND [ARGS]...          
                                                                                 
@@ -641,7 +641,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="attach" label="attach">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network attach [OPTIONS] NETWORK_ID          
                                                   INSTANCE_ID                   
@@ -669,7 +669,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="create" label="create">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network create [OPTIONS] NAME                
                                                                                 
@@ -697,7 +697,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="delete" label="delete">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network delete [OPTIONS] NETWORK_ID          
                                                                                 
@@ -721,7 +721,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="detach" label="detach">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network detach [OPTIONS] NETWORK_ID          
                                                   INSTANCE_ID                   
@@ -748,7 +748,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="get" label="get">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network get [OPTIONS] NETWORK_ID             
                                                                                 
@@ -771,7 +771,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network list [OPTIONS]                       
                                                                                 
@@ -795,7 +795,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="update" label="update">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage network update [OPTIONS] NETWORK_ID          
                                                                                 
@@ -827,7 +827,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="notebook" label="🔹 notebook">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage notebook [OPTIONS] COMMAND [ARGS]...         
                                                                                 
@@ -851,7 +851,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="create" label="create">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage notebook create [OPTIONS] NAME               
                                                                                 
@@ -879,7 +879,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="delete" label="delete">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage notebook delete [OPTIONS] NAME               
                                                                                 
@@ -904,7 +904,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="get" label="get">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage notebook get [OPTIONS] NAME                  
                                                                                 
@@ -928,7 +928,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage notebook list [OPTIONS]                      
                                                                                 
@@ -952,7 +952,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="update" label="update">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage notebook update [OPTIONS] NOTEBOOK_ID        
                                                                                 
@@ -983,7 +983,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="profile" label="🔹 profile">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage profile [OPTIONS] COMMAND [ARGS]...          
                                                                                 
@@ -1007,7 +1007,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="create" label="create">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage profile create [OPTIONS] PROFILE_NAME        
                                                                                 
@@ -1041,7 +1041,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="delete" label="delete">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage profile delete [OPTIONS] PROFILE_NAME        
                                                                                 
@@ -1064,7 +1064,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="get" label="get">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage profile get [OPTIONS] PROFILE_NAME           
                                                                                 
@@ -1087,7 +1087,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage profile list [OPTIONS]                       
                                                                                 
@@ -1106,7 +1106,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="use" label="use">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage profile use [OPTIONS] PROFILE_NAME           
                                                                                 
@@ -1133,7 +1133,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="storage" label="🔹 storage">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage [OPTIONS] COMMAND [ARGS]...          
                                                                                 
@@ -1159,7 +1159,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="attach" label="attach">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage attach [OPTIONS] STORAGE_ID          
                                                   INSTANCE_ID                   
@@ -1187,7 +1187,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="create" label="create">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage create [OPTIONS] NAME                
                                                                                 
@@ -1215,7 +1215,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="delete" label="delete">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage delete [OPTIONS] STORAGE_ID          
                                                                                 
@@ -1239,7 +1239,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="detach" label="detach">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage detach [OPTIONS] STORAGE_ID          
                                                                                 
@@ -1263,7 +1263,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="get" label="get">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage get [OPTIONS] STORAGE_ID             
                                                                                 
@@ -1286,7 +1286,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage list [OPTIONS]                       
                                                                                 
@@ -1311,7 +1311,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="update" label="update">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage storage update [OPTIONS] STORAGE_ID          
                                                                                 
@@ -1343,7 +1343,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="deployment" label="🔹 deployment">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage deployment [OPTIONS] COMMAND [ARGS]...       
                                                                                 
@@ -1365,7 +1365,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="list" label="list">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage deployment list [OPTIONS]                    
                                                                                 
@@ -1385,7 +1385,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="create" label="create">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage deployment create [OPTIONS] APP_NAME         
                                                      CLUSTER_NAME               
@@ -1417,7 +1417,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="delete" label="delete">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage deployment delete [OPTIONS] DEPLOYMENT_ID    
                                                                                 
@@ -1450,7 +1450,7 @@ This document provides a comprehensive reference for all available CLI commands 
 <Tabs>
 <TabItem value="config" label="🔹 config">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage config [OPTIONS] COMMAND [ARGS]...           
                                                                                 
@@ -1469,7 +1469,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 <TabItem value="clear" label="clear">
 
-<CodeBlock language="text" title="CLI Help" className="neon-purple">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage config clear [OPTIONS]                       
                                                                                 

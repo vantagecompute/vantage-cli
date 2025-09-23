@@ -23,6 +23,6 @@ def profiles_command(
 ):
     """List all profiles (alias for 'vantage profile list')."""
     # Extract flags from the AsyncTyper context
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-    verbose = getattr(ctx.obj, "verbose", False) if ctx.obj else False
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
     list_profiles(ctx, json_output=json_output, verbose=verbose)

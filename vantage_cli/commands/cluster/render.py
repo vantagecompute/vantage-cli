@@ -105,9 +105,7 @@ def render_clusters_table(
     console.print()
 
 
-def render_cluster_details(
-    cluster: Dict[str, Any], console: Console, json_output: bool = False
-) -> None:
+def render_cluster_details(cluster: Dict[str, Any]) -> Table:
     """Render detailed information for a single cluster.
 
     Args:
@@ -115,17 +113,6 @@ def render_cluster_details(
         console: Rich console for output
         json_output: If True, output as JSON instead of a table
     """
-    if json_output:
-        # Output as JSON with Rich formatting
-        print_json(data=cluster)
-        return
-
-    if not cluster:
-        console.print()
-        console.print(Panel("Cluster not found.", title="[red]Not Found"))
-        console.print()
-        return
-
     cluster_name = cluster.get("name", "Unknown")
 
     # Create a table matching the profile get command style
@@ -171,9 +158,7 @@ def render_cluster_details(
                 display_value = str(value) if not isinstance(value, dict) else "Complex Object"
                 table.add_row(f"  {display_key}", display_value)
 
-    console.print()
-    console.print(table)
-    console.print()
+    return table
 
 
 def render_cluster_creation_result(
@@ -200,46 +185,30 @@ def render_cluster_creation_result(
     )
 
     # Show basic details
-    render_cluster_details(cluster, console, json_output=False)
+    console.print()
+    console.print(render_cluster_details(cluster))
 
 
-def render_cluster_deletion_result(
-    cluster_name: str, console: Console, success: bool = True, json_output: bool = False
-) -> None:
+def render_cluster_deletion_table(cluster_name: str, success: bool = True) -> Table:
     """Render the result of cluster deletion.
 
     Args:
         cluster_name: Name of the deleted cluster
-        console: Console instance for output
         success: Whether deletion was successful
-        json_output: If True, output as JSON instead of a formatted view
     """
-    if json_output:
-        result = {
-            "cluster_name": cluster_name,
-            "deleted": success,
-            "message": f"Cluster '{cluster_name}' {'deleted' if success else 'deletion failed'}",
-        }
-        print_json(data=result)
-        return
-
-    console.print()
+    table = Table(
+        title=f"Cluster Deletion: {cluster_name}", show_header=True, header_style="bold white"
+    )
+    table.add_column("Status", style="bold cyan")
+    table.add_column("Message", style="white")
 
     if success:
-        console.print(
-            Panel(
-                f"✅ Cluster '[bold cyan]{cluster_name}[/bold cyan]' deleted successfully!",
-                title="[green]Cluster Deleted[/green]",
-                border_style="green",
-            )
+        table.add_row(
+            "✅ Deleted", f"Cluster '[bold cyan]{cluster_name}[/bold cyan]' deleted successfully!"
         )
     else:
-        console.print(
-            Panel(
-                f"❌ Failed to delete cluster '[bold cyan]{cluster_name}[/bold cyan]'",
-                title="[red]Deletion Failed[/red]",
-                border_style="red",
-            )
+        table.add_row(
+            "❌ Failed", f"Failed to delete cluster '[bold cyan]{cluster_name}[/bold cyan]'"
         )
 
-    console.print()
+    return table

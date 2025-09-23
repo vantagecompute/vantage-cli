@@ -14,11 +14,10 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -31,19 +30,41 @@ async def detach_storage(
     ] = False,
 ):
     """Detach a storage volume from an instance."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        print_json(
-            data={
-                "storage_id": storage_id,
-                "status": "detached",
-                "force": force,
-                "detached_at": "2025-09-10T10:00:00Z",
-                "previous_instance": "instance-456",
-            }
-        )
-    else:
-        # Rich console output
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # Mock detachment response data
+    detach_data = {
+        "storage_id": storage_id,
+        "status": "detached",
+        "force": force,
+        "detached_at": "2025-09-10T10:00:00Z",
+        "previous_instance": "instance-456",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Detach Storage '{storage_id}'",
+        step_names=[]
+        if json_output
+        else ["Preparing detachment", "Detaching storage volume", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(detach_data)
+
+    with renderer:
+        renderer.complete_step("Preparing detachment")
+        renderer.complete_step("Detaching storage volume")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print(f"📎 Detaching storage volume [bold blue]{storage_id}[/bold blue]")
         if force:
             ctx.obj.console.print(
@@ -51,3 +72,5 @@ async def detach_storage(
             )
         ctx.obj.console.print("   Previous instance: [green]instance-456[/green]")
         ctx.obj.console.print("✅ Storage volume detached successfully!")
+
+        renderer.complete_step("Formatting output")

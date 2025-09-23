@@ -87,7 +87,7 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
                 "vantage-jupyterhub-config-secret-id": "",
             },
             "to": ["3"],
-            "constraints": "arch=amd64 cpu-cores=2 mem=2048 virt-type=virtual-machine",
+            "constraints": "arch=amd64 cores=2 mem=2048 virt-type=virtual-machine",
         },
         "sackd": {
             "charm": "sackd",
@@ -95,7 +95,7 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "channel": "latest/edge",
             "num_units": 1,
             "to": ["3"],
-            "constraints": "arch=amd64 cpu-cores=2 mem=2048 virt-type=virtual-machine",
+            "constraints": "arch=amd64 cores=2 mem=2048 virt-type=virtual-machine",
         },
         "slurmctld": {
             "charm": "slurmctld",
@@ -107,7 +107,7 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
                 "default-partition": "slurmd",
                 "cluster-name": "",
             },
-            "constraints": "arch=amd64 cpu-cores=2 mem=2048 virt-type=virtual-machine",
+            "constraints": "arch=amd64 cores=2 mem=2048 virt-type=virtual-machine",
         },
         "slurmd": {
             "charm": "slurmd",
@@ -115,7 +115,7 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "channel": "latest/edge",
             "num_units": 1,
             "to": ["5"],
-            "constraints": "arch=amd64 cpu-cores=4 mem=8192 virt-type=virtual-machine",
+            "constraints": "arch=amd64 cores=4 mem=8192 virt-type=virtual-machine",
         },
     },
     "machines": {
@@ -132,15 +132,15 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "base": "ubuntu@24.04/stable",
         },
         "3": {
-            "constraints": "arch=amd64 cpu-cores=2 mem=2048 virt-type=virtual-machine",
+            "constraints": "arch=amd64 cores=2 mem=2048 virt-type=virtual-machine",
             "base": "ubuntu@24.04/stable",
         },
         "4": {
-            "constraints": "arch=amd64 cpu-cores=2 mem=2048 virt-type=virtual-machine",
+            "constraints": "arch=amd64 cores=2 mem=2048 virt-type=virtual-machine",
             "base": "ubuntu@24.04/stable",
         },
         "5": {
-            "constraints": "arch=amd64 cpu-cores=4 mem=8192 virt-type=virtual-machine",
+            "constraints": "arch=amd64 cores=4 mem=8192 virt-type=virtual-machine",
             "base": "ubuntu@24.04/stable",
         },
     },

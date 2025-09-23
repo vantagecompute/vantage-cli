@@ -375,7 +375,7 @@ This document provides a comprehensive reference for all available CLI commands 
                     
                     # Show authentication commands directly (no tabs since they are top-level)
                     markdown.append(f"### {cmd.title()}\n")
-                    markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+                    markdown.append('<CodeBlock language="text" title="CLI Help">')
                     markdown.extend(cleaned_lines)
                     markdown.append("</CodeBlock>\n")
         
@@ -393,19 +393,12 @@ This document provides a comprehensive reference for all available CLI commands 
         """
         markdown: List[str] = []
         
-        # Generate appropriate header based on command
-        header_map = {
-            "cloud": "Cloud Management",
-            "cluster": "Cluster Management", 
-            "profile": "Profile Management",
-            "network": "Network Management",
-            "storage": "Storage Management",
-            "app": "Application Management",
-            "license": "License Management",
-            "version": "Version Information"
-        }
+        # Generate header by capitalizing command and appending " Management"
+        if command_name == "version":
+            header_title = "Version Information"
+        else:
+            header_title = f"{command_name.title()} Management"
         
-        header_title = header_map.get(command_name, f"{command_name.title()} Commands")
         markdown.append(f"## {header_title}\n")
         
         # Generate subcommand sections using Docusaurus tabs
@@ -421,7 +414,7 @@ This document provides a comprehensive reference for all available CLI commands 
                 
                 markdown.append(f"<TabItem value=\"{command_name}\" label=\"🔹 {command_name}\">")
                 markdown.append("")
-                markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+                markdown.append('<CodeBlock language="text" title="CLI Help">')
                 markdown.extend(cleaned_lines)
                 markdown.append("</CodeBlock>")
                 markdown.append("")
@@ -447,7 +440,7 @@ This document provides a comprehensive reference for all available CLI commands 
                 # Clean and escape the help content
                 cleaned_lines = self.clean_and_escape_help_content(help_content)
                 
-                markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+                markdown.append('<CodeBlock language="text" title="CLI Help">')
                 markdown.extend(cleaned_lines)
                 markdown.append("</CodeBlock>\n")
         
@@ -482,7 +475,7 @@ This document provides a comprehensive reference for all available CLI commands 
                 main_command_label = command_path[-1]
                 markdown.append(f"<TabItem value=\"{main_command_label}\" label=\"🔹 {main_command_label}\">")
                 markdown.append("")
-                markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+                markdown.append('<CodeBlock language="text" title="CLI Help">')
                 markdown.extend(cleaned_lines)
                 markdown.append("</CodeBlock>")
                 markdown.append("")
@@ -505,7 +498,7 @@ This document provides a comprehensive reference for all available CLI commands 
             # Leaf command - show the entire help content in a code block
             cleaned_lines = self.clean_and_escape_help_content(help_content)
             
-            markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+            markdown.append('<CodeBlock language="text" title="CLI Help">')
             markdown.extend(cleaned_lines)
             markdown.append("</CodeBlock>")
             markdown.append("")
@@ -551,7 +544,7 @@ This document provides a comprehensive reference for all available CLI commands 
             # Extract, clean and escape the help output
             cleaned_lines = self.clean_and_escape_help_content(main_help)
             
-            markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+            markdown.append('<CodeBlock language="text" title="CLI Help">')
             markdown.extend(cleaned_lines)
             markdown.append("</CodeBlock>\n")
         
@@ -584,7 +577,7 @@ This document provides a comprehensive reference for all available CLI commands 
                     
                     markdown.append("<TabItem value=\"config\" label=\"🔹 config\">")
                     markdown.append("")
-                    markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+                    markdown.append('<CodeBlock language="text" title="CLI Help">')
                     markdown.extend(cleaned_lines)
                     markdown.append("</CodeBlock>")
                     markdown.append("")
@@ -607,7 +600,7 @@ This document provides a comprehensive reference for all available CLI commands 
                 if config_help:
                     cleaned_lines = self.clean_and_escape_help_content(config_help)
                     
-                    markdown.append('<CodeBlock language="text" title="CLI Help" className="neon-purple">')
+                    markdown.append('<CodeBlock language="text" title="CLI Help">')
                     markdown.extend(cleaned_lines)
                     markdown.append("</CodeBlock>\n")
         

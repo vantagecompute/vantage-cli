@@ -14,11 +14,10 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -40,39 +39,53 @@ async def list_storage(
     ] = 10,
 ):
     """List all storage volumes."""
-    if get_effective_json_output(ctx):
-        # JSON output
-        volumes = [
-            {
-                "storage_id": "storage-123",
-                "name": "web-data-volume",
-                "size_gb": 100,
-                "storage_type": "ssd",
-                "zone": "us-west-2a",
-                "status": "available",
-                "attached_to": "instance-456",
-            },
-            {
-                "storage_id": "storage-124",
-                "name": "backup-volume",
-                "size_gb": 500,
-                "storage_type": "hdd",
-                "zone": "us-west-2b",
-                "status": "creating",
-                "attached_to": None,
-            },
-        ]
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
 
-        # Apply filters
-        if zone:
-            volumes = [v for v in volumes if v["zone"] == zone]
-        if storage_type:
-            volumes = [v for v in volumes if v["storage_type"] == storage_type]
-        if status:
-            volumes = [v for v in volumes if v["status"] == status]
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
 
-        print_json(
-            data={
+    # Mock data
+    volumes = [
+        {
+            "storage_id": "storage-123",
+            "name": "web-data-volume",
+            "size_gb": 100,
+            "storage_type": "ssd",
+            "zone": "us-west-2a",
+            "status": "available",
+            "attached_to": "instance-456",
+        },
+        {
+            "storage_id": "storage-124",
+            "name": "backup-volume",
+            "size_gb": 500,
+            "storage_type": "hdd",
+            "zone": "us-west-2b",
+            "status": "creating",
+            "attached_to": None,
+        },
+    ]
+
+    # Apply filters
+    if zone:
+        volumes = [v for v in volumes if v["zone"] == zone]
+    if storage_type:
+        volumes = [v for v in volumes if v["storage_type"] == storage_type]
+    if status:
+        volumes = [v for v in volumes if v["status"] == status]
+
+    # Handle JSON output first
+    if json_output:
+        renderer = RenderStepOutput(
+            console=ctx.obj.console,
+            operation_name="List Storage Volumes",
+            step_names=[],
+            verbose=verbose,
+            command_start_time=command_start_time,
+        )
+        return renderer.json_bypass(
+            {
                 "volumes": volumes[:limit] if limit else volumes,
                 "total": len(volumes),
                 "filters": {
@@ -83,21 +96,34 @@ async def list_storage(
                 },
             }
         )
-    else:
+
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name="List Storage Volumes",
+        step_names=["Fetching storage volumes", "Applying filters", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    with renderer:
+        renderer.complete_step("Fetching storage volumes")
+        renderer.complete_step("Applying filters")
+        renderer.start_step("Formatting output")
+
         # Rich console output
         ctx.obj.console.print("💾 Storage Volumes:")
         ctx.obj.console.print()
 
-        volumes = [
-            ("storage-123", "web-data-volume", "100 GB", "ssd", "available", "instance-456"),
-            ("storage-124", "backup-volume", "500 GB", "hdd", "creating", "unattached"),
-        ]
-
-        for vol_id, name, size, stype, stat, attached in volumes:
-            ctx.obj.console.print(f"  🏷️  [bold blue]{vol_id}[/bold blue] - {name}")
+        for vol in volumes[:limit] if limit else volumes:
+            attached = vol["attached_to"] or "unattached"
             ctx.obj.console.print(
-                f"      Size: [cyan]{size}[/cyan] | Type: [yellow]{stype}[/yellow] | Status: [green]{stat}[/green] | Attached: [magenta]{attached}[/magenta]"
+                f"  🏷️  [bold blue]{vol['storage_id']}[/bold blue] - {vol['name']}"
+            )
+            ctx.obj.console.print(
+                f"      Size: [cyan]{vol['size_gb']} GB[/cyan] | Type: [yellow]{vol['storage_type']}[/yellow] | Status: [green]{vol['status']}[/green] | Attached: [magenta]{attached}[/magenta]"
             )
             ctx.obj.console.print()
 
         ctx.obj.console.print(f"📊 Total volumes: {len(volumes)}")
+
+        renderer.complete_step("Formatting output")

@@ -16,7 +16,6 @@ from typing import Annotated
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -29,7 +28,7 @@ async def add_team_member(
     user_id: Annotated[str, typer.Argument(help="ID of the user to add")],
 ):
     """Add a member to a team."""
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         print_json(data={"team_id": team_id, "user_id": user_id, "status": "added"})
     else:
         ctx.obj.console.print(f"➕ User {user_id} added to team {team_id} successfully!")

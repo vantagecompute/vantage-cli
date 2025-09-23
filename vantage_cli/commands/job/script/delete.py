@@ -16,7 +16,6 @@ from typing import Annotated
 import typer
 from rich import print_json
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -28,7 +27,7 @@ async def delete_job_script(
     script_id: Annotated[str, typer.Argument(help="ID of the job script to delete")],
 ):
     """Delete a job script."""
-    if get_effective_json_output(ctx):
+    if getattr(ctx.obj, "json_output", False):
         print_json(data={"script_id": script_id, "status": "deleted"})
     else:
         ctx.obj.console.print(f"🗑️ Job script {script_id} deleted successfully!")

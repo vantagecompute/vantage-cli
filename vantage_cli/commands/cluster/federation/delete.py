@@ -12,12 +12,11 @@
 """Delete federation command."""
 
 import typer
-from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -30,12 +29,13 @@ async def delete_federation(
     ] = False,
 ):
     """Delete a Vantage federation."""
-    # Determine output format
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-    use_json = get_effective_json_output(ctx, json_output)
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
 
-    if not force and not use_json:
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    if not force and not json_output:
         # Ask for confirmation
         ctx.obj.console.print(f"⚠️  You are about to delete federation '[red]{name}[/red]'")
         ctx.obj.console.print("This action cannot be undone!")
@@ -45,19 +45,38 @@ async def delete_federation(
             ctx.obj.console.print("Deletion cancelled.")
             return
 
-    if use_json:
-        # TODO: Implement actual federation deletion logic
-        print_json(
-            data={
-                "name": name,
-                "force": force,
-                "status": "deleted",
-                "message": "Federation delete command not yet implemented",
-            }
-        )
-    else:
+    # TODO: Implement actual federation deletion logic
+    deletion_data = {
+        "name": name,
+        "force": force,
+        "status": "deleted",
+        "message": "Federation delete command not yet implemented",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Delete Federation '{name}'",
+        step_names=[]
+        if json_output
+        else ["Validating federation", "Deleting federation", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(deletion_data)
+
+    with renderer:
+        renderer.complete_step("Validating federation")
+        renderer.complete_step("Deleting federation")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print("🔗 [bold blue]Federation Delete Command[/bold blue]")
         ctx.obj.console.print(f"🗑️  Deleting federation: [bold]{name}[/bold]")
         if force:
             ctx.obj.console.print("💪 Force deletion enabled")
         ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+
+        renderer.complete_step("Formatting output")

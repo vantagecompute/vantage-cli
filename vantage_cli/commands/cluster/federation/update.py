@@ -14,12 +14,11 @@
 from typing import Optional
 
 import typer
-from rich import print_json
 from typing_extensions import Annotated
 
-from vantage_cli.command_base import get_effective_json_output
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -40,24 +39,42 @@ async def update_federation(
     ] = None,
 ):
     """Update a Vantage federation."""
-    # Determine output format
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False) if ctx.obj else False
-    use_json = get_effective_json_output(ctx, json_output)
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
 
-    if use_json:
-        # TODO: Implement actual federation update logic
-        print_json(
-            data={
-                "name": name,
-                "description": description,
-                "add_cluster": add_cluster,
-                "remove_cluster": remove_cluster,
-                "status": "updated",
-                "message": "Federation update command not yet implemented",
-            }
-        )
-    else:
+    # Get command start time for timing
+    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+
+    # TODO: Implement actual federation update logic
+    update_data = {
+        "name": name,
+        "description": description,
+        "add_cluster": add_cluster,
+        "remove_cluster": remove_cluster,
+        "status": "updated",
+        "message": "Federation update command not yet implemented",
+    }
+
+    # Create renderer once
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Update Federation '{name}'",
+        step_names=[]
+        if json_output
+        else ["Validating parameters", "Updating federation", "Formatting output"],
+        verbose=verbose,
+        command_start_time=command_start_time,
+    )
+
+    # Handle JSON output first
+    if json_output:
+        return renderer.json_bypass(update_data)
+
+    with renderer:
+        renderer.complete_step("Validating parameters")
+        renderer.complete_step("Updating federation")
+        renderer.start_step("Formatting output")
+
         ctx.obj.console.print("🔗 [bold blue]Federation Update Command[/bold blue]")
         ctx.obj.console.print(f"✏️  Updating federation: [bold]{name}[/bold]")
         if description:
@@ -67,3 +84,5 @@ async def update_federation(
         if remove_cluster:
             ctx.obj.console.print(f"➖ Removing cluster: {remove_cluster}")
         ctx.obj.console.print("⚠️  [yellow]Not yet implemented - this is a stub[/yellow]")
+
+        renderer.complete_step("Formatting output")
