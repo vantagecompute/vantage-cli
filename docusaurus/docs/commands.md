@@ -7,7 +7,7 @@ import CodeBlock from '@theme/CodeBlock';
 This document provides a comprehensive reference for all available CLI commands and their options.
 
 
-<CodeBlock language="bash" title="CLI Help">
+<CodeBlock language="text" title="CLI Help">
                                                                                 
  Usage: vantage [OPTIONS] COMMAND [ARGS]...                  
                                                                                 
@@ -16,6 +16,8 @@ This document provides a comprehensive reference for all available CLI commands 
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────╮
 │ version      Show version and exit.                                          │
+│ dev-init     Initialize the vantage-cli dev apps directory by cloning from   │
+│              GitHub.                                                         │
 │ login        Authenticate against the Vantage CLI by obtaining an            │
 │              authentication token.                                           │
 │ logout       Log out of the vantage-cli and clear saved user credentials.    │
@@ -117,7 +119,7 @@ This document provides a comprehensive reference for all available CLI commands 
 
 </CodeBlock>
 
-## Application Management
+## App Management
 
 <Tabs>
 <TabItem value="app" label="🔹 app">
@@ -273,14 +275,18 @@ This document provides a comprehensive reference for all available CLI commands 
 
 <CodeBlock language="text" title="CLI Help">
                                                                                 
- Usage: vantage cloud list [OPTIONS]                         
+ Usage: vantage cloud list [OPTIONS] COMMAND_START_TIME      
                                                                                 
  List all configured cloud providers.                                           
                                                                                 
  Displays a list of all cloud provider configurations including their status,   
  regions, and basic connection information.                                     
- Args:     ctx: The Typer context                                               
+ Args:     ctx: The Typer context     command_start_time: Time when the command 
+ started execution                                                              
                                                                                 
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    command_start_time      FLOAT  [required]                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --json     -j            Output in JSON format                               │
 │ --verbose  -v            Enable verbose terminal output                      │
@@ -361,23 +367,24 @@ This document provides a comprehensive reference for all available CLI commands 
 │ *    cluster_name      TEXT  Name of the cluster to create [required]        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ *  --cloud        -c      [maas|localhost|aws|gcp  Cloud to use for          │
-│                           |azure|on-premises|k8s]  deployment.               │
-│                                                    [required]                │
-│    --config-file          FILE                     Path to configuration     │
-│                                                    file for cluster          │
-│                                                    creation.                 │
-│    --app                  [slurm-microk8s-localho  Deploy an application     │
-│                           st|slurm-juju-localhost  after cluster creation.   │
-│                           |slurm-multipass-localh                            │
-│                           ost]                                               │
-│    --json         -j                               Output in JSON format     │
-│    --verbose      -v                               Enable verbose terminal   │
-│                                                    output                    │
-│    --profile      -p      TEXT                     Profile name to use       │
-│                                                    [default: default]        │
-│    --help                                          Show this message and     │
-│                                                    exit.                     │
+│ *  --cloud        -c      [maas|localhost|aws|gcp|  Cloud to use for         │
+│                           azure|on-premises|k8s]    deployment.              │
+│                                                     [required]               │
+│    --config-file          FILE                      Path to configuration    │
+│                                                     file for cluster         │
+│                                                     creation.                │
+│    --app                  [slurm-microk8s-localhos  Deploy an application    │
+│                           t|slurm-juju-localhost|s  after cluster creation.  │
+│                           lurm-multipass-localhost                           │
+│                           |jupyterhub-microk8s-loc                           │
+│                           alhost]                                            │
+│    --json         -j                                Output in JSON format    │
+│    --verbose      -v                                Enable verbose terminal  │
+│                                                     output                   │
+│    --profile      -p      TEXT                      Profile name to use      │
+│                                                     [default: default]       │
+│    --help                                           Show this message and    │
+│                                                     exit.                    │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -822,7 +829,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 </Tabs>
 
-## Notebook Commands
+## Notebook Management
 
 <Tabs>
 <TabItem value="notebook" label="🔹 notebook">
@@ -914,7 +921,6 @@ This document provides a comprehensive reference for all available CLI commands 
 │ *    name      TEXT  Notebook server name [required]                         │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --cluster  -c      TEXT  Cluster name                                        │
 │ --json     -j            Output in JSON format                               │
 │ --verbose  -v            Enable verbose terminal output                      │
 │ --profile  -p      TEXT  Profile name to use [default: default]              │
@@ -1009,12 +1015,14 @@ This document provides a comprehensive reference for all available CLI commands 
 
 <CodeBlock language="text" title="CLI Help">
                                                                                 
- Usage: vantage profile create [OPTIONS] PROFILE_NAME        
+ Usage: vantage profile create [OPTIONS] COMMAND_START_TIME  
+                                                  PROFILE_NAME                  
                                                                                 
  Create a new Vantage CLI profile.                                              
                                                                                 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    profile_name      TEXT  Name of the profile to create [required]        │
+│ *    command_start_time      FLOAT  [required]                               │
+│ *    profile_name            TEXT   Name of the profile to create [required] │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --api-url                TEXT     API base URL                               │
@@ -1338,7 +1346,7 @@ This document provides a comprehensive reference for all available CLI commands 
 </TabItem>
 </Tabs>
 
-## Deployment Commands
+## Deployment Management
 
 <Tabs>
 <TabItem value="deployment" label="🔹 deployment">
@@ -1353,10 +1361,12 @@ This document provides a comprehensive reference for all available CLI commands 
 │ --help          Show this message and exit.                                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ list     List all active deployments from ~/.vantage-cli/deployments.yaml.   │
-│ create   Create a slurm cluster deployment and link it to a cluster entity   │
-│          in Vantage.                                                         │
-│ delete   Delete a deployment and clean up its resources.                     │
+│ list                            List all active deployments from             │
+│                                 ~/.vantage-cli/deployments.yaml.             │
+│ slurm-microk8s-localhost        Commands for slurm-microk8s-localhost.       │
+│ slurm-juju-localhost            Commands for slurm-juju-localhost.           │
+│ slurm-multipass-localhost       Commands for slurm-multipass-localhost.      │
+│ jupyterhub-microk8s-localhost   Commands for jupyterhub-microk8s-localhost.  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -1372,66 +1382,8 @@ This document provides a comprehensive reference for all available CLI commands 
  List all active deployments from ~/.vantage-cli/deployments.yaml.              
                                                                                 
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --json     -j            Output in JSON format                               │
-│ --verbose  -v            Enable verbose terminal output                      │
-│ --profile  -p      TEXT  Profile name to use [default: default]              │
-│ --help                   Show this message and exit.                         │
-╰──────────────────────────────────────────────────────────────────────────────╯
-
-
-</CodeBlock>
-
-
-</TabItem>
-<TabItem value="create" label="create">
-
-<CodeBlock language="text" title="CLI Help">
-                                                                                
- Usage: vantage deployment create [OPTIONS] APP_NAME         
-                                                     CLUSTER_NAME               
-                                                                                
- Create a slurm cluster deployment and link it to a cluster entity in Vantage.  
-                                                                                
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    app_name          TEXT  Name of the cluster infrastructure application  │
-│                              to deploy                                       │
-│                              [required]                                      │
-│ *    cluster_name      TEXT  Name of the cluster in Vantage you would like   │
-│                              to link to                                      │
-│                              [required]                                      │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --name             TEXT  Custom name for the deployment (default:            │
-│                          &lt;app&gt;-&lt;cluster&gt;-&lt;timestamp&gt;)                        │
-│ --dev-run                Use dummy cluster data for local development        │
-│ --json     -j            Output in JSON format                               │
-│ --verbose  -v            Enable verbose terminal output                      │
-│ --profile  -p      TEXT  Profile name to use [default: default]              │
-│ --help                   Show this message and exit.                         │
-╰──────────────────────────────────────────────────────────────────────────────╯
-
-
-</CodeBlock>
-
-
-</TabItem>
-<TabItem value="delete" label="delete">
-
-<CodeBlock language="text" title="CLI Help">
-                                                                                
- Usage: vantage deployment delete [OPTIONS] DEPLOYMENT_ID    
-                                                                                
- Delete a deployment and clean up its resources.                                
-                                                                                
- This command will: 1. Find the deployment by ID 2. Call the appropriate        
- app-specific cleanup function 3. Mark the deployment as deleted in the         
- tracking file                                                                  
-                                                                                
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    deployment_id      TEXT  Deployment ID to delete [required]             │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --force    -f            Skip confirmation prompt                            │
+│ --cloud            TEXT  Filter deployments by cloud type (e.g., localhost,  │
+│                          aws, gcp)                                           │
 │ --json     -j            Output in JSON format                               │
 │ --verbose  -v            Enable verbose terminal output                      │
 │ --profile  -p      TEXT  Profile name to use [default: default]              │
