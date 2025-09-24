@@ -16,8 +16,6 @@ This document provides a comprehensive reference for all available CLI commands 
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────╮
 │ version      Show version and exit.                                          │
-│ dev-init     Initialize the vantage-cli dev apps directory by cloning from   │
-│              GitHub.                                                         │
 │ login        Authenticate against the Vantage CLI by obtaining an            │
 │              authentication token.                                           │
 │ logout       Log out of the vantage-cli and clear saved user credentials.    │
