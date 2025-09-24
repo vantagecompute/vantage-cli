@@ -12,7 +12,7 @@
 """Main typer app for vantage-cli."""
 
 import datetime
-import os
+import shutil
 import subprocess
 import sys
 from typing import Optional
@@ -55,7 +55,7 @@ from vantage_cli.config import (
     ensure_default_profile_exists,
     get_active_profile,
 )
-from vantage_cli.constants import VANTAGE_CLI_LOCAL_USER_BASE_DIR
+from vantage_cli.constants import VANTAGE_CLI_DEV_APPS_DIR
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.schemas import CliContext, Persona, TokenSet
 
@@ -143,28 +143,43 @@ def main(ctx: typer.Context):
     ctx.obj = cli_ctx
 
 
-@app.command()
+@app.command(hidden=True)
+@handle_abort
+@with_cache
+@attach_settings
+async def dev_clear(ctx: typer.Context):
+    """Clear the vantage-cli dev apps directory."""
+    if VANTAGE_CLI_DEV_APPS_DIR.exists():
+        shutil.rmtree(VANTAGE_CLI_DEV_APPS_DIR)
+        ctx.obj.console.print(
+            f"[green]Successfully cleared dev apps directory at {VANTAGE_CLI_DEV_APPS_DIR}[/green]"
+        )
+
+
+@app.command(hidden=True)
 @handle_abort
 @with_cache
 @attach_settings
 async def dev_init(ctx: typer.Context):
     """Initialize the vantage-cli dev apps directory by cloning from GitHub."""
-    gh_pat = os.environ.get("GH_PAT")
-    if gh_pat:
-        clone_url = f"https://{gh_pat}@github.com/vantagecompute/vantage-cli-dev-apps.git"
+    if clone_url := ctx.obj.settings.dev_apps_gh_url:
+        if VANTAGE_CLI_DEV_APPS_DIR.exists():
+            shutil.rmtree(VANTAGE_CLI_DEV_APPS_DIR)
         try:
             _ = subprocess.run(
                 [
                     "git",
                     "clone",
                     clone_url,
-                    str(VANTAGE_CLI_LOCAL_USER_BASE_DIR / "vantage_cli_dev_apps"),
+                    str(VANTAGE_CLI_DEV_APPS_DIR),
                 ],
                 capture_output=True,
                 text=True,
                 check=True,
             )
-            logger.info(f"Successfully cloned dev apps to {VANTAGE_CLI_LOCAL_USER_BASE_DIR}")
+            ctx.obj.console.print(
+                f"[green]Successfully cloned dev apps to {VANTAGE_CLI_DEV_APPS_DIR}[/green]"
+            )
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to clone dev apps: {e.stderr}")
             typer.echo(f"Error: Failed to clone repository - {e.stderr}", err=True)

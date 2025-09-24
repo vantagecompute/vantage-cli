@@ -13,10 +13,11 @@
 
 import inspect
 import json
+import os
 import shutil
 from asyncio.log import logger
 from functools import wraps
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import typer
 from pydantic import BaseModel, ValidationError, computed_field
@@ -46,6 +47,14 @@ class Settings(BaseModel):
     tunnel_api_url: str = "https://tunnel.vantagecompute.ai"
     oidc_client_id: str = "default"
     oidc_max_poll_time: int = 5 * 60  # 5 minutes
+
+    @computed_field
+    @property
+    def dev_apps_gh_url(self) -> Optional[str]:
+        """Construct the GitHub URL for the dev apps repository."""
+        if gh_pat := os.environ.get("GH_PAT"):
+            return f"https://{gh_pat}@github.com/vantagecompute/vantage-cli-dev-apps.git"
+        return None
 
     @computed_field
     @property
