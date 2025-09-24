@@ -977,7 +977,9 @@ def get_deployment_status(namespace: str, console: Console, verbose: bool = Fals
         return False
 
 
-def _confirm_removal(release_name: str, namespace: str, force: bool, verbose: bool, console: Console) -> bool:
+def _confirm_removal(
+    release_name: str, namespace: str, force: bool, verbose: bool, console: Console
+) -> bool:
     """Handle removal confirmation logic."""
     if not force:
         response = typer.confirm(
@@ -990,7 +992,9 @@ def _confirm_removal(release_name: str, namespace: str, force: bool, verbose: bo
     return True
 
 
-def _remove_helm_release(release_name: str, namespace: str, verbose: bool, console: Console) -> None:
+def _remove_helm_release(
+    release_name: str, namespace: str, verbose: bool, console: Console
+) -> None:
     """Remove Helm release."""
     result = subprocess.run(
         ["microk8s", "helm", "uninstall", release_name, "-n", namespace],
@@ -1002,9 +1006,7 @@ def _remove_helm_release(release_name: str, namespace: str, verbose: bool, conso
             console.print("[green]✓[/green] Release removed successfully!")
     else:
         if verbose:
-            console.print(
-                "[yellow]⚠[/yellow] Helm release removal failed or was already removed"
-            )
+            console.print("[yellow]⚠[/yellow] Helm release removal failed or was already removed")
 
 
 def _cleanup_remaining_resources(namespace: str, verbose: bool, console: Console) -> None:
