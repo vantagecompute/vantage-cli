@@ -14,8 +14,11 @@
 from vantage_cli import AsyncTyper
 
 from .script import script_app
+from .script.list import list_job_scripts
 from .submission import job_submission_app
+from .submission.list import list_job_submissions
 from .template import job_template_app
+from .template.list import list_job_templates
 
 # Create the job command group
 job_app = AsyncTyper(
@@ -29,3 +32,8 @@ job_app = AsyncTyper(
 job_app.add_typer(script_app, name="script")
 job_app.add_typer(job_submission_app, name="submission")
 job_app.add_typer(job_template_app, name="template")
+
+# Add plural aliases that directly call the list commands (hidden from help)
+job_app.command("scripts", hidden=True)(list_job_scripts)
+job_app.command("submissions", hidden=True)(list_job_submissions)
+job_app.command("templates", hidden=True)(list_job_templates)

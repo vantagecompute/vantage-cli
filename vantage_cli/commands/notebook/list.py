@@ -11,17 +11,17 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """List notebooks command."""
 
-from typing import Any, Dict, List, Optional, cast
+import logging
+from typing import Optional
 
 import typer
 from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.gql_client import create_async_graphql_client
-from vantage_cli.render import RenderStepOutput
+from vantage_cli.sdk.notebook.crud import notebook_sdk
 
-from .render import render_notebooks_table
+logger = logging.getLogger(__name__)
 
 
 @handle_abort
@@ -42,83 +42,49 @@ async def list_notebooks(
     ] = None,
 ):
     """List notebook servers."""
-    renderer = RenderStepOutput(
-        console=ctx.obj.console,
-        operation_name="List Notebooks",
-        step_names=["Complete"],  # "Querying", "Rendering"],
-        use_panel=False,
-        show_start_message=False,
-        command_start_time=getattr(ctx.obj, "command_start_time", None) if ctx.obj else None,
-    )
-
-    query = """
-    query NotebookServers($first: Int) {
-        notebookServers(first: $first) {
-            edges {
-                node {
-                    id
-                    name
-                    clusterName
-                    partition
-                    owner
-                    serverUrl
-                    slurmJobId
-                    createdAt
-                    updatedAt
-                }
-            }
-            total
-        }
-    }
-    """
-
-    variables: Dict[str, Any] = {}
-    if limit:
-        variables["first"] = limit
-    else:
-        variables["first"] = 100  # Default limit
+    # Use UniversalOutputFormatter for consistent output
 
     try:
-        # Create async GraphQL client
-        profile = getattr(ctx.obj, "profile", "default")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
-
-        # Execute the query
-        response_data = await graphql_client.execute_async(query, variables)
-
-        if not response_data:
-            raise Abort("No response from server")
-
-        notebooks_data = response_data.get("notebookServers", {})
-        notebooks = [edge["node"] for edge in notebooks_data.get("edges", [])]
+        # Use the SDK to get notebooks
+        logger.debug("Using SDK to list notebooks")
+        notebooks = await notebook_sdk.list_notebooks(ctx, cluster=cluster, limit=limit)
 
         if not notebooks:
-            notebooks = []
-
-        # Cast to help type checker
-        notebooks_list = cast(List[Dict[str, Any]], notebooks)
-
-        # Apply client-side filters
-        if cluster:
-            notebooks_list = [n for n in notebooks_list if n.get("clusterName") == cluster]
-        # Note: status and kernel filters are not available in the API schema
-        # but the CLI parameters are kept for potential future use
-
-        # Get effective JSON output setting from context
-        json_output = getattr(ctx.obj, "json_output", False)
-        if json_output:
-            renderer.json_bypass(notebooks_list)
+            ctx.obj.formatter.render_list(
+                data=[],
+                resource_name="Notebook Servers",
+                empty_message="No notebook servers found.",
+            )
             return
 
-        notebooks_table = render_notebooks_table(
-            notebooks_list,
-            title="Notebook Servers",
-        )
-        with renderer:
-            renderer.table_step(notebooks_table)
-            renderer.complete_step("Complete")
+        # Convert Notebook objects to dict format for the formatter
+        notebooks_data = []
+        for notebook in notebooks:
+            notebook_dict = {
+                "id": notebook.id,
+                "name": notebook.name,
+                "cluster_name": notebook.cluster_name,
+                "partition": notebook.partition,
+                "owner": notebook.owner,
+                "server_url": notebook.server_url,
+                "slurm_job_id": notebook.slurm_job_id,
+                "created_at": notebook.created_at,
+            }
+            notebooks_data.append(notebook_dict)
 
+        # Use formatter to render the notebooks list
+        ctx.obj.formatter.render_list(
+            data=notebooks_data,
+            resource_name="Notebook Servers",
+            empty_message="No notebook servers found.",
+        )
+
+    except Abort:
+        # Re-raise Abort exceptions as they contain user-friendly messages
+        raise
     except Exception as e:
-        if "GraphQL errors:" in str(e):
-            raise
-        raise Abort(f"Failed to list notebook servers: {e}")
+        logger.error(f"Unexpected error listing notebooks: {e}")
+        ctx.obj.formatter.render_error(
+            error_message="An unexpected error occurred while listing notebook servers.",
+            details={"error": str(e)},
+        )

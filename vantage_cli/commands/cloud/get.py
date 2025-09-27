@@ -9,10 +9,9 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get command for cloud provider configurations."""
+"""Get command for cloud provider details."""
 
 import typer
-from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
@@ -22,15 +21,41 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 async def get_command(
     ctx: typer.Context,
-    name: Annotated[str, typer.Argument(help="Name of the cloud configuration to retrieve")],
+    cloud_name: str = typer.Argument(
+        ..., help="Name of the cloud provider (e.g., 'aws', 'localhost', 'gcp')"
+    ),
 ) -> None:
-    """Get details of a specific cloud configuration.
+    """Get detailed information about a specific cloud provider.
 
-    Retrieves and displays detailed information about a specific cloud provider
-    configuration including credentials, region settings, and connection status.
+    Displays comprehensive information about a cloud provider including its
+    Vantage provider label, supported substrates, and configuration details.
 
     Args:
-        ctx: The Typer context
-        name: Name of the cloud configuration to retrieve
+        ctx: Typer context containing CLI configuration
+        cloud_name: Name of the cloud provider to retrieve
+
+    Examples:
+        Get AWS cloud details:
+        $ vantage cloud get aws
+
+        Get localhost cloud details:
+        $ vantage cloud get localhost
     """
-    pass
+    # Import SDK here to avoid module-level initialization
+    from vantage_cli.sdk.cloud import cloud_sdk
+
+    # Get cloud by name
+    cloud = cloud_sdk.get(cloud_name)
+
+    if not cloud:
+        ctx.obj.formatter.render_error(
+            f"Cloud '{cloud_name}' not found. Use 'vantage cloud list' to see available clouds."
+        )
+        raise typer.Exit(1)
+
+    # Use UniversalOutputFormatter for consistent get rendering
+    ctx.obj.formatter.render_get(
+        data=cloud.model_dump(),
+        resource_name="Cloud",
+        resource_id=cloud.name,
+    )

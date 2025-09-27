@@ -14,14 +14,17 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def update_license_deployment(
     ctx: typer.Context,
     deployment_id: Annotated[str, typer.Argument(help="ID of the license deployment to update")],
@@ -42,43 +45,30 @@ async def update_license_deployment(
     ] = None,
 ):
     """Update a license deployment."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        updates = {}
-        if name:
-            updates["name"] = name
-        if environment:
-            updates["environment"] = environment
-        if nodes:
-            updates["nodes"] = nodes
-        if description:
-            updates["description"] = description
-        if status:
-            updates["status"] = status
+    # Build updates dict
+    updates = {}
+    if name:
+        updates["name"] = name
+    if environment:
+        updates["environment"] = environment
+    if nodes:
+        updates["nodes"] = nodes
+    if description:
+        updates["description"] = description
+    if status:
+        updates["status"] = status
 
-        print_json(
-            data={
-                "deployment_id": deployment_id,
-                "updates": updates,
-                "status": "updated",
-                "updated_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(
-            f"🔄 Updating license deployment [bold blue]{deployment_id}[/bold blue]"
-        )
+    # Stub data - replace with actual API call
+    update_result = {
+        "deployment_id": deployment_id,
+        "updates": updates,
+        "status": "updated",
+        "updated_at": "2025-09-10T10:00:00Z",
+    }
 
-        if name:
-            ctx.obj.console.print(f"   Name: [green]{name}[/green]")
-        if environment:
-            ctx.obj.console.print(f"   Environment: [yellow]{environment}[/yellow]")
-        if nodes:
-            ctx.obj.console.print(f"   Nodes: [cyan]{nodes}[/cyan]")
-        if description:
-            ctx.obj.console.print(f"   Description: {description}")
-        if status:
-            ctx.obj.console.print(f"   Status: [magenta]{status}[/magenta]")
-
-        ctx.obj.console.print("✅ License deployment updated successfully!")
+    # Use UniversalOutputFormatter for consistent update rendering
+    ctx.obj.formatter.render_update(
+        data=update_result,
+        resource_name="License Deployment",
+        success_message=f"License deployment {deployment_id} updated successfully",
+    )

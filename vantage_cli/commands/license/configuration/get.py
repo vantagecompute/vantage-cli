@@ -14,33 +14,27 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_configuration_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def get_license_configuration(
     ctx: typer.Context,
     config_id: Annotated[str, typer.Argument(help="ID of the license configuration to get")],
 ):
     """Get details of a specific license configuration."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "config_id": config_id,
-                "name": f"License Configuration {config_id}",
-                "type": "concurrent",
-                "max_users": 100,
-                "status": "active",
-                "message": "License configuration details retrieved successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("⚙️ License Configuration Get Command")
-        ctx.obj.console.print(f"📋 Getting details for license configuration: {config_id}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    # Use SDK to get license configuration
+    response = await license_configuration_sdk.get(ctx, config_id)
+
+    # Use UniversalOutputFormatter for consistent get rendering
+    ctx.obj.formatter.render_get(
+        data=response, resource_name="License Configuration", resource_id=str(config_id)
+    )

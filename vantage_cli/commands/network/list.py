@@ -14,11 +14,9 @@
 from typing import Annotated, Any, Dict, List, Optional
 
 import typer
-from rich.table import Table
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -36,12 +34,6 @@ async def list_networks(
     ] = 10,
 ):
     """List all virtual networks."""
-    # Get command timing
-    command_start_time = getattr(ctx.obj, "command_start_time", None)
-
-    # Check for JSON output mode
-    json_output = getattr(ctx.obj, "json_output", False)
-
     # Mock network data
     networks: List[Dict[str, Any]] = [
         {
@@ -78,48 +70,16 @@ async def list_networks(
     if limit:
         networks = networks[:limit]
 
-    # If JSON mode, bypass all visual rendering
-    if json_output:
-        result = {"networks": networks, "count": len(networks)}
-        RenderStepOutput.json_bypass(result)
-        return
+    # Apply filters
+    if region:
+        networks = [n for n in networks if n["region"] == region]
+    if status:
+        networks = [n for n in networks if n["status"] == status]
 
-    # Regular rendering for non-JSON mode
-    step_names = ["Fetching networks", "Applying filters"]
-    console = ctx.obj.console
+    networks = networks[:limit] if limit else networks
 
-    with RenderStepOutput(
-        console=console,
-        operation_name="Listing networks",
-        step_names=step_names,
-        json_output=json_output,
-        command_start_time=command_start_time,
-    ) as renderer:
-        renderer.advance("Fetching networks", "starting")
-        # Simulate fetch
-        renderer.advance("Fetching networks", "completed")
+    # Use UniversalOutputFormatter for consistent list rendering
 
-        renderer.advance("Applying filters", "starting")
-        # Simulate filtering
-        renderer.advance("Applying filters", "completed")
-
-        # Create and display table
-        table = Table(title="Virtual Networks")
-        table.add_column("ID", style="cyan", no_wrap=True)
-        table.add_column("Name", style="magenta")
-        table.add_column("Region", style="green")
-        table.add_column("Status", style="yellow")
-        table.add_column("CIDR", style="blue")
-        table.add_column("Created", style="dim")
-
-        for network in networks:
-            table.add_row(
-                network["id"],
-                network["name"],
-                network["region"],
-                network["status"],
-                network["cidr"],
-                network["created_at"],
-            )
-
-        renderer.table_step(table)
+    ctx.obj.formatter.render_list(
+        data=networks, resource_name="Virtual Networks", empty_message="No networks found."
+    )

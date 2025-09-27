@@ -14,7 +14,6 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
@@ -26,9 +25,15 @@ async def get_team(
     ctx: typer.Context, team_id: Annotated[str, typer.Argument(help="ID of the team to retrieve")]
 ):
     """Get details of a specific team."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(data={"team_id": team_id, "name": "Development Team", "member_count": 5})
-    else:
-        ctx.obj.console.print(f"👥 Team details for {team_id}")
-        ctx.obj.console.print("  Name: Development Team")
-        ctx.obj.console.print("  Members: 5")
+    # Mock team data
+    team = {
+        "team_id": team_id,
+        "name": "Development Team",
+        "description": "Main development team for the project",
+        "member_count": 5,
+        "created_at": "2025-01-01T00:00:00Z",
+    }
+
+    # Use UniversalOutputFormatter for consistent get rendering
+
+    ctx.obj.formatter.render_get(data=team, resource_name="Team", resource_id=team_id)

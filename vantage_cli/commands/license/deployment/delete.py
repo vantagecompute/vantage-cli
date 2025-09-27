@@ -14,14 +14,17 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def delete_license_deployment(
     ctx: typer.Context,
     deployment_id: Annotated[str, typer.Argument(help="ID of the license deployment to delete")],
@@ -33,18 +36,16 @@ async def delete_license_deployment(
             ctx.obj.console.print("❌ Deployment deletion cancelled.")
             return
 
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "deployment_id": deployment_id,
-                "status": "deleted",
-                "deleted_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(
-            f"🗑️ Deleting license deployment [bold red]{deployment_id}[/bold red]"
-        )
-        ctx.obj.console.print("✅ License deployment deleted successfully!")
+    # Stub data - replace with actual API call
+    delete_result = {
+        "deployment_id": deployment_id,
+        "status": "deleted",
+        "deleted_at": "2025-09-10T10:00:00Z",
+    }
+
+    # Use UniversalOutputFormatter for consistent delete rendering
+    ctx.obj.formatter.render_delete(
+        data=delete_result,
+        resource_name="License Deployment",
+        success_message=f"License deployment {deployment_id} deleted successfully",
+    )

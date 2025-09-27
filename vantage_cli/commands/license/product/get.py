@@ -14,32 +14,27 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_product_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def get_license_product(
     ctx: typer.Context,
     product_id: Annotated[str, typer.Argument(help="ID of the license product to get")],
 ):
     """Get details of a specific license product."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "product_id": product_id,
-                "name": f"License Product {product_id}",
-                "version": "1.0.0",
-                "status": "active",
-                "message": "License product details retrieved successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("📦 License Product Get Command")
-        ctx.obj.console.print(f"📋 Getting details for license product: {product_id}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    # Use SDK to get license product
+    response = await license_product_sdk.get(ctx, product_id)
+
+    # Use UniversalOutputFormatter for consistent get rendering
+    ctx.obj.formatter.render_get(
+        data=response, resource_name="License Product", resource_id=str(product_id)
+    )
