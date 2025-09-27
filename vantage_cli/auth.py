@@ -13,25 +13,30 @@
 
 import asyncio
 import datetime
+import inspect
 import json
-from typing import Any, Union
+import logging
+from functools import wraps
+from textwrap import dedent
+from typing import Any, Callable, Union
 
 import httpx
 import snick
 import typer
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError
-from loguru import logger
 from pydantic import ValidationError
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from vantage_cli.cache import load_tokens_from_cache, save_tokens_to_cache
 from vantage_cli.client import make_oauth_request
 from vantage_cli.config import Settings
-from vantage_cli.constants import USER_CONFIG_FILE
+from vantage_cli.constants import OIDC_DEVICE_PATH, OIDC_TOKEN_PATH, USER_CONFIG_FILE
 from vantage_cli.exceptions import Abort
 from vantage_cli.render import terminal_message
 from vantage_cli.schemas import CliContext, DeviceCodeData, IdentityData, Persona, TokenSet
-from vantage_cli.time_loop import TimeLoop
+
+logger = logging.getLogger(__name__)
 
 
 def extract_persona(
@@ -109,10 +114,34 @@ def validate_token_and_extract_identity(token_set: TokenSet) -> IdentityData:
             "log_message": "Token data could not be extracted to identity",
         },
     ):
+        if "organization" not in token_data or not token_data["organization"]:
+            raise Abort(
+                """
+                The access token is missing organization information.
+
+                Please ensure your user account is associated with an organization
+                and try logging in again.
+                """,
+                subject="Missing organization info",
+                log_message="Access token missing organization information",
+            )
+
+        # Extract org_id from organization structure
+        # Organization is typically: {"org-uuid": {"id": "org-uuid", ...}}
+        organization = token_data.get("organization", {})
+        logger.debug(f"Organization data extracted from token: {organization}")
+        org_key = next(iter(organization), None)
+        logger.debug(f"Organization key identified: {org_key}")
+        org_id = organization.get(org_key, {}).get("id", "") if org_key else ""
+        logger.debug(f"Extracted org_id: {org_id}")
+
+        email = token_data.get("email") or ""
         identity = IdentityData(
-            email=token_data.get("email"),
+            email=email,
             client_id=token_data.get("azp") or "unknown",
+            org_id=org_id,
         )
+        logger.debug(f"Extracted identity data: {identity}")
 
     return identity
 
@@ -213,13 +242,24 @@ def refresh_token_if_needed(profile: str, token_set: TokenSet) -> TokenSet:
             save_tokens_to_cache(profile, token_set)
             return token_set
         else:
-            raise Exception("Token refresh returned False")
+            logger.warning("Token refresh failed - check error logs above for details")
+            raise Exception("Token refresh failed")
 
     except Exception as e:
-        logger.error(f"Failed to refresh token: {e}")
+        logger.error(f"Token refresh error: {e}")
         raise Abort(
-            "Failed to refresh the expired access token. Please log in again.",
-            subject="Token refresh failed",
+            dedent(
+                """\
+                Your authentication session has expired and could not be automatically refreshed.
+
+                Please log in again by running:
+
+                    vantage login
+
+                If this problem persists, check your network connection and try again.
+                """
+            ),
+            subject="Authentication Required",
             log_message=f"Token refresh failed: {e}",
         )
 
@@ -261,6 +301,34 @@ def init_persona(ctx: typer.Context, token_set: TokenSet | None = None):
     )
 
 
+def attach_persona(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Attach persona to the CLI context."""
+    from vantage_cli.exceptions import handle_abort
+
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        @handle_abort
+        async def async_wrapper(ctx: typer.Context, *args, **kwargs):
+            logger.debug("Extracting persona from cached tokens")
+            ctx.obj.persona = extract_persona(ctx.obj.profile)
+            logger.debug(f"Persona attached with identity: {ctx.obj.persona.identity_data.email}")
+            return await func(ctx, *args, **kwargs)
+
+        return async_wrapper
+    else:
+
+        @wraps(func)
+        @handle_abort
+        def wrapper(ctx: typer.Context, *args, **kwargs):
+            logger.debug("Extracting persona from cached tokens")
+            ctx.obj.persona = extract_persona(ctx.obj.profile)
+            logger.debug(f"Persona attached with identity: {ctx.obj.persona.identity_data.email}")
+            return func(ctx, *args, **kwargs)
+
+        return wrapper
+
+
 def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -> bool:
     """Attempt to fetch a new access token given a refresh token.
 
@@ -270,7 +338,7 @@ def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -
     if not token_set.refresh_token:
         return False
 
-    url = f"{settings.oidc_base_url}/realms/vantage/protocol/openid-connect/token"
+    url = f"{settings.get_auth_url()}{OIDC_TOKEN_PATH}"
     logger.debug(f"Requesting refreshed access token from {url}")
 
     try:
@@ -297,8 +365,22 @@ def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -
             logger.debug("Successfully refreshed access token")
             return True
 
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            f"Token refresh failed with status {e.response.status_code}: {e.response.text}"
+        )
+        return False
+    except httpx.TimeoutException as e:
+        logger.error(f"Token refresh timed out: {e}")
+        return False
+    except httpx.RequestError as e:
+        logger.error(f"Token refresh request error: {e}")
+        return False
+    except KeyError as e:
+        logger.error(f"Token refresh response missing required field: {e}")
+        return False
     except Exception as e:
-        logger.error(f"Failed to refresh token: {e}")
+        logger.error(f"Unexpected error during token refresh: {type(e).__name__}: {e}")
         return False
 
 
@@ -344,12 +426,12 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
     if ctx.settings is None:
         raise RuntimeError("Settings not initialized")
 
-    device_path = "/realms/vantage/protocol/openid-connect/auth/device"
-    token_path = "/realms/vantage/protocol/openid-connect/token"
+    # Use console from context - it should always be available
+    console = ctx.console
 
     device_code_data: DeviceCodeData = await make_oauth_request(
         ctx.client,
-        device_path,
+        OIDC_DEVICE_PATH,
         data={
             "client_id": ctx.settings.oidc_client_id,
         },
@@ -375,63 +457,89 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
         subject="Waiting for login",
     )
 
-    for tick in TimeLoop(
-        ctx.settings.oidc_max_poll_time,
-        message="Waiting for web login",
-    ):
-        # For polling, we need to handle error responses as dict, not TokenSet
-        response_data: dict[str, Any] = {}
-        try:
-            # Attempt to get a successful token response
-            token_data = await make_oauth_request(
-                ctx.client,
-                token_path,
-                data={
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code_data.device_code,
-                    "client_id": ctx.settings.oidc_client_id,
-                },
-                response_model_cls=TokenSet,
-                abort_message="IGNORE",  # We'll handle errors manually
-                abort_subject="IGNORE",
-            )
-            return token_data
-        except Exception:
-            # If it fails, make a raw request to get the error details
-            response = await ctx.client.post(
-                f"{ctx.settings.oidc_base_url}{token_path}",
-                data={
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code_data.device_code,
-                    "client_id": ctx.settings.oidc_client_id,
-                },
-            )
-            response_data = response.json()
+    # Calculate timeout and start time
+    start_time = datetime.datetime.now()
+    timeout_seconds = ctx.settings.oidc_max_poll_time  # This is already in seconds (int)
+    attempt = 0
 
-        if "error" in response_data:
-            if response_data["error"] == "authorization_pending":
-                logger.debug(f"Token fetch attempt #{tick.counter} failed")
-                logger.debug(f"Will try again in {device_code_data.interval} seconds")
-                await asyncio.sleep(device_code_data.interval)
-            elif response_data["error"] == "slow_down":
-                logger.debug(f"Server requested slow down on attempt #{tick.counter}")
-                logger.debug(f"Will try again in {device_code_data.interval * 2} seconds")
-                await asyncio.sleep(device_code_data.interval * 2)
-            else:
-                # TODO: Test this failure condition
-                raise Abort(
-                    snick.unwrap(
-                        """
-                        There was a problem retrieving a device verification code
-                        from the auth provider:
-                        Unexpected failure retrieving access token.
-                        """
-                    ),
-                    subject="Unexpected error",
-                    log_message=f"Unexpected error response: {response_data}",
+    # Create a progress display with just a spinner and elapsed time
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold green]{task.description}"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task("Waiting for browser authentication...", total=None)
+
+        while True:
+            attempt += 1
+            elapsed = (datetime.datetime.now() - start_time).total_seconds()
+
+            # Check timeout
+            if elapsed >= timeout_seconds:
+                break
+
+            # Update task description with remaining time
+            minutes_remaining = max(0, (timeout_seconds - elapsed) / 60)
+            progress.update(
+                task,
+                description=f"Waiting for browser authentication... ({minutes_remaining:.1f}m remaining)",
+            )
+
+            # For polling, we need to handle error responses as dict, not TokenSet
+            response_data: dict[str, Any] = {}
+            try:
+                # Attempt to get a successful token response
+                token_data = await make_oauth_request(
+                    ctx.client,
+                    OIDC_TOKEN_PATH,
+                    data={
+                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                        "device_code": device_code_data.device_code,
+                        "client_id": ctx.settings.oidc_client_id,
+                    },
+                    response_model_cls=TokenSet,
+                    abort_message="IGNORE",  # We'll handle errors manually
+                    abort_subject="IGNORE",
                 )
-        else:
-            return TokenSet(**response_data)
+                return token_data
+            except Exception:
+                # If it fails, make a raw request to get the error details
+                response = await ctx.client.post(
+                    f"{ctx.settings.get_auth_url()}{OIDC_TOKEN_PATH}",
+                    data={
+                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                        "device_code": device_code_data.device_code,
+                        "client_id": ctx.settings.oidc_client_id,
+                    },
+                )
+                response_data = response.json()
+
+            if "error" in response_data:
+                if response_data["error"] == "authorization_pending":
+                    logger.debug(f"Token fetch attempt #{attempt} failed")
+                    logger.debug(f"Will try again in {device_code_data.interval} seconds")
+                    await asyncio.sleep(device_code_data.interval)
+                elif response_data["error"] == "slow_down":
+                    logger.debug(f"Server requested slow down on attempt #{attempt}")
+                    logger.debug(f"Will try again in {device_code_data.interval * 2} seconds")
+                    await asyncio.sleep(device_code_data.interval * 2)
+                else:
+                    # TODO: Test this failure condition
+                    raise Abort(
+                        snick.unwrap(
+                            """
+                            There was a problem retrieving a device verification code
+                            from the auth provider:
+                            Unexpected failure retrieving access token.
+                            """
+                        ),
+                        subject="Unexpected error",
+                        log_message=f"Unexpected error response: {response_data}",
+                    )
+            else:
+                return TokenSet(**response_data)
 
     raise Abort(
         "Login process was not completed in time. Please try again.",

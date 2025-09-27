@@ -11,17 +11,16 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Get notebook command."""
 
-from typing import Any, Dict, cast
+import logging
 
 import typer
 from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.gql_client import create_async_graphql_client
-from vantage_cli.render import RenderStepOutput
+from vantage_cli.sdk.notebook.crud import notebook_sdk
 
-from .render import render_notebook_details
+logger = logging.getLogger(__name__)
 
 
 @handle_abort
@@ -31,86 +30,44 @@ async def get_notebook(
     name: Annotated[str, typer.Argument(help="Notebook server name")],
 ):
     """Get notebook server details."""
-    renderer = RenderStepOutput(
-        console=ctx.obj.console,
-        operation_name="Get a Notebook",
-        step_names=["Complete"],
-        use_panel=False,
-        show_start_message=False,
-        command_start_time=getattr(ctx.obj, "command_start_time", None) if ctx.obj else None,
-    )
-    # Since the API doesn't support a singular notebookServer query,
-    # we'll use the notebookServers list query and filter by name
-    query = """
-    query NotebookServers($first: Int) {
-        notebookServers(first: $first) {
-            edges {
-                node {
-                    id
-                    name
-                    clusterName
-                    partition
-                    owner
-                    serverUrl
-                    slurmJobId
-                    createdAt
-                    updatedAt
-                }
-            }
-            total
-        }
-    }
-    """
-
-    variables: Dict[str, Any] = {"first": 100}  # Get a reasonable number of notebooks
+    # Use UniversalOutputFormatter for consistent output
 
     try:
-        # Create async GraphQL client
-        profile = getattr(ctx.obj, "profile", "default")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+        # Use SDK to get notebook
+        logger.debug(f"Fetching notebook '{name}' from SDK")
+        notebook = await notebook_sdk.get_notebook(ctx, name)
 
-        # Execute the query
-        response_data = await graphql_client.execute_async(query, variables)
-
-        if not response_data:
-            raise Abort("No response from server")
-
-        notebooks_data = response_data.get("notebookServers", {})
-        notebooks = [edge["node"] for edge in notebooks_data.get("edges", [])]
-
-        # Filter by name and optionally by cluster
-        matching_notebooks = []
-        for notebook in notebooks:
-            if notebook.get("name") == name:
-                matching_notebooks.append(notebook)
-
-        if not matching_notebooks:
-            raise Abort(f"Notebook server '{name}' not found")
-
-        if len(matching_notebooks) > 1:
-            ctx.obj.console.print(
-                "[yellow]Warning: Multiple notebook servers found with the same name[/yellow]"
+        if not notebook:
+            ctx.obj.formatter.render_error(error_message=f"Notebook server '{name}' not found.")
+            raise Abort(
+                f"Notebook server '{name}' not found.",
+                subject="Notebook Not Found",
+                log_message=f"Notebook '{name}' not found",
             )
 
-        notebook_response = matching_notebooks[0]  # Use the first match
+        # Convert Notebook object to dict format for the formatter
+        notebook_data = {
+            "id": notebook.id,
+            "name": notebook.name,
+            "cluster_name": notebook.cluster_name,
+            "partition": notebook.partition,
+            "owner": notebook.owner,
+            "server_url": notebook.server_url,
+            "slurm_job_id": notebook.slurm_job_id,
+            "created_at": notebook.created_at,
+            "updated_at": notebook.updated_at,
+        }
 
-        # Cast to help type checker
-        notebook_response_dict = cast(Dict[str, Any], notebook_response)
-
-        # Get effective JSON output setting from context
-        if getattr(ctx.obj, "json_output", False):
-            renderer.json_bypass(notebook_response_dict)
-            return
-
-        notebook_panel = render_notebook_details(
-            notebook_response_dict,
+        # Use formatter to render the notebook details
+        ctx.obj.formatter.render_get(
+            data=notebook_data, resource_name="Notebook Server", resource_id=name
         )
 
-        with renderer:
-            renderer.panel_step(notebook_panel)
-            renderer.complete_step("Complete")
-
+    except Abort:
+        raise
     except Exception as e:
-        if "GraphQL errors:" in str(e) or "notebook server not found" in str(e):
-            raise
-        raise Abort(f"Failed to get notebook server: {e}")
+        logger.error(f"Unexpected error getting notebook '{name}': {e}")
+        ctx.obj.formatter.render_error(
+            error_message=f"An unexpected error occurred while getting notebook '{name}'.",
+            details={"error": str(e)},
+        )

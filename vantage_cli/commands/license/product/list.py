@@ -11,40 +11,43 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """List license products command."""
 
-import typer
-from rich import print_json
+from typing import Annotated, Optional
 
+import typer
+
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_product_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
-async def list_license_products(ctx: typer.Context):
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
+async def list_license_products(
+    ctx: typer.Context,
+    search: Annotated[
+        Optional[str], typer.Option("--search", "-s", help="Search term for filtering products")
+    ] = None,
+    sort: Annotated[
+        Optional[str], typer.Option("--sort", help="Sort field for ordering results")
+    ] = None,
+    limit: Annotated[
+        Optional[int], typer.Option("--limit", "-l", help="Maximum number of results to return")
+    ] = None,
+    offset: Annotated[
+        Optional[int], typer.Option("--offset", "-o", help="Number of results to skip")
+    ] = None,
+):
     """List all license products."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "products": [
-                    {
-                        "id": "product-1",
-                        "name": "Software License A",
-                        "version": "1.0.0",
-                        "status": "active",
-                    },
-                    {
-                        "id": "product-2",
-                        "name": "Software License B",
-                        "version": "2.1.0",
-                        "status": "active",
-                    },
-                ],
-                "message": "License products listed successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("📦 License Product List Command")
-        ctx.obj.console.print("📋 This command will list all license products")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    # Use SDK to list license products
+    response = await license_product_sdk.list(
+        ctx, search=search, sort=sort, limit=limit, offset=offset
+    )
+
+    # Use UniversalOutputFormatter for consistent list rendering
+    ctx.obj.formatter.render_list(
+        data=response, resource_name="License Products", empty_message="No license products found."
+    )

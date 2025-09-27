@@ -14,14 +14,143 @@
 import asyncio
 import importlib.metadata
 import inspect
+import logging
+import sys
 import time
+from functools import wraps
 from typing import Any, Callable, List, Optional  # noqa: F401
 
 import typer
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import Annotated
 
+from vantage_cli.constants import VANTAGE_CLI_DEBUG_LOG_PATH
+
 __version__ = importlib.metadata.version("vantage-cli")
+
+# Global variable to track the file logging handler
+_file_handler: Optional[logging.Handler] = None
+_logging_initialized: bool = False
+
+# Add a null handler at import time to prevent logs from being lost
+# This handler will be replaced by setup_logging()
+logging.getLogger().addHandler(logging.NullHandler())
+
+
+def setup_logging(verbose: bool = False) -> None:
+    """Configure logging based on verbosity flag.
+
+    File logging to ~/.vantage-cli/debug.log is always enabled.
+
+    Args:
+        verbose: If True, enable DEBUG level logging to console
+    """
+    global _file_handler, _logging_initialized
+
+    # Get the root logger
+    root_logger = logging.getLogger()
+
+    # Only remove handlers if we've already configured logging before
+    # On first call, there shouldn't be any handlers
+    if _logging_initialized:
+        # Remove existing handlers except file handler
+        handlers_to_remove = [h for h in root_logger.handlers if h != _file_handler]
+        for handler in handlers_to_remove:
+            root_logger.removeHandler(handler)
+
+    if verbose:
+        console_level = logging.DEBUG
+        # Enable rich tracebacks only in verbose mode
+        from rich import traceback
+
+        traceback.install()
+        logging.getLogger("httpx").disabled = False
+        logging.getLogger("httpcore").disabled = False
+    else:
+        console_level = logging.ERROR
+        # Disable rich tracebacks in normal mode
+        sys.excepthook = sys.__excepthook__
+
+    # Add console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(console_level)
+    console_formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+
+    # Set root logger level to DEBUG to capture all logs for file handler
+    # Console handler will filter based on its own level
+    root_logger.setLevel(logging.DEBUG)
+
+    # IMPORTANT: Reset all existing loggers to ensure they pick up the new level
+    # This is necessary because loggers created before setup_logging() may have
+    # cached their effective level
+    for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+        logger_instance = logging.getLogger(logger_name)
+        # Only reset level for loggers in our namespace
+        if logger_name.startswith("vantage_cli"):
+            logger_instance.setLevel(logging.NOTSET)  # Inherit from root
+
+    _logging_initialized = True
+
+    if _file_handler is None:
+        from logging.handlers import RotatingFileHandler
+
+        VANTAGE_CLI_DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        _file_handler = RotatingFileHandler(
+            VANTAGE_CLI_DEBUG_LOG_PATH,
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=7,
+        )
+        _file_handler.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter(
+            "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        _file_handler.setFormatter(file_formatter)
+        root_logger.addHandler(_file_handler)
+
+    logger = logging.getLogger(__name__)
+    logger.debug(
+        "Logging configured (verbose=%s, file_logging=always_enabled)",
+        verbose,
+    )
+
+
+def maybe_run_async(func: Callable) -> Callable:
+    """Wrap async functions for use in Typer commands.
+
+    This wraps an async function so it can be used as a Typer command.
+    When the command is invoked, it will run the async function in an event loop.
+
+    Args:
+        func: The async function to wrap
+
+    Returns:
+        A wrapper function that runs the async function in an event loop
+    """
+    if not inspect.iscoroutinefunction(func):
+        # Function is not async, return as-is
+        return func
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        """Run the async function in an event loop."""
+        try:
+            # Check if we're already in an event loop
+            asyncio.get_running_loop()
+            # We're in an event loop, cannot use asyncio.run()
+            # Return the coroutine directly (for tests)
+            return func(*args, **kwargs)
+        except RuntimeError:
+            # No event loop running, safe to use asyncio.run()
+            return asyncio.run(func(*args, **kwargs))
+
+    return wrapper
 
 
 class TyperCommandParameter(BaseModel):
@@ -198,9 +327,15 @@ class AsyncTyper(typer.Typer):
                     json_flag = kwargs.pop("json", False)
                     ctx.obj.json_output = json_flag or getattr(ctx.obj, "json_output", False)
 
+                    # Update the formatter's json_output flag if formatter exists
+                    if hasattr(ctx.obj, "formatter") and ctx.obj.formatter is not None:
+                        ctx.obj.formatter.json_output = ctx.obj.json_output
+
                     # Handle verbose parameter
                     verbose_flag = kwargs.pop("verbose", False)
                     ctx.obj.verbose = verbose_flag or getattr(ctx.obj, "verbose", False)
+
+                    setup_logging(verbose=ctx.obj.verbose)
 
                     # Handle profile parameter
                     profile_value = kwargs.pop("profile", "default")

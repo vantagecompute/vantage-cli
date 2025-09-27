@@ -11,21 +11,19 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Main typer app for vantage-cli."""
 
+# Disable HTTP library logging before any imports that might use httpx
 import datetime
+import logging
 import shutil
 import subprocess
-import sys
 from typing import Optional
 
 import typer
 from jose import jwt
-from loguru import logger
-from rich import print_json
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
-from vantage_cli import AsyncTyper, __version__
+from vantage_cli import AsyncTyper, __version__, maybe_run_async, setup_logging
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
 from vantage_cli.cache import clear_token_cache, load_tokens_from_cache, with_cache
 from vantage_cli.client import attach_client
@@ -33,7 +31,6 @@ from vantage_cli.commands.alias import (
     apps_command,
     clouds_command,
     clusters_command,
-    deployments_command,
     federations_command,
     networks_command,
     notebooks_command,
@@ -41,23 +38,36 @@ from vantage_cli.commands.alias import (
     teams_command,
 )
 from vantage_cli.commands.app import app_app
+from vantage_cli.commands.cli_dash import cli_dash
 from vantage_cli.commands.cloud import cloud_app
 from vantage_cli.commands.cluster import cluster_app
 from vantage_cli.commands.config import config_app
-from vantage_cli.commands.deployment import deployment_app
+from vantage_cli.commands.job import job_app
 from vantage_cli.commands.license import license_app
 from vantage_cli.commands.network import network_app
 from vantage_cli.commands.notebook import notebook_app
 from vantage_cli.commands.profile import profile_app
 from vantage_cli.commands.storage import storage_app
+from vantage_cli.commands.support_ticket import support_ticket_app
 from vantage_cli.config import (
     attach_settings,
     ensure_default_profile_exists,
     get_active_profile,
 )
-from vantage_cli.constants import VANTAGE_CLI_DEV_APPS_DIR
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.schemas import CliContext, Persona, TokenSet
+from vantage_cli.utils import get_dev_apps_gh_url
+
+from .constants import VANTAGE_CLI_DEV_APPS_DIR
+
+logger = logging.getLogger(__name__)
+
+
+# os.environ["COLUMNS"] = "200"
+
+logging.getLogger("httpx").disabled = True
+logging.getLogger("httpcore").disabled = True
 
 app = AsyncTyper(
     name="Vantage CLI",
@@ -84,30 +94,13 @@ app.add_typer(app_app, name="app")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(cluster_app, name="cluster")
 app.add_typer(config_app, name="config")
+app.add_typer(job_app, name="job")
 app.add_typer(license_app, name="license")
 app.add_typer(network_app, name="network")
 app.add_typer(notebook_app, name="notebook")
 app.add_typer(profile_app, name="profile")
 app.add_typer(storage_app, name="storage")
-app.add_typer(deployment_app, name="deployment")
-
-
-def setup_logging(verbose: bool = False):
-    """Configure logging based on verbosity level."""
-    logger.remove()
-
-    if verbose:
-        logger.add(sys.stdout, level="DEBUG")
-        # Enable rich tracebacks only in verbose mode
-        from rich import traceback
-
-        traceback.install()
-    else:
-        # Disable rich tracebacks in normal mode
-        # Reset exception handler to default
-        sys.excepthook = sys.__excepthook__
-
-    logger.debug("Logging initialized")
+app.add_typer(support_ticket_app, name="support-ticket")
 
 
 @app.callback(invoke_without_command=True)
@@ -134,11 +127,17 @@ def main(ctx: typer.Context):
     setup_logging(verbose=verbose)
 
     # Create a single console instance for the entire application
-    # console = Console(width=150)
-    console = Console()
+    # console = Console(width=200)
+    console = Console(color_system="auto", force_terminal=True)
+
+    formatter = UniversalOutputFormatter(console=console, json_output=json_output)
 
     cli_ctx = CliContext(
-        profile=active_profile, verbose=verbose, json_output=json_output, console=console
+        profile=active_profile,
+        json_output=json_output,
+        verbose=verbose,
+        console=console,
+        formatter=formatter,
     )
     ctx.obj = cli_ctx
 
@@ -162,7 +161,7 @@ async def dev_clear(ctx: typer.Context):
 @attach_settings
 async def dev_init(ctx: typer.Context):
     """Initialize the vantage-cli dev apps directory by cloning from GitHub."""
-    if clone_url := ctx.obj.settings.dev_apps_gh_url:
+    if clone_url := get_dev_apps_gh_url():
         if VANTAGE_CLI_DEV_APPS_DIR.exists():
             shutil.rmtree(VANTAGE_CLI_DEV_APPS_DIR)
         try:
@@ -224,37 +223,69 @@ def _check_existing_login(profile: str) -> Optional[str]:
 @attach_client
 async def login(ctx: typer.Context):
     """Authenticate against the Vantage CLI by obtaining an authentication token."""
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+
     # Check if user is already logged in with a valid token
     existing_email = _check_existing_login(ctx.obj.profile)
     if existing_email:
+        login_data = {
+            "profile": ctx.obj.profile,
+            "email": existing_email,
+            "status": "already_authenticated",
+            "message": "Valid token already exists. Run 'vantage logout' first to generate a new token.",
+        }
+
+        if ctx.obj.json_output:
+            formatter.render_get(
+                data=login_data,
+                resource_name="Login Status",
+                resource_id=ctx.obj.profile,
+            )
+        else:
+            console = ctx.obj.console
+            console.print()
+            console.print(
+                Panel(
+                    f"Profile: [bold]{ctx.obj.profile}[/bold]\n\n"
+                    f"✅ Valid token already exists for user: [bold cyan]{existing_email}[/bold cyan]\n\n"
+                    f"If you want to generate a new token, please run '[bold magenta]vantage logout[/bold magenta]' first.",
+                    title="[green]Already Authenticated[/green]",
+                    border_style="green",
+                )
+            )
+            console.print()
+        return
+
+    token_set: TokenSet = await fetch_auth_tokens(ctx.obj)
+    persona: Persona = extract_persona(ctx.obj.profile, token_set)
+
+    login_data = {
+        "profile": ctx.obj.profile,
+        "email": persona.identity_data.email,
+        "client_id": persona.identity_data.client_id,
+        "status": "authenticated",
+        "message": "Successfully authenticated. You can now use the CLI to interact with Vantage Compute platform.",
+    }
+
+    if ctx.obj.json_output:
+        formatter.render_create(
+            data=login_data,
+            resource_name="Login",
+            success_message="Successfully authenticated",
+        )
+    else:
         console = ctx.obj.console
         console.print()
         console.print(
             Panel(
                 f"Profile: [bold]{ctx.obj.profile}[/bold]\n\n"
-                f"✅ Valid token already exists for user: [bold cyan]{existing_email}[/bold cyan]\n\n"
-                f"If you want to generate a new token, please run '[bold magenta]vantage logout[/bold magenta]' first.",
-                title="[green]Already Authenticated[/green]",
+                f"✅ Successful authentication: [bold cyan]{persona.identity_data.email}[/bold cyan]\n\n"
+                "You can now use the CLI to interact with Vantage Compute platform.",
+                title="[green]Successful Authentication[/green]",
                 border_style="green",
             )
         )
         console.print()
-        return
-
-    token_set: TokenSet = await fetch_auth_tokens(ctx.obj)
-    persona: Persona = extract_persona(ctx.obj.profile, token_set)
-    console = ctx.obj.console
-    console.print()
-    console.print(
-        Panel(
-            f"Profile: [bold]{ctx.obj.profile}[/bold]\n\n"
-            f"✅ Successful authentication: [bold cyan]{persona.identity_data.email}[/bold cyan]\n\n"
-            "You can now use the CLI to interact with Vantage Compute platform.",
-            title="[green]Successful Authentication[/green]",
-            border_style="green",
-        )
-    )
-    console.print()
 
 
 @app.command()
@@ -262,20 +293,47 @@ async def login(ctx: typer.Context):
 @with_cache
 async def logout(ctx: typer.Context):
     """Log out of the vantage-cli and clear saved user credentials."""
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+
     existing_email = _check_existing_login(ctx.obj.profile)
+
+    logout_data = {
+        "profile": ctx.obj.profile,
+        "email": existing_email if existing_email else "Not authenticated",
+        "status": "logged_out" if existing_email else "not_authenticated",
+        "message": "Please run 'vantage login' to log back in."
+        if existing_email
+        else "No active session found.",
+    }
+
     if existing_email:
-        console = ctx.obj.console
-        console.print()
-        console.print(
-            Panel(
-                f"Profile: [bold]{ctx.obj.profile}[/bold]\n\n"
-                f"✅ [bold]User:[/bold] {existing_email}\n\n"
-                f"Please run '[bold magenta]vantage login[/bold magenta]' to log back in.",
-                title="[green]Successfully Signed Out[/green]",
-                border_style="green",
+        if ctx.obj.json_output:
+            formatter.render_delete(
+                resource_name="Login Session",
+                resource_id=ctx.obj.profile,
+                success_message=f"Successfully signed out user: {existing_email}",
             )
-        )
-        console.print()
+        else:
+            console = ctx.obj.console
+            console.print()
+            console.print(
+                Panel(
+                    f"Profile: [bold]{ctx.obj.profile}[/bold]\n\n"
+                    f"✅ [bold]User:[/bold] {existing_email}\n\n"
+                    f"Please run '[bold magenta]vantage login[/bold magenta]' to log back in.",
+                    title="[green]Successfully Signed Out[/green]",
+                    border_style="green",
+                )
+            )
+            console.print()
+    else:
+        if ctx.obj.json_output:
+            formatter.render_get(
+                data=logout_data,
+                resource_name="Logout Status",
+                resource_id=ctx.obj.profile,
+            )
+
     clear_token_cache(ctx.obj.profile)
 
 
@@ -285,8 +343,7 @@ async def logout(ctx: typer.Context):
 @attach_settings
 async def whoami(ctx: typer.Context):
     """Display information about the currently authenticated user."""
-    # Get the JSON output preference from context
-    json_output = getattr(ctx.obj, "json_output", False)
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Extract persona from cached tokens
@@ -334,44 +391,15 @@ async def whoami(ctx: typer.Context):
             **token_info,
         }
 
-        if json_output:
-            print_json(data=user_info)
-        else:
-            console = ctx.obj.console
-            console.print()
-
-            # Create a table for user information
-            table = Table(
-                title="Current User Information", show_header=True, header_style="bold white"
-            )
-
-            table.add_column("Property", style="bold cyan")
-            table.add_column("Value", style="white")
-
-            table.add_row("Email", user_info["email"] or "Not available")
-            table.add_row("Client ID", user_info["client_id"])
-            table.add_row("Profile", user_info["profile"])
-
-            if "name" in user_info:
-                table.add_row("Name", user_info["name"])
-
-            if "user_id" in user_info:
-                table.add_row("User ID", user_info["user_id"])
-
-            if "token_issued_at" in user_info:
-                table.add_row("Token Issued", user_info["token_issued_at"])
-
-            if "token_expires_at" in user_info:
-                exp_status = "❌ Expired" if user_info.get("token_expired", False) else "✅ Valid"
-                table.add_row("Token Expires", f"{user_info['token_expires_at']} ({exp_status})")
-
-            table.add_row("Status", "✅ Logged in")
-
-            console.print(table)
-            console.print()
+        # Use UniversalOutputFormatter to render the user info
+        formatter.render_get(
+            data=user_info,
+            resource_name="Current User",
+            resource_id=persona.identity_data.email,
+        )
 
     except Exception as e:
-        logger.error(f"Failed to get user information: {str(e)}")
+        logger.debug(f"Failed to get user information: {str(e)}")
 
         error_info = {
             "logged_in": False,
@@ -380,8 +408,12 @@ async def whoami(ctx: typer.Context):
             "message": "Please run 'vantage login' to authenticate",
         }
 
-        if json_output:
-            print_json(data=error_info)
+        if ctx.obj.json_output:
+            formatter.render_get(
+                data=error_info,
+                resource_name="Current User",
+                resource_id=ctx.obj.profile,
+            )
         else:
             console = ctx.obj.console
             console.print()
@@ -397,9 +429,11 @@ async def whoami(ctx: typer.Context):
             console.print()
 
 
+# CLI Dashboard command
+app.command("cli-dash")(maybe_run_async(cli_dash))
+
 # Register alias commands
 app.command("apps", hidden=True)(apps_command)
-app.command("deployments", hidden=True)(deployments_command)
 app.command("clouds", hidden=True)(clouds_command)
 app.command("clusters", hidden=True)(clusters_command)
 app.command("federations", hidden=True)(federations_command)

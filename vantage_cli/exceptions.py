@@ -12,18 +12,38 @@
 """Exception handling and error management for the Vantage CLI."""
 
 import inspect
+import logging
 from functools import wraps
 from sys import exc_info
+from typing import TYPE_CHECKING
 
 import buzz
 import snick
 import typer
-from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from vantage_cli.schemas import CliContext
+
 # Enables prettified traceback printing via rich - we'll install this conditionally
 # traceback.install()  # Commented out to avoid showing tracebacks in normal mode
+
+
+def get_console_from_context(ctx: typer.Context) -> Console:
+    """Get console from typer context, falling back to new Console if not available."""
+    if hasattr(ctx.obj, "console") and ctx.obj.console is not None:
+        return ctx.obj.console
+    return Console()
+
+
+def get_console_from_cli_context(ctx: "CliContext") -> Console:
+    """Get console from CliContext, falling back to new Console if not available."""
+    if ctx.console is not None:
+        return ctx.console
+    return Console()
 
 
 class VantageCliError(buzz.Buzz):
@@ -81,13 +101,12 @@ class Abort(buzz.Buzz):
         super().__init__(message, *args, **kwargs)
 
 
-def _handle_authentication_error(auth_err: AuthenticationError) -> None:
+def _handle_authentication_error(auth_err: AuthenticationError, console: Console) -> None:
     """Handle authentication errors with consistent messaging."""
     message = (
         "Authentication failed. Your token may be expired or invalid.\n\n"
         "Please run 'vantage login' to authenticate again."
     )
-    console = Console()
     console.print()
     console.print(Panel(message, title="[red]Authentication Required"))
     console.print()
@@ -95,21 +114,20 @@ def _handle_authentication_error(auth_err: AuthenticationError) -> None:
     raise typer.Exit(code=1)
 
 
-def _handle_abort_error(err: Abort) -> None:
+def _handle_abort_error(err: Abort, console: Console) -> None:
     """Handle abort errors with consistent messaging."""
     if not err.warn_only:
         if err.log_message is not None:
-            logger.error(err.log_message)
+            logger.debug(err.log_message)
 
         if err.original_error is not None:
-            logger.error(f"Original exception: {err.original_error}")
+            logger.debug(f"Original exception: {err.original_error}")
 
     panel_kwargs = {}
     if err.subject is not None:
         panel_kwargs["title"] = f"[red]{err.subject}"
     message = snick.dedent(err.message)
 
-    console = Console()
     console.print()
     console.print(Panel(message, **panel_kwargs))
     console.print()
@@ -125,9 +143,21 @@ def handle_abort(func):
             try:
                 return await func(*args, **kwargs)
             except AuthenticationError as auth_err:
-                _handle_authentication_error(auth_err)
+                # Get console from CliContext
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
+                _handle_authentication_error(auth_err, console)
             except Abort as err:
-                _handle_abort_error(err)
+                # Get console from CliContext
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
+                _handle_abort_error(err, console)
 
         return async_wrapper
     else:
@@ -137,8 +167,20 @@ def handle_abort(func):
             try:
                 return func(*args, **kwargs)
             except AuthenticationError as auth_err:
-                _handle_authentication_error(auth_err)
+                # Get console from CliContext
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
+                _handle_authentication_error(auth_err, console)
             except Abort as err:
-                _handle_abort_error(err)
+                # Get console from CliContext
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
+                _handle_abort_error(err, console)
 
         return wrapper

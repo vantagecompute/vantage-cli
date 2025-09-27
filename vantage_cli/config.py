@@ -13,11 +13,10 @@
 
 import inspect
 import json
-import os
 import shutil
 from asyncio.log import logger
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, ParamSpec, TypeVar
 
 import typer
 from pydantic import BaseModel, ValidationError, computed_field
@@ -28,6 +27,10 @@ from .constants import (
     VANTAGE_CLI_ACTIVE_PROFILE,
     VANTAGE_CLI_LOCAL_USER_BASE_DIR,
 )
+
+# Type variables for generic decorators
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
 class Settings(BaseModel):
@@ -41,32 +44,49 @@ class Settings(BaseModel):
         "azure",
         "on-premises",
         "k8s",
+        "cudo-compute",
     ]
-    api_base_url: str = "https://apis.vantagecompute.ai"
-    oidc_base_url: str = "https://auth.vantagecompute.ai"
-    tunnel_api_url: str = "https://tunnel.vantagecompute.ai"
+    vantage_url: str = "https://app.vantagecompute.ai"
     oidc_client_id: str = "default"
     oidc_max_poll_time: int = 5 * 60  # 5 minutes
 
-    @computed_field
-    @property
-    def dev_apps_gh_url(self) -> Optional[str]:
-        """Construct the GitHub URL for the dev apps repository."""
-        if gh_pat := os.environ.get("GH_PAT"):
-            return f"https://{gh_pat}@github.com/vantagecompute/vantage-cli-dev-apps.git"
-        return None
+    def _get_url_for_profile(self, endpoint: str) -> str:
+        """Construct the URL for the current profile."""
+        domain_parts = self.vantage_url.split("//")[-1].split(".")[1:4]
+        domain_parts.insert(0, endpoint)
+
+        if endpoint == "openldap":
+            return "ldaps://" + ".".join(domain_parts)
+        else:
+            return "https://" + ".".join(domain_parts)
+
+    def get_ldap_url(self) -> str:
+        """Construct the LDAP URL."""
+        return self._get_url_for_profile("openldap")
+
+    def get_auth_url(self) -> str:
+        """Construct the auth URL."""
+        return self._get_url_for_profile("auth")
+
+    def get_tunnel_url(self) -> str:
+        """Construct the tunnel URL."""
+        return self._get_url_for_profile("tunnel")
+
+    def get_apis_url(self) -> str:
+        """Construct the apis URL."""
+        return self._get_url_for_profile("apis")
 
     @computed_field
     @property
     def oidc_domain(self) -> str:
         """Extract the domain from the OIDC base URL."""
-        return self.oidc_base_url.split("//")[-1] + "/realms/vantage"
+        return self.get_auth_url().split("//")[-1] + "/realms/vantage"
 
     @computed_field
     @property
     def oidc_token_url(self) -> str:
         """Construct the OIDC token URL from the base URL."""
-        return f"{self.oidc_base_url}/realms/vantage/protocol/openid-connect/token"
+        return f"{self.get_auth_url()}/realms/vantage/protocol/openid-connect/token"
 
 
 def init_user_filesystem(profile: str) -> None:
@@ -132,6 +152,76 @@ def attach_settings(func: Callable[..., Any]) -> Callable[..., Any]:
             return func(ctx, *args, **kwargs)
 
     return wrapper
+
+
+def attach_graphql_client(
+    base_path: str = "/cluster/graphql",
+) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Attach a GraphQL client to typer Context if a valid session exists.
+
+    This decorator wraps typer commands to inject an authenticated GraphQL client
+    into ctx.obj.graphql when both a session token and API URL are available.
+    It is used primarily on commands that require interaction with the GraphQL API.
+
+    Args:
+        base_path: API base path for the GraphQL endpoint (default: "/cluster/graphql")
+
+    Returns:
+        Decorator function that wraps commands with GraphQL client injection
+    """
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        # Import here to avoid circular dependency
+        from .gql_client import VantageGQLClient
+
+        if inspect.iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(ctx: typer.Context, *args, **kwargs):
+                # Ensure settings are available
+                if not hasattr(ctx.obj, "settings"):
+                    logger.error(
+                        "Settings not found in context. Use @attach_settings before @attach_graphql_client"
+                    )
+                    raise typer.Exit(1)
+
+                # Get profile from context or use default
+                profile = getattr(ctx.obj, "profile", "default")
+
+                # Create and attach GraphQL client
+                logger.debug(f"Creating GraphQL client for {base_path}")
+                ctx.obj.graphql_client = VantageGQLClient(
+                    ctx.obj.settings, profile, base_path=base_path
+                ).create()
+
+                return await func(ctx, *args, **kwargs)
+
+            return async_wrapper
+        else:
+
+            @wraps(func)
+            def wrapper(ctx: typer.Context, *args, **kwargs):
+                # Ensure settings are available
+                if not hasattr(ctx.obj, "settings"):
+                    logger.error(
+                        "Settings not found in context. Use @attach_settings before @attach_graphql_client"
+                    )
+                    raise typer.Exit(1)
+
+                # Get profile from context or use default
+                profile = getattr(ctx.obj, "profile", "default")
+
+                # Create and attach GraphQL client
+                logger.debug(f"Creating GraphQL client for {base_path}")
+                ctx.obj.graphql_client = VantageGQLClient(
+                    ctx.obj.settings, profile, base_path=base_path
+                ).create()
+
+                return func(ctx, *args, **kwargs)
+
+            return wrapper
+
+    return decorator
 
 
 def dump_settings(profile: str, settings: Settings) -> None:

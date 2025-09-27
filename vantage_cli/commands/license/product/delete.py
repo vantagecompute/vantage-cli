@@ -14,14 +14,18 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_product_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def delete_license_product(
     ctx: typer.Context,
     product_id: Annotated[str, typer.Argument(help="ID of the license product to delete")],
@@ -39,17 +43,12 @@ async def delete_license_product(
             ctx.obj.console.print("❌ Operation cancelled.")
             raise typer.Exit(0)
 
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "product_id": product_id,
-                "status": "deleted",
-                "message": f"License product '{product_id}' deleted successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("📦 License Product Delete Command")
-        ctx.obj.console.print(f"📋 Deleting license product: {product_id}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    # Use SDK to delete license product
+    await license_product_sdk.delete(ctx, product_id)
+
+    # Use UniversalOutputFormatter for consistent delete rendering
+    ctx.obj.formatter.render_delete(
+        resource_name="License Product",
+        resource_id=str(product_id),
+        success_message="License product deleted successfully!",
+    )

@@ -12,14 +12,10 @@
 """List clusters command."""
 
 import typer
-from loguru import logger
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.gql_client import create_async_graphql_client
-from vantage_cli.render import RenderStepOutput
-
-from .render import render_clusters_table
+from vantage_cli.sdk.cluster.crud import cluster_sdk
 
 
 @handle_abort
@@ -28,94 +24,48 @@ async def list_clusters(
     ctx: typer.Context,
 ):
     """List all Vantage clusters."""
-    # Get JSON flag from context
-    json_output = getattr(ctx.obj, "json_output", False)
-    verbose = getattr(ctx.obj, "verbose", False)
-
-    # GraphQL query to fetch clusters
-    query = """
-    query getClusters($first: Int!) {
-        clusters(first: $first) {
-            edges {
-                node {
-                    name
-                    status
-                    clientId
-                    description
-                    ownerEmail
-                    provider
-                    cloudAccountId
-                    creationParameters
-                }
-            }
-            total
-        }
-    }
-    """
-
-    variables = {"first": 100}  # Fetch up to 100 clusters
+    # Use UniversalOutputFormatter for consistent output
 
     try:
-        # Create async GraphQL client
-        profile = getattr(ctx.obj, "profile", "default")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+        # Use the SDK to get clusters
+        clusters = await cluster_sdk.list_clusters(ctx)
 
-        # Execute the query
-        logger.debug("Executing clusters query")
-        response_data = await graphql_client.execute_async(query, variables)
-
-        # Extract cluster data
-        clusters_data = response_data.get("clusters", {})
-        clusters = [edge["node"] for edge in clusters_data.get("edges", [])]
-        total_count = clusters_data.get("total", 0)
-
-        if json_output:
-            # JSON output - bypass progress system entirely
-            RenderStepOutput.json_bypass(response_data)
+        if not clusters:
+            ctx.obj.formatter.render_list(
+                data=[], resource_name="Clusters", empty_message="No clusters found."
+            )
             return
 
-        # Rich output with progress system
-        command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
-        renderer = RenderStepOutput(
-            console=ctx.obj.console,
-            operation_name="Listing clusters",
-            step_names=["Connecting to Vantage API", "Fetching cluster data", "Formatting output"],
-            verbose=verbose,
-            command_start_time=command_start_time,
+        # Convert Cluster objects to dict format for the formatter
+        clusters_data = []
+        for cluster in clusters:
+            # Access Cluster attributes directly
+            description = cluster.description
+            # Truncate description for list view
+            if description and len(description) > 50:
+                description = description[:47] + "..."
+
+            cluster_dict = {
+                "name": cluster.name,
+                "status": cluster.status,
+                "provider": cluster.provider,
+                "owner_email": cluster.owner_email,
+                "client_id": cluster.client_id,
+                "description": description,
+                "cloud_account_id": cluster.cloud_account_id,
+            }
+            clusters_data.append(cluster_dict)
+
+        # Use formatter to render the clusters list
+        ctx.obj.formatter.render_list(
+            data=clusters_data, resource_name="Clusters", empty_message="No clusters found."
         )
-
-        with renderer:
-            # Step 1: Connection (already done)
-            renderer.complete_step("Connecting to Vantage API")
-
-            # Step 2: Data fetch (already done)
-            renderer.complete_step("Fetching cluster data")
-
-            # Step 3: Format and display output
-            renderer.start_step("Formatting output")
-
-            # Render results using Rich table
-            render_clusters_table(
-                clusters,
-                ctx.obj.console,
-                title="Clusters List",
-                total_count=total_count,
-                json_output=False,
-            )
-
-            # Show quick start guide after listing clusters
-            if clusters:
-                renderer.show_quick_start()
-
-            renderer.complete_step("Formatting output")
 
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages
         raise
     except Exception as e:
-        logger.error(f"Unexpected error listing clusters: {e}")
-        raise Abort(
-            "An unexpected error occurred while listing clusters.",
-            subject="Unexpected Error",
-            log_message=f"Unexpected error: {e}",
+        ctx.obj.formatter.render_error(
+            error_message="An unexpected error occurred while listing clusters.",
+            details={"error": str(e)},
         )

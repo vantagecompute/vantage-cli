@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from gql import Client
+from gql import Client, GraphQLRequest
 from gql import gql as gql_query
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import (
@@ -30,17 +30,10 @@ from gql.transport.exceptions import (
     TransportConnectionFailed,
     TransportServerError,
 )
-
-try:
-    from gql import GraphQLRequest
-except ImportError:
-    # Fallback for older versions of gql
-    GraphQLRequest = None
 from graphql import DocumentNode
 from graphql.language.ast import OperationDefinitionNode
 from jose import exceptions as jwt_exceptions
 from jose import jwt
-from loguru import logger
 from requests.exceptions import ConnectionError, Timeout
 
 from .auth import extract_persona, refresh_access_token_standalone
@@ -48,6 +41,8 @@ from .cache import load_tokens_from_cache, save_tokens_to_cache
 from .config import Settings
 from .exceptions import VantageCliError
 from .schemas import Persona
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticationError(VantageCliError):
@@ -633,11 +628,83 @@ def create_development_client(
     )
 
 
-def create_async_graphql_client(settings: Settings, profile: str = "default"):
-    """Create an async GraphQL client for the given settings and profile.
+class VantageGQLClient:
+    """Factory class for creating GraphQL clients for different Vantage API endpoints.
 
-    This is a convenience function that combines the auth/cache logic with client creation.
-    It replaces the old async_graphql_client.py module functionality.
+    This class provides a flexible way to create GraphQL clients for different
+    API endpoints (cluster, sos, etc.) while sharing the same authentication
+    and configuration logic.
+
+    Example:
+        >>> # For cluster API
+        >>> cluster_client = VantageGQLClient(settings, base_path="/cluster/graphql")
+        >>> client = cluster_client.create()
+
+        >>> # For support (SOS) API
+        >>> sos_client = VantageGQLClient(settings, base_path="/sos/graphql")
+        >>> client = sos_client.create()
+    """
+
+    def __init__(
+        self,
+        settings: Settings,
+        profile: str = "default",
+        base_path: str = "/cluster/graphql",
+    ):
+        """Initialize VantageGQLClient factory.
+
+        Args:
+            settings: Settings object containing API configuration
+            profile: Profile name to use for authentication
+            base_path: API endpoint path (e.g., "/cluster/graphql", "/sos/graphql")
+        """
+        self.settings = settings
+        self.profile = profile
+        self.base_path = base_path
+
+    def create(self) -> VantageGraphQLClient:
+        """Create an async GraphQL client with the configured settings.
+
+        Returns:
+            Configured VantageGraphQLClient instance
+
+        Raises:
+            Exception: If client creation fails
+        """
+        try:
+            # Load tokens and create persona
+            token_set = load_tokens_from_cache(self.profile)
+            persona = extract_persona(self.profile, token_set, self.settings)
+
+            # Construct the GraphQL endpoint URL
+            graphql_url = f"{self.settings.get_apis_url()}{self.base_path}"
+
+            # Create async client with settings
+            client = create_production_client(
+                url=graphql_url,
+                persona=persona,
+                profile=self.profile,
+                settings=self.settings,
+                timeout=30,
+                max_retries=3,
+                verify_ssl=True,
+                enable_logging=True,
+                log_queries=False,  # Security: don't log queries in production
+            )
+
+            logger.debug(f"Created async GraphQL client for {graphql_url}")
+            return client
+
+        except Exception as e:
+            logger.error(f"Failed to create async GraphQL client: {e}")
+            raise
+
+
+def create_async_graphql_client(settings: Settings, profile: str = "default"):
+    """Create an async GraphQL client for the cluster endpoint.
+
+    This is a convenience function that maintains backward compatibility.
+    For new code, prefer using VantageGQLClient directly.
 
     Args:
         settings: Settings object containing API configuration
@@ -649,30 +716,4 @@ def create_async_graphql_client(settings: Settings, profile: str = "default"):
     Raises:
         Exception: If client creation fails
     """
-    try:
-        # Load tokens and create persona
-        token_set = load_tokens_from_cache(profile)
-        persona = extract_persona(profile, token_set, settings)
-
-        # Construct the GraphQL endpoint URL
-        graphql_url = f"{settings.api_base_url}/cluster/graphql"
-
-        # Create async client with settings
-        client = create_production_client(
-            url=graphql_url,
-            persona=persona,
-            profile=profile,
-            settings=settings,
-            timeout=30,
-            max_retries=3,
-            verify_ssl=True,
-            enable_logging=True,
-            log_queries=False,  # Security: don't log queries in production
-        )
-
-        logger.debug(f"Created async GraphQL client for {graphql_url}")
-        return client
-
-    except Exception as e:
-        logger.error(f"Failed to create async GraphQL client: {e}")
-        raise
+    return VantageGQLClient(settings, profile, base_path="/cluster/graphql").create()

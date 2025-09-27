@@ -13,15 +13,17 @@
 
 from __future__ import annotations
 
+import logging
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
 import httpx
 import pydantic
 import typer
-from loguru import logger
 
 from vantage_cli.exceptions import Abort
+
+logger = logging.getLogger(__name__)
 
 
 def attach_client(func: Callable) -> Callable:
@@ -38,7 +40,7 @@ def attach_client(func: Callable) -> Callable:
 
         logger.debug("Creating async HTTP client for OAuth operations")
         async with httpx.AsyncClient(
-            base_url=ctx.obj.settings.oidc_base_url,
+            base_url=ctx.obj.settings.get_auth_url(),
             headers={"content-type": "application/x-www-form-urlencoded"},
         ) as client:
             ctx.obj.client = client
@@ -74,7 +76,7 @@ async def make_oauth_request(
         return response_model_cls(**response_data)
 
     except httpx.HTTPStatusError as e:
-        logger.error(
+        logger.debug(
             f"OAuth request failed with status {e.response.status_code}: {e.response.text}"
         )
         if abort_message == "IGNORE":
@@ -85,7 +87,7 @@ async def make_oauth_request(
             log_message=f"OAuth request failed: {e.response.status_code} - {e.response.text}",
         )
     except (httpx.RequestError, httpx.ConnectError, httpx.TimeoutException) as e:
-        logger.error(f"OAuth request failed: {e}")
+        logger.debug(f"OAuth request failed: {e}")
         if abort_message == "IGNORE":
             raise e
         raise Abort(

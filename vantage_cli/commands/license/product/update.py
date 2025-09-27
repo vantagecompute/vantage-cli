@@ -14,14 +14,18 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_product_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def update_license_product(
     ctx: typer.Context,
     product_id: Annotated[str, typer.Argument(help="ID of the license product to update")],
@@ -37,30 +41,24 @@ async def update_license_product(
     ] = None,
 ):
     """Update an existing license product."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        update_data = {"product_id": product_id}
-        if name:
-            update_data["name"] = name
-        if version:
-            update_data["version"] = version
-        if description:
-            update_data["description"] = description
-        if license_type:
-            update_data["license_type"] = license_type
+    # Build the update payload with only provided fields
+    update_data = {}
+    if name is not None:
+        update_data["name"] = name
+    if version is not None:
+        update_data["version"] = version
+    if description is not None:
+        update_data["description"] = description
+    if license_type is not None:
+        update_data["license_type"] = license_type
 
-        update_data["message"] = "License product updated successfully"
-        print_json(data=update_data)
-    else:
-        # Rich console output
-        ctx.obj.console.print("📦 License Product Update Command")
-        ctx.obj.console.print(f"📋 Updating license product: {product_id}")
-        if name:
-            ctx.obj.console.print(f"📝 New name: {name}")
-        if version:
-            ctx.obj.console.print(f"🔢 New version: {version}")
-        if description:
-            ctx.obj.console.print(f"📄 New description: {description}")
-        if license_type:
-            ctx.obj.console.print(f"🔒 New license type: {license_type}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    # Use SDK to update license product
+    response = await license_product_sdk.update(ctx, product_id, update_data)
+
+    # Use UniversalOutputFormatter for consistent update rendering
+    ctx.obj.formatter.render_update(
+        data=response,
+        resource_name="License Product",
+        resource_id=str(product_id),
+        success_message=f"License product '{response.get('name')}' updated successfully!",
+    )
