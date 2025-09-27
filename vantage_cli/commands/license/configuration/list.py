@@ -11,40 +11,46 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """List license configurations command."""
 
-import typer
-from rich import print_json
+from typing import Annotated, Optional
 
+import typer
+
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_configuration_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
-async def list_license_configurations(ctx: typer.Context):
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
+async def list_license_configurations(
+    ctx: typer.Context,
+    search: Annotated[
+        Optional[str], typer.Option("--search", "-s", help="Search configurations by name or id")
+    ] = None,
+    sort: Annotated[
+        Optional[str], typer.Option("--sort", help="Sort by field (name, id, created_at)")
+    ] = None,
+    limit: Annotated[
+        Optional[int],
+        typer.Option("--limit", "-l", help="Maximum number of configurations to return"),
+    ] = None,
+    offset: Annotated[
+        Optional[int], typer.Option("--offset", "-o", help="Number of configurations to skip")
+    ] = None,
+):
     """List all license configurations."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "configurations": [
-                    {
-                        "id": "config-1",
-                        "name": "Default Configuration",
-                        "type": "concurrent",
-                        "max_users": 100,
-                    },
-                    {
-                        "id": "config-2",
-                        "name": "Enterprise Configuration",
-                        "type": "node-locked",
-                        "max_users": 500,
-                    },
-                ],
-                "message": "License configurations listed successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("⚙️ License Configuration List Command")
-        ctx.obj.console.print("📋 This command will list all license configurations")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    # Use SDK to list license configurations
+    response = await license_configuration_sdk.list(
+        ctx, search=search, sort=sort, limit=limit, offset=offset
+    )
+
+    # Use UniversalOutputFormatter for consistent list rendering
+    ctx.obj.formatter.render_list(
+        data=response,
+        resource_name="License Configurations",
+        empty_message="No license configurations found.",
+    )

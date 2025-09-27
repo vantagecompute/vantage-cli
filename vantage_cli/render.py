@@ -12,6 +12,7 @@
 """Rendering utilities for CLI output."""
 
 import json
+import shutil
 import time
 from contextlib import contextmanager
 from types import TracebackType
@@ -24,6 +25,222 @@ from rich.panel import Panel
 from rich.progress import Progress, ProgressColumn, SpinnerColumn, Task, TextColumn
 from rich.table import Table
 from rich.text import Text
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.widgets import DataTable, Footer, Header
+
+
+class TableViewerApp(App):
+    """Textual app for displaying data tables with auto-layout."""
+
+    BINDINGS = [
+        Binding("q", "quit", "Quit", priority=True),
+        Binding("escape", "quit", "Quit", priority=True),
+    ]
+
+    def __init__(self, data: List[Dict[str, Any]], title: str = "", **kwargs):
+        super().__init__(**kwargs)
+        self.data = data
+        self.title = title
+
+    def compose(self) -> ComposeResult:
+        """Create the table widget."""
+        if self.title:
+            yield Header(show_clock=False)
+
+        data_table = DataTable(show_cursor=False, zebra_stripes=True)
+        data_table.cursor_type = "none"
+        yield data_table
+
+        if self.title:
+            yield Footer()
+
+    def on_mount(self) -> None:
+        """Set up the table when the app mounts."""
+        if not self.data:
+            return
+
+        table = self.query_one(DataTable)
+
+        # Get all unique keys from all items
+        all_keys = set()
+        for item in self.data:
+            if isinstance(item, dict):
+                all_keys.update(item.keys())
+
+        # Sort keys with common fields first
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        sorted_keys = []
+
+        for field in common_fields:
+            if field in all_keys:
+                sorted_keys.append(field)
+                all_keys.remove(field)
+
+        sorted_keys.extend(sorted(all_keys))
+
+        # Add columns
+        for key in sorted_keys:
+            header = self._format_column_header(key)
+            table.add_column(header, key=key)
+
+        # Add rows
+        for item in self.data:
+            row_data = []
+            for key in sorted_keys:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+                row_data.append(formatted_value)
+            table.add_row(*row_data)
+
+        if self.title:
+            self.title = self.title
+
+    def _format_column_header(self, key: str) -> str:
+        """Format column header nicely."""
+        # Handle special cases first
+        special_cases = {
+            "id": "ID",
+            "url": "URL",
+            "api": "API",
+            "cpu": "CPU",
+            "gpu": "GPU",
+            "ram": "RAM",
+            "ssh": "SSH",
+            "uuid": "UUID",
+            "cidr": "CIDR",
+            "ip": "IP",
+        }
+
+        if key.lower() in special_cases:
+            return special_cases[key.lower()]
+
+        # Split on underscores and capitalize each word
+        words = key.split("_")
+        formatted_words = []
+        for word in words:
+            if word.lower() in special_cases:
+                formatted_words.append(special_cases[word.lower()])
+            else:
+                formatted_words.append(word.capitalize())
+
+        return " ".join(formatted_words)
+
+    def _format_cell_value(self, key: str, value: Any) -> str:
+        """Format a cell value for display."""
+        if value is None:
+            return "N/A"
+        elif value == "":
+            return "N/A"
+        elif isinstance(value, bool):
+            return "✓" if value else "✗"
+        elif isinstance(value, (list, dict)):
+            # For complex nested data, show a summary
+            if isinstance(value, list):
+                return f"[{len(value)} items]" if value else "[]"
+            else:
+                return f"[{len(value)} keys]" if value else "{}"
+        elif isinstance(value, str):
+            # Handle common formatting cases
+            if key.lower().endswith("_at") or "date" in key.lower():
+                # Try to format dates nicely, fallback to original
+                try:
+                    from datetime import datetime
+
+                    if "T" in value and value.endswith("Z"):
+                        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                        return dt.strftime("%Y-%m-%d")
+                    return value
+                except Exception:
+                    return value
+            elif key.lower() in ["status", "state"]:
+                return value.upper()
+            else:
+                # Truncate strings based on field-specific limits to prevent wrapping
+                max_length = self._get_field_max_length(key)
+                if len(value) > max_length:
+                    return value[: max_length - 3] + "..."
+                return value
+        else:
+            return str(value)
+
+    def _get_field_max_length(self, key: str) -> int:
+        """Get maximum character length for a field value."""
+        key_lower = key.lower()
+
+        if key_lower == "description":
+            return 50
+        elif key_lower in ["name", "title"]:
+            return 30
+        elif key_lower in ["email", "url"]:
+            return 35
+        elif key_lower == "id":
+            return 15
+        else:
+            return 25
+
+    def _render_static_table(
+        self, items: List[Dict[str, Any]], title: str, console: Console
+    ) -> None:
+        """Render a static table using Rich console (for non-interactive mode)."""
+        from rich.table import Table
+
+        if not items:
+            return
+
+        # Create Rich table for static rendering
+        table = Table(
+            title=title if title else None, show_header=True, header_style="bold magenta"
+        )
+
+        # Get all unique keys from all items
+        all_keys = set()
+        for item in items:
+            if isinstance(item, dict):
+                all_keys.update(item.keys())
+
+        # Sort keys with common fields first
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        sorted_keys = []
+
+        for field in common_fields:
+            if field in all_keys:
+                sorted_keys.append(field)
+                all_keys.remove(field)
+
+        sorted_keys.extend(sorted(all_keys))
+
+        # Add columns (Textual will auto-size these)
+        for key in sorted_keys:
+            header = self._format_column_header(key)
+            table.add_column(header, no_wrap=True)
+
+        # Add rows
+        for item in items:
+            row_data = []
+            for key in sorted_keys:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+                row_data.append(formatted_value)
+            table.add_row(*row_data)
+
+        console.print(table)
 
 
 class CommandTimeElapsedColumn(ProgressColumn):
@@ -456,10 +673,6 @@ class Step:
         self.action = action
 
 
-# Keep DeploymentStep for backward compatibility
-DeploymentStep = Step
-
-
 @contextmanager
 def progress_with_steps(
     steps: List[Step],
@@ -660,11 +873,6 @@ def progress_with_panel(
                 live.update(_create_panel(steps, step_statuses, panel_title))
 
         yield advance_step
-
-
-# Keep old function names for backward compatibility
-deployment_progress = progress_with_steps
-deployment_progress_panel = progress_with_panel
 
 
 @contextmanager
@@ -1086,3 +1294,1059 @@ class TerminalOutputManager:
                 self.console.print(message, style=style)
             else:
                 self.console.print(message)
+
+
+class UniversalOutputFormatter:
+    """Universal output formatter for all CLI commands.
+
+    This class provides a centralized way to format and display data from all commands,
+    supporting both JSON output and rich table formatting. It automatically detects
+    data structure and creates appropriate tables.
+
+    Usage:
+        formatter = UniversalOutputFormatter(console, json_output=ctx.obj.json_output)
+        formatter.output(data, title="Job Scripts")
+    """
+
+    def __init__(self, console: Console, json_output: bool = False):
+        """Initialize the output formatter.
+
+        Args:
+            console: Rich console for output
+            json_output: Whether to output JSON instead of formatted tables
+        """
+        self.console = console
+        self.json_output = json_output
+
+    def _get_terminal_width(self) -> int:
+        """Retrieve the current terminal width and update the console accordingly."""
+        fallback_width = max(getattr(self.console, "width", 80) or 80, 40)
+
+        try:
+            terminal_size = shutil.get_terminal_size(fallback=(fallback_width, 20))
+            width = max(terminal_size.columns, 40)
+        except (OSError, ValueError):  # pragma: no cover - rare environments
+            width = fallback_width
+
+        if width != getattr(self.console, "width", width):
+            # Update the console so downstream Rich components honor the latest size
+            self.console.width = width
+
+        return width
+
+    def output(self, data: Any, title: str = "", empty_message: str = "No items found.") -> None:
+        """Output data either as JSON or formatted table.
+
+        Args:
+            data: Data to output (dict, list, or simple value)
+            title: Title for the table display
+            empty_message: Message to show when data is empty
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            self._output_table(data, title, empty_message)
+
+    def _output_json(self, data: Any) -> None:
+        """Output data as formatted JSON without syntax highlighting.
+
+        We disable highlighting to ensure clean JSON output that can be piped
+        to tools like jq without ANSI color codes interfering.
+        """
+        if data is None:
+            self.console.print_json("{}", highlight=False)
+        else:
+            self.console.print_json(json.dumps(data, indent=2), highlight=False)
+
+    def _output_table(self, data: Any, title: str, empty_message: str) -> None:
+        """Output data as a formatted table."""
+        if not data:
+            self.console.print(f"📋 {empty_message}", style="yellow")
+            return
+
+        # Handle different data types
+        if isinstance(data, dict):
+            if "items" in data and isinstance(data["items"], list):
+                # Paginated response format
+                self._render_list_as_table(data["items"], title)
+                self._render_pagination_info(data)
+            else:
+                # Single item
+                self._render_dict_as_table(data, title or "Details")
+        elif isinstance(data, list):
+            if len(data) == 0:
+                self.console.print(f"📋 {empty_message}", style="yellow")
+            else:
+                self._render_list_as_table(data, title)
+        else:
+            # Simple value
+            self.console.print(data)
+
+    def _render_list_as_table(self, items: List[Dict[str, Any]], title: str) -> None:
+        """Render a list of items as a table using Textual's auto-layout principles."""
+        if not items:
+            return
+
+        # For now, use enhanced Rich table with Textual-inspired auto-layout
+        # This maintains compatibility while preparing for full Textual integration
+        self._render_textual_style_table(items, title)
+
+    def _render_textual_style_table(self, items: List[Dict[str, Any]], title: str) -> None:
+        """Render table using proper Textual DataTable implementation."""
+        if not items:
+            return
+
+        # Use actual Textual DataTable for proper formatting
+        try:
+            self._render_with_textual_datatable(items, title)
+        except Exception as e:
+            # If Textual fails, show a simple error message
+            self.console.print(f"[red]Error rendering table: {e}[/red]")
+
+    def _render_with_textual_datatable(self, items: List[Dict[str, Any]], title: str) -> None:
+        """Render using Rich Table with dynamic width based on terminal size."""
+        from rich import box
+        from rich.table import Table
+
+        if not items:
+            return
+
+        # Get terminal width for dynamic sizing
+        terminal_width = self._get_terminal_width()
+
+        # Get all unique keys from items
+        all_keys = set()
+        for item in items:
+            all_keys.update(item.keys())
+
+        # Sort keys with priority fields first
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        sorted_keys = []
+
+        for field in common_fields:
+            if field in all_keys:
+                sorted_keys.append(field)
+                all_keys.remove(field)
+
+        sorted_keys.extend(sorted(all_keys))
+
+        # Calculate dynamic column widths based on terminal size
+        column_widths = self._calculate_proportional_widths(items, sorted_keys, terminal_width)
+
+        # Create Rich table with proper formatting and dynamic sizing
+        table = Table(
+            title=title if title else None,
+            show_header=True,
+            header_style="bold magenta",
+            box=box.ROUNDED,
+            border_style="blue",
+            padding=(0, 1),
+            expand=True,
+            width=terminal_width,
+        )
+
+        # Add columns with calculated widths and smart overflow handling
+        # Track which columns use ellipsis for smart truncation
+        column_overflow = {}
+
+        for key in sorted_keys:
+            header = self._format_column_header(key)
+            col_width = column_widths.get(key, 20)
+
+            # Determine overflow strategy based on column type and width
+            if key.lower() in ["description", "summary", "details", "message"]:
+                # Long text fields - use fold for wrapping when very narrow
+                if col_width < 20:
+                    overflow = "ellipsis"
+                    no_wrap = True
+                else:
+                    overflow = "fold"
+                    no_wrap = False
+            elif key.lower() in ["id", "client_id", "clientid", "deployment_id", "product_id"]:
+                # IDs should never wrap, always use ellipsis
+                overflow = "ellipsis"
+                no_wrap = True
+            elif "_at" in key.lower() or "date" in key.lower() or "time" in key.lower():
+                # Dates/times should not wrap
+                overflow = "ellipsis"
+                no_wrap = True
+            else:
+                # Default columns - use ellipsis for narrow columns, fold for wider ones
+                if col_width < 15:
+                    overflow = "ellipsis"
+                    no_wrap = True
+                else:
+                    overflow = "fold"
+                    no_wrap = False
+
+            column_overflow[key] = (overflow, col_width)
+
+            table.add_column(
+                header, overflow=overflow, no_wrap=no_wrap, width=col_width, max_width=col_width
+            )
+
+        # Add rows with smart truncation for ellipsis columns
+        for item in items:
+            row_data = []
+            for key in sorted_keys:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+
+                # Apply smart truncation for columns using ellipsis
+                overflow_type, col_width = column_overflow[key]
+                if overflow_type == "ellipsis" and isinstance(formatted_value, str):
+                    formatted_value = self._smart_truncate(formatted_value, col_width)
+
+                row_data.append(formatted_value)
+            table.add_row(*row_data)
+
+        # Print using our console
+        self.console.print(table)
+
+    def _calculate_proportional_widths(
+        self, items: List[Dict[str, Any]], sorted_keys: List[str], total_width: int
+    ) -> Dict[str, int]:
+        """Calculate proportional column widths with intelligent auto-scaling.
+
+        This method implements a smart column width algorithm that:
+        1. Calculates actual content widths from data
+        2. Assigns priority to important columns (id, name, status)
+        3. Scales down gracefully when terminal width is limited
+        4. Hides less important columns if necessary for very narrow terminals
+        """
+        if not items or not sorted_keys:
+            return {}
+
+        # Reserve space for borders, padding, and separators
+        # Each column needs: 1 char padding left + 1 char padding right + 1 char separator = 3 chars
+        border_overhead = (len(sorted_keys) * 3) + 4  # +4 for outer borders
+        available_width = max(40, total_width - border_overhead)  # Minimum 40 chars usable width
+
+        # Calculate actual content widths by sampling data
+        actual_widths = {}
+        for key in sorted_keys:
+            # Start with header width
+            header_width = len(self._format_column_header(key))
+            max_content_width = header_width
+
+            # Sample up to 10 items to get realistic content width
+            sample_size = min(10, len(items))
+            for item in items[:sample_size]:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+                content_width = len(str(formatted_value))
+                max_content_width = max(max_content_width, content_width)
+
+            actual_widths[key] = max_content_width
+
+        # Define column priorities and constraints
+        column_config = self._get_column_config(sorted_keys, actual_widths)
+
+        # Calculate minimum required width
+        min_required = sum(config["min_width"] for config in column_config.values())
+
+        # If we don't have enough space, we need to be more aggressive
+        if min_required > available_width:
+            # Use even smaller minimum widths
+            for key in sorted_keys:
+                if column_config[key]["priority"] <= 1:
+                    # Low priority - can be very narrow or hidden
+                    column_config[key]["min_width"] = 4
+                elif column_config[key]["priority"] == 2:
+                    # Medium priority - minimal width
+                    column_config[key]["min_width"] = 6
+                else:
+                    # High priority - keep reasonable minimum
+                    column_config[key]["min_width"] = 8
+
+        # Calculate final widths using priority-based allocation
+        final_widths = self._allocate_column_widths(sorted_keys, column_config, available_width)
+
+        return final_widths
+
+    def _get_column_config(
+        self, sorted_keys: List[str], actual_widths: Dict[str, int]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Get column configuration with priorities and constraints based on actual content."""
+        config = {}
+
+        for key in sorted_keys:
+            key_lower = key.lower()
+            actual_width = actual_widths[key]
+
+            # Determine priority (3=high, 2=medium, 1=low, 0=can hide)
+            if key_lower in ["id", "name", "title", "status"]:
+                priority = 3  # Always show
+            elif key_lower in [
+                "description",
+                "created_at",
+                "updated_at",
+                "owner_email",
+                "email",
+            ]:
+                priority = 2  # Show if possible
+            elif key_lower in ["client_id", "cloned_from_id", "parent_template_id"]:
+                priority = 1  # Low priority
+            else:
+                priority = 2  # Default medium priority
+
+            # Determine optimal and maximum widths BASED ON ACTUAL CONTENT
+            # Use actual_width as the primary guide, with sensible constraints
+            if key_lower == "id":
+                # IDs: prefer showing full UUID (36 chars) but can compress
+                optimal = min(actual_width + 2, 38)  # +2 for padding
+                max_width = 40
+                min_width = 10
+            elif key_lower in ["name", "title"]:
+                optimal = min(actual_width + 2, 40)
+                max_width = 50
+                min_width = 15
+            elif key_lower in ["description", "message", "details", "summary"]:
+                optimal = min(actual_width + 2, 50)
+                max_width = 60
+                min_width = 20
+            elif key_lower in ["status", "state"]:
+                # Status: fit to content (usually short)
+                optimal = min(actual_width + 2, 15)
+                max_width = 15
+                min_width = 8
+            elif "_at" in key_lower or "date" in key_lower or "time" in key_lower:
+                # Timestamps: fit to actual format
+                optimal = min(actual_width + 2, 20)
+                max_width = 22
+                min_width = 12
+            elif "email" in key_lower:
+                optimal = min(actual_width + 2, 30)
+                max_width = 40
+                min_width = 15
+            elif "_name" in key_lower or "cluster" in key_lower or "app" in key_lower:
+                # Names: fit to content, usually shorter
+                optimal = min(actual_width + 2, 25)
+                max_width = 30
+                min_width = 8
+            elif "provider" in key_lower or "substrate" in key_lower:
+                # Providers: usually short (aws, gcp, localhost, etc.)
+                optimal = min(actual_width + 2, 15)
+                max_width = 20
+                min_width = 10
+            else:
+                # Default: fit to content with reasonable bounds
+                optimal = min(actual_width + 2, 25)
+                max_width = 35
+                min_width = 8
+
+            config[key] = {
+                "priority": priority,
+                "actual_width": actual_width,
+                "optimal_width": optimal,
+                "max_width": max_width,
+                "min_width": min_width,
+            }
+
+        return config
+
+    def _assign_minimum_widths(
+        self,
+        sorted_keys: List[str],
+        column_config: Dict[str, Dict[str, Any]],
+        available_width: int,
+    ) -> tuple[Dict[str, int], int]:
+        """Assign minimum widths to all columns.
+
+        Returns:
+            Tuple of (final_widths dict, remaining_width)
+        """
+        final_widths = {}
+        remaining_width = available_width
+        for key in sorted_keys:
+            min_width = column_config[key]["min_width"]
+            final_widths[key] = min_width
+            remaining_width -= min_width
+        return final_widths, remaining_width
+
+    def _distribute_by_priority(
+        self,
+        sorted_keys: List[str],
+        column_config: Dict[str, Dict[str, Any]],
+        final_widths: Dict[str, int],
+        remaining_width: int,
+    ) -> int:
+        """Distribute space by priority levels (3, 2, 1).
+
+        Returns:
+            Updated remaining width
+        """
+        for priority_level in [3, 2, 1]:
+            if remaining_width <= 0:
+                break
+
+            high_priority_keys = [
+                k for k in sorted_keys if column_config[k]["priority"] == priority_level
+            ]
+
+            if not high_priority_keys:
+                continue
+
+            # Calculate how much each column wants to grow
+            growth_needed = {}
+            total_growth = 0
+            for key in high_priority_keys:
+                current = final_widths[key]
+                optimal = column_config[key]["optimal_width"]
+                growth = max(0, optimal - current)
+                growth_needed[key] = growth
+                total_growth += growth
+
+            if total_growth == 0:
+                continue
+
+            # Distribute available space proportionally
+            space_to_distribute = min(remaining_width, total_growth)
+
+            for key in high_priority_keys:
+                if total_growth > 0:
+                    proportion = growth_needed[key] / total_growth
+                    extra_width = int(space_to_distribute * proportion)
+                    final_widths[key] += extra_width
+                    remaining_width -= extra_width
+
+        return remaining_width
+
+    def _distribute_remaining_evenly(
+        self,
+        sorted_keys: List[str],
+        column_config: Dict[str, Dict[str, Any]],
+        final_widths: Dict[str, int],
+        remaining_width: int,
+    ) -> None:
+        """Distribute any remaining space evenly among columns that can grow."""
+        keys_can_grow = [k for k in sorted_keys if final_widths[k] < column_config[k]["max_width"]]
+
+        while remaining_width > 0 and keys_can_grow:
+            extra_per_column = max(1, remaining_width // len(keys_can_grow))
+
+            for key in keys_can_grow[:]:
+                max_width = column_config[key]["max_width"]
+                current = final_widths[key]
+
+                if current >= max_width:
+                    keys_can_grow.remove(key)
+                    continue
+
+                can_add = min(extra_per_column, max_width - current, remaining_width)
+                final_widths[key] += can_add
+                remaining_width -= can_add
+
+                if final_widths[key] >= max_width:
+                    keys_can_grow.remove(key)
+
+            if extra_per_column == 0:
+                break
+
+    def _allocate_column_widths(
+        self,
+        sorted_keys: List[str],
+        column_config: Dict[str, Dict[str, Any]],
+        available_width: int,
+    ) -> Dict[str, int]:
+        """Allocate column widths using priority-based algorithm."""
+        # Start by assigning minimum widths
+        final_widths, remaining_width = self._assign_minimum_widths(
+            sorted_keys, column_config, available_width
+        )
+
+        if remaining_width <= 0:
+            # No extra space available, use minimums
+            return final_widths
+
+        # Distribute remaining space by priority
+        remaining_width = self._distribute_by_priority(
+            sorted_keys, column_config, final_widths, remaining_width
+        )
+
+        # If there's still space left, distribute evenly among all columns up to their max
+        if remaining_width > 0:
+            self._distribute_remaining_evenly(
+                sorted_keys, column_config, final_widths, remaining_width
+            )
+
+        return final_widths
+
+    def _render_dict_as_table(self, item: Dict[str, Any], title: str) -> None:
+        """Render a single dictionary as a details table with auto-scaling."""
+        from rich import box
+
+        # Get terminal width for dynamic sizing
+        terminal_width = self._get_terminal_width()
+
+        # Calculate column widths (30% for field name, 70% for value)
+        field_width = max(15, int(terminal_width * 0.3))
+        value_width = max(30, int(terminal_width * 0.7) - 10)  # Reserve space for borders
+
+        table = Table(
+            title=f"📋 {title}",
+            show_header=True,
+            header_style="bold magenta",  # Match list table header style
+            box=box.ROUNDED,
+            border_style="blue",
+            expand=True,
+            width=terminal_width,
+        )
+        table.add_column("Field", style="cyan", no_wrap=True, width=field_width)
+        table.add_column("Value", style="white", overflow="fold", no_wrap=False, width=value_width)
+
+        # Sort keys with common ones first
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        sorted_keys = []
+
+        for field in common_fields:
+            if field in item:
+                sorted_keys.append(field)
+
+        # Add remaining fields
+        remaining = [k for k in sorted(item.keys()) if k not in common_fields]
+        sorted_keys.extend(remaining)
+
+        for key in sorted_keys:
+            header = self._format_column_header(key)
+            value = self._format_cell_value(key, item[key])
+            table.add_row(header, value)
+
+        self.console.print(table)
+
+    def _render_pagination_info(self, data: Dict[str, Any]) -> None:
+        """Render pagination information if available."""
+        if all(key in data for key in ["page", "pages", "total"]):
+            page_info = f"Page {data['page']} of {data['pages']} (Total: {data['total']})"
+            self.console.print(f"\n{page_info}", style="dim")
+
+    def _format_column_header(self, key: str) -> str:
+        """Format a column header nicely."""
+        # Handle common abbreviations and special cases
+        special_cases = {
+            "id": "ID",
+            "api": "API",
+            "url": "URL",
+            "json": "JSON",
+            "xml": "XML",
+            "html": "HTML",
+            "http": "HTTP",
+            "https": "HTTPS",
+            "ip": "IP",
+            "cpu": "CPU",
+            "gpu": "GPU",
+            "ram": "RAM",
+            "os": "OS",
+            "ui": "UI",
+            "cli": "CLI",
+            "db": "DB",
+        }
+
+        # Split on underscores and capitalize each word
+        words = key.lower().split("_")
+        formatted_words = []
+
+        for word in words:
+            if word in special_cases:
+                formatted_words.append(special_cases[word])
+            else:
+                formatted_words.append(word.capitalize())
+
+        return " ".join(formatted_words)
+
+    def _get_column_style(self, key: str) -> str:
+        """Get appropriate style for a column based on its key."""
+        if key.lower() in ["id"]:
+            return "cyan"
+        elif key.lower() in ["name", "title"]:
+            return "green"
+        elif key.lower() in ["status", "state"]:
+            return "yellow"
+        elif key.lower().endswith("_at") or "date" in key.lower() or "time" in key.lower():
+            return "blue"
+        elif key.lower() in ["description"]:
+            return "white"
+        else:
+            return "white"
+
+    def _get_column_max_width(self, key: str) -> int:
+        """Get maximum width for a column based on its key to prevent wrapping."""
+        key_lower = key.lower()
+
+        # Field-specific width limits
+        if key_lower == "id":
+            return 15
+        elif key_lower in ["name", "title"]:
+            return 25
+        elif key_lower == "description":
+            return 40
+        elif key_lower in ["status", "state"]:
+            return 12
+        elif key_lower.endswith("_at") or "date" in key_lower or "time" in key_lower:
+            return 12
+        elif key_lower in ["email", "url", "endpoint"]:
+            return 30
+        elif key_lower in ["region", "zone", "location"]:
+            return 15
+        elif key_lower in ["cidr", "ip", "subnet"]:
+            return 18
+        else:
+            # Default max width for unknown fields
+            return 20
+
+    def _get_field_max_length(self, key: str) -> int:
+        """Get maximum character length for a field value to prevent wrapping."""
+        # This should match the column max width minus some padding for table borders
+        return self._get_column_max_width(key)
+
+    def _get_field_priority_weight(self, key: str) -> float:
+        """Get priority weight for field type to determine column width allocation.
+
+        Higher weight = wider column in proportional distribution.
+        """
+        key_lower = key.lower()
+
+        # High priority fields (get more space)
+        if key_lower in ["description", "message", "details"]:
+            return 3.0
+        elif key_lower in ["name", "title"]:
+            return 2.0
+        elif key_lower in ["email", "url", "endpoint"]:
+            return 2.0
+
+        # Medium priority fields
+        elif key_lower in ["id"]:
+            return 1.5
+        elif key_lower.endswith("_at") or "date" in key_lower or "time" in key_lower:
+            return 1.5
+        elif key_lower in ["region", "zone", "location", "cidr", "ip", "subnet"]:
+            return 1.5
+
+        # Low priority fields (get less space)
+        elif key_lower in ["status", "state"]:
+            return 1.0
+        elif key_lower in ["is_archived", "archived", "enabled", "active"]:
+            return 0.8
+
+        # Default weight
+        else:
+            return 1.2
+
+    def _get_adaptive_max_width(self, key: str, num_columns: int) -> int:
+        """Get adaptive maximum width for a column based on terminal size and column count.
+
+        This allows Rich to auto-size columns while preventing excessive width.
+
+        Args:
+            key: Column key
+            num_columns: Total number of columns in the table
+
+        Returns:
+            Maximum width for this column
+        """
+        # Get actual terminal width
+        import os
+        import shutil
+
+        env_columns = os.environ.get("COLUMNS")
+        if env_columns and env_columns.isdigit():
+            terminal_width = int(env_columns)
+        else:
+            terminal_width = shutil.get_terminal_size().columns
+
+        # Use a reasonable range: min 80, max 200
+        terminal_width = min(200, max(80, terminal_width))
+
+        # Calculate average column width (accounting for borders and padding)
+        available_width = terminal_width - (num_columns + 1) - (num_columns * 2)
+        avg_width = available_width // num_columns if num_columns > 0 else 20
+
+        # Adjust based on field type and terminal size
+        key_lower = key.lower()
+
+        if terminal_width >= 160:
+            # Wide terminal - be more generous
+            if key_lower in ["description", "message", "details"]:
+                return min(60, avg_width * 2)
+            elif key_lower in ["name", "title", "email", "url"]:
+                return min(40, avg_width + 10)
+            elif key_lower in ["id"]:
+                return min(20, avg_width)
+            else:
+                return min(30, avg_width + 5)
+
+        elif terminal_width >= 120:
+            # Medium terminal - moderate constraints
+            if key_lower in ["description", "message", "details"]:
+                return min(40, avg_width + 10)
+            elif key_lower in ["name", "title"]:
+                return min(25, avg_width + 5)
+            elif key_lower in ["email", "url"]:
+                return min(30, avg_width + 5)
+            elif key_lower in ["id"]:
+                return min(15, avg_width)
+            else:
+                return min(20, avg_width)
+
+        else:
+            # Narrow terminal - tight constraints
+            if key_lower in ["description", "message", "details"]:
+                return min(25, avg_width + 5)
+            elif key_lower in ["name", "title"]:
+                return min(20, avg_width)
+            elif key_lower in ["id"]:
+                return min(12, avg_width - 2)
+            elif key_lower in ["status", "state"]:
+                return min(10, avg_width - 2)
+            else:
+                return min(15, avg_width)
+
+    def _smart_truncate(self, text: str, max_width: int) -> str:
+        """Intelligently truncate text to fit within max_width.
+
+        For very narrow columns (< 6 chars), shows first 3 chars + "..."
+        For wider columns, uses standard ellipsis truncation.
+
+        Args:
+            text: Text to truncate
+            max_width: Maximum width for the text
+
+        Returns:
+            Truncated text with ellipsis if needed
+        """
+        if not text or len(text) <= max_width:
+            return text
+
+        # For very narrow columns (< 6 chars), show first 3 chars + "..."
+        if max_width < 6:
+            # Ensure we have at least 4 chars for "X..." pattern
+            if max_width >= 4:
+                return text[: max_width - 3] + "..."
+            else:
+                # For extremely narrow (1-3 chars), just show what we can
+                return text[:max_width]
+
+        # For columns 6+ chars, use standard truncation with ellipsis
+        return text[: max_width - 3] + "..."
+
+    def _format_cell_value(self, key: str, value: Any) -> str:
+        """Format a cell value for display."""
+        if value is None:
+            return "N/A"
+        elif value == "":
+            return "N/A"
+        elif isinstance(value, bool):
+            return "[green]✓[/green]" if value else "[red]✗[/red]"
+        elif isinstance(value, (list, dict)):
+            # For complex nested data, show a summary
+            if isinstance(value, list):
+                return f"[{len(value)} items]" if value else "[]"
+            else:
+                return f"[{len(value)} keys]" if value else "{}"
+        elif isinstance(value, str):
+            # Handle common formatting cases
+            if key.lower().endswith("_at") or "date" in key.lower():
+                # Try to format dates nicely, fallback to original
+                try:
+                    from datetime import datetime
+
+                    if "T" in value and value.endswith("Z"):
+                        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                        return dt.strftime("%Y-%m-%d")
+                    return value
+                except Exception:
+                    return value
+            elif key.lower() in ["status", "state"]:
+                return value.upper()
+            else:
+                # Let Rich handle text layout with ratio-based column sizing and 150-char width
+                # No manual truncation needed - Rich will handle overflow properly
+                return value
+        else:
+            return str(value)
+
+    def success(self, message: str) -> None:
+        """Display a success message."""
+        if not self.json_output:
+            self.console.print(f"✅ {message}", style="green")
+
+    def error(self, message: str) -> None:
+        """Display an error message."""
+        if not self.json_output:
+            self.console.print(f"❌ {message}", style="red")
+
+    def warning(self, message: str) -> None:
+        """Display a warning message."""
+        if not self.json_output:
+            self.console.print(f"⚠️ {message}", style="yellow")
+
+    def info(self, message: str) -> None:
+        """Display an info message."""
+        if not self.json_output:
+            self.console.print(f"ℹ️ {message}", style="blue")
+
+    # ============================================================================
+    # CRUD Operation Render Functions
+    # ============================================================================
+
+    def render_list(
+        self, data: Any, resource_name: str, empty_message: Optional[str] = None
+    ) -> None:
+        """Render a list of resources (for LIST operations).
+
+        Args:
+            data: Response data containing list of items
+            resource_name: Human-readable name for the resource type (e.g., "Job Scripts")
+            empty_message: Custom message when no items found
+        """
+        if empty_message is None:
+            empty_message = f"No {resource_name.lower()} found."
+
+        self.output(data, title=resource_name, empty_message=empty_message)
+
+    def render_get(self, data: Any, resource_name: str, resource_id: str = "") -> None:
+        """Render a single resource (for GET operations).
+
+        Args:
+            data: Response data for the single resource
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the resource being displayed
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            title = f"{resource_name}"
+            if resource_id:
+                title += f" (ID: {resource_id})"
+
+            if isinstance(data, dict):
+                self._render_dict_as_table(data, title)
+            else:
+                self.console.print(f"📄 {title}")
+                self.console.print(data)
+
+    def render_create(
+        self, data: Any, resource_name: str, success_message: Optional[str] = None
+    ) -> None:
+        """Render result of resource creation (for CREATE operations).
+
+        Args:
+            data: Response data from creation
+            resource_name: Human-readable name for the resource type
+            success_message: Custom success message
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            if success_message is None:
+                resource_id = ""
+                if isinstance(data, dict) and "id" in data:
+                    resource_id = f" (ID: {data['id']})"
+                success_message = f"{resource_name} created successfully{resource_id}"
+
+            self.success(success_message)
+
+            # Show key details of created resource
+            if isinstance(data, dict) and data:
+                self.console.print("\n📋 Created Resource Details:")
+                self._render_dict_as_table(data, "")
+
+    def render_update(
+        self,
+        data: Any,
+        resource_name: str,
+        resource_id: str = "",
+        success_message: Optional[str] = None,
+    ) -> None:
+        """Render result of resource update (for UPDATE operations).
+
+        Args:
+            data: Response data from update
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the updated resource
+            success_message: Custom success message
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            if success_message is None:
+                id_part = f" (ID: {resource_id})" if resource_id else ""
+                success_message = f"{resource_name} updated successfully{id_part}"
+
+            self.success(success_message)
+
+            # Show updated resource details
+            if isinstance(data, dict) and data:
+                self.console.print("\n📋 Updated Resource Details:")
+                self._render_dict_as_table(data, "")
+
+    def render_delete(
+        self,
+        resource_name: str,
+        resource_id: str = "",
+        success_message: Optional[str] = None,
+        data: Any = None,
+    ) -> None:
+        """Render result of resource deletion (for DELETE operations).
+
+        Args:
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the deleted resource
+            success_message: Custom success message
+            data: Optional response data from deletion
+        """
+        if self.json_output and data is not None:
+            self._output_json(data)
+        else:
+            if success_message is None:
+                id_part = f" (ID: {resource_id})" if resource_id else ""
+                success_message = f"{resource_name} deleted successfully{id_part}"
+
+            self.success(success_message)
+
+    def render_error(self, error_message: str, details: Any = None) -> None:
+        """Render error information for any failed operation.
+
+        Args:
+            error_message: Main error message
+            details: Optional additional error details
+        """
+        if self.json_output:
+            error_data = {"error": error_message}
+            if details:
+                error_data["details"] = details
+            self._output_json(error_data)
+        else:
+            self.error(error_message)
+            if details and isinstance(details, dict):
+                self.console.print("\n📋 Error Details:")
+                self._render_dict_as_table(details, "")
+            elif details:
+                self.console.print(f"\nDetails: {details}")
+
+    def render_confirmation(
+        self, message: str, resource_name: str = "", resource_id: str = ""
+    ) -> None:
+        """Render confirmation prompts for destructive operations.
+
+        Args:
+            message: Confirmation message
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the resource being affected
+        """
+        if not self.json_output:
+            if resource_name and resource_id:
+                self.console.print(f"🗑️  {resource_name} (ID: {resource_id})")
+            self.console.print(f"⚠️  {message}", style="yellow bold")
+
+    def render_operation_status(
+        self, operation: str, resource_name: str, status: str, details: str = ""
+    ) -> None:
+        """Render status of long-running operations.
+
+        Args:
+            operation: Type of operation (e.g., "Deployment", "Migration")
+            resource_name: Human-readable name for the resource
+            status: Current status (e.g., "In Progress", "Completed", "Failed")
+            details: Additional status details
+        """
+        if self.json_output:
+            status_data = {
+                "operation": operation,
+                "resource": resource_name,
+                "status": status,
+                "details": details,
+            }
+            self._output_json(status_data)
+        else:
+            status_style = {
+                "completed": "green",
+                "success": "green",
+                "in progress": "yellow",
+                "pending": "yellow",
+                "failed": "red",
+                "error": "red",
+            }.get(status.lower(), "blue")
+
+            self.console.print(f"🔄 {operation} - {resource_name}")
+            self.console.print(f"Status: {status}", style=status_style)
+            if details:
+                self.console.print(f"Details: {details}")
+
+    def render_bulk_operation(
+        self, operation: str, results: Dict[str, Any], resource_name: str
+    ) -> None:
+        """Render results of bulk operations affecting multiple resources.
+
+        Args:
+            operation: Type of bulk operation (e.g., "Bulk Delete", "Bulk Update")
+            results: Dictionary with success/failure counts and details
+            resource_name: Human-readable name for the resource type
+        """
+        if self.json_output:
+            self._output_json(results)
+        else:
+            total = results.get("total", 0)
+            success = results.get("success", 0)
+            failed = results.get("failed", 0)
+
+            self.console.print(f"📊 {operation} - {resource_name}")
+            self.console.print(f"Total processed: {total}")
+            if success > 0:
+                self.console.print(f"✅ Successful: {success}", style="green")
+            if failed > 0:
+                self.console.print(f"❌ Failed: {failed}", style="red")
+
+            # Show detailed results if available
+            if "details" in results and isinstance(results["details"], list):
+                self.console.print("\n📋 Detailed Results:")
+                for detail in results["details"]:
+                    if isinstance(detail, dict):
+                        status_icon = "✅" if detail.get("success") else "❌"
+                        resource_id = detail.get("id", "Unknown")
+                        message = detail.get("message", "")
+                        self.console.print(f"{status_icon} ID {resource_id}: {message}")
+
+    def render_validation_results(self, validation_results: Dict[str, Any]) -> None:
+        """Render validation results for data validation operations.
+
+        Args:
+            validation_results: Dictionary containing validation results
+        """
+        if self.json_output:
+            self._output_json(validation_results)
+        else:
+            is_valid = validation_results.get("valid", False)
+            errors = validation_results.get("errors", [])
+            warnings = validation_results.get("warnings", [])
+
+            if is_valid:
+                self.success("Validation successful")
+            else:
+                self.error("Validation failed")
+
+            if errors:
+                self.console.print("\n❌ Validation Errors:")
+                for error in errors:
+                    self.console.print(f"  • {error}", style="red")
+
+            if warnings:
+                self.console.print("\n⚠️  Validation Warnings:")
+                for warning in warnings:
+                    self.console.print(f"  • {warning}", style="yellow")

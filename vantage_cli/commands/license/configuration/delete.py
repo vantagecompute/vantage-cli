@@ -14,14 +14,17 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def delete_license_configuration(
     ctx: typer.Context,
     config_id: Annotated[str, typer.Argument(help="ID of the license configuration to delete")],
@@ -39,17 +42,12 @@ async def delete_license_configuration(
             ctx.obj.console.print("❌ Operation cancelled.")
             raise typer.Exit(0)
 
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "config_id": config_id,
-                "status": "deleted",
-                "message": f"License configuration '{config_id}' deleted successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("⚙️ License Configuration Delete Command")
-        ctx.obj.console.print(f"📋 Deleting license configuration: {config_id}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    await ctx.obj.rest_client.delete(f"/configurations/{config_id}")
+
+    # Use UniversalOutputFormatter for consistent delete rendering
+
+    ctx.obj.formatter.render_delete(
+        resource_name="License Configuration",
+        resource_id=str(config_id),
+        success_message="License configuration deleted successfully!",
+    )

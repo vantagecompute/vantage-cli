@@ -1,0 +1,58 @@
+# Copyright (C) 2025 Vantage Compute Corporation
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <https://www.gnu.org/licenses/>.
+"""Update Cudo Compute network command."""
+
+import logging
+
+import typer
+
+from vantage_cli.auth import attach_persona
+from vantage_cli.config import attach_settings
+
+from .. import attach_cudo_compute_client
+
+logger = logging.getLogger(__name__)
+
+
+@attach_settings
+@attach_persona
+@attach_cudo_compute_client
+async def update_network(
+    ctx: typer.Context,
+    project_id: str = typer.Option(..., "--project-id", help="Project ID"),
+    network_id: str = typer.Argument(..., help="Network ID"),
+    ip_range: str = typer.Option(None, "--ip-range", help="New IP range (CIDR notation)"),
+) -> None:
+    """Update a Cudo Compute network."""
+    try:
+        kwargs = {}
+        if ip_range:
+            kwargs["ipRange"] = ip_range
+
+        if not kwargs:
+            logger.debug("[bold yellow]Warning:[/bold yellow] No update parameters provided")
+            raise typer.Exit(code=1)
+
+        network = await ctx.obj.cudo_sdk.update_network(
+            project_id=project_id,
+            network_id=network_id,
+            **kwargs,
+        )
+        logger.debug(f"[bold green]Success:[/bold green] Updated network '{network_id}'")
+    except Exception as e:
+        logger.debug(f"[bold red]Error:[/bold red] Failed to update network: {e}")
+        raise typer.Exit(code=1)
+
+    ctx.obj.formatter.render_get(
+        data=network,
+        resource_name=f"Updated Network: {network_id}",
+    )

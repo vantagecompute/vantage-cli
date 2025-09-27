@@ -1,5 +1,4 @@
 ---
-id: deployment-applications-localhost
 title: Localhost Deployment Applications
 description: Deployment Applications for Localhost Sandbox
 ---
@@ -43,7 +42,7 @@ newgrp microk8s
 ```
 
 MicroK8S is now configured to work with the Vantage platform!
-Proceed to [MicroK8S Deployment Applications](./microk8s.md) to start deploying!
+Proceed to <a href="/vantage-cli/deployment-applications/localhost/microk8s">MicroK8S Deployment Applications</a> to start deploying!
 
 ### Multipass
 
@@ -63,7 +62,7 @@ sudo snap install multipass
 multipass --version
 ```
 
-Multipass is now installed. Proceed to the [Multipass Singlenode Deployment Application Documentation](./multipass-singlenode.md).
+Multipass is now installed. Proceed to the <a href="/vantage-cli/deployment-applications/localhost/multipass">Multipass Singlenode Deployment Application Documentation</a>.
 
 ### Charmed HPC
 
@@ -92,4 +91,4 @@ juju bootstrap localhost
 ```
 
 At this point you have bootstrapped a localhost juju controller on a lxd container and are ready to deploy!
-Proceed to the [Charmed-HPC Deployment Application Documentation](./charmed-hpc.md).
+Proceed to the <a href="/vantage-cli/deployment-applications/localhost/charmed-hpc">Charmed-HPC Deployment Application Documentation</a>.

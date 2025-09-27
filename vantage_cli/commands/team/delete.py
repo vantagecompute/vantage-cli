@@ -14,7 +14,6 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
@@ -26,7 +25,10 @@ async def delete_team(
     ctx: typer.Context, team_id: Annotated[str, typer.Argument(help="ID of the team to delete")]
 ):
     """Delete a team."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(data={"team_id": team_id, "status": "deleted"})
-    else:
-        ctx.obj.console.print(f"🗑️ Team {team_id} deleted successfully!")
+    # Use UniversalOutputFormatter for consistent delete rendering
+
+    ctx.obj.formatter.render_delete(
+        resource_name="Team",
+        resource_id=team_id,
+        success_message=f"Team '{team_id}' deleted successfully!",
+    )

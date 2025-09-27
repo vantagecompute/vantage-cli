@@ -14,14 +14,15 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from functools import wraps
 from pathlib import Path
-
-from loguru import logger
 
 from vantage_cli.constants import USER_TOKEN_CACHE_DIR
 from vantage_cli.exceptions import Abort
 from vantage_cli.schemas import TokenSet
+
+logger = logging.getLogger(__name__)
 
 
 def init_cache(cache_dir: Path) -> None:
