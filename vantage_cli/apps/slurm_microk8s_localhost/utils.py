@@ -251,24 +251,67 @@ EXTRA_SSHD_CONF = dedent(
 
 SSSD_CONF = dedent("""\
     [sssd]
+    # Core configuration
     config_file_version = 2
-    services = nss,pam
-    domains = DEFAULT
-
+    services = nss, pam, ssh, autofs
+    domains  = vantagecompute.ai
+    
+    # Debugging (for NSS)
     [nss]
-    filter_groups = root,slurm
-    filter_users = root,slurm
-
-    [pam]
-
-    [domain/DEFAULT]
-    auth_provider = ldap
-    id_provider = ldap
-    ldap_uri = ldap://ldap.example.com
-    ldap_search_base = dc=example,dc=com
-    ldap_user_search_base = ou=Users,dc=example,dc=com
-    ldap_group_search_base = ou=Groups,dc=example,dc=com
-    """)
+    debug_level = 7
+    
+    # -----------------------------------------------------------------------------
+    # Domain-specific settings for example.com
+    # -----------------------------------------------------------------------------
+    [domain/vantagecompute.ai]
+    # ─── Identity and Authentication ─────────────────────────────────────────────
+    id_provider      = ldap
+    auth_provider    = ldap
+    chpass_provider  = ldap
+    access_provider  = ldap
+    
+    # LDAP servers and search bases
+    ldap_uri               = ldap://192.168.7.120
+    ldap_search_base       = dc=vantagecompute,dc=ai
+    ldap_user_search_base  = ou=People,dc=vantagecompute,dc=ai
+    ldap_group_search_base = ou=Groups,dc=vantagecompute,dc=ai
+    
+    # Credentials for binding to LDAP
+    ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou=<keycloak-org-id>,ou=organizations,dc=vantagecompute,dc=ai
+    ldap_default_authtok      = OKrGUle0JqsOw8Nhfptgh0_DCClrSI2QiW9xG6T70mo
+    ldap_default_authtok_type = password
+    
+    # ─── Access control ───────────────────────────────────────────────────────────
+    # Only allow slurm-users to log in
+    ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,dc=vantagecompute,dc=ai
+    
+    # ─── SSH public key lookup ────────────────────────────────────────────────────
+    ldap_user_ssh_public_key = sshPublicKey
+    
+    # ─── Group mapping ─────────────────────────────────────────────────────────────
+    ldap_group_object_class = groupOfNames
+    ldap_group_member       = member
+    ldap_group_name         = cn
+    ldap_group_gid_number   = gidNumber
+    
+    # ─── Autofs integration ───────────────────────────────────────────────────────
+    autofs_provider               = ldap
+    ldap_autofs_search_base       = ou=auto.master,dc=vantagecompute,dc=ai
+    ldap_autofs_map_object_class  = automountMap
+    ldap_autofs_entry_object_class= automount
+    ldap_autofs_map_name          = automountMapName
+    ldap_autofs_entry_key         = automountKey
+    ldap_autofs_entry_value       = automountInformation
+    
+    # ─── Caching and performance ──────────────────────────────────────────────────
+    cache_credentials   = true
+    entry_cache_timeout = 600
+    enumerate           = false
+    
+    # ─── Schema type ───────────────────────────────────────────────────────────────
+    ldap_schema = rfc2307bis
+    """
+)
 
 
 def get_chart_values_slurm_operator() -> dict[str, Any]:
