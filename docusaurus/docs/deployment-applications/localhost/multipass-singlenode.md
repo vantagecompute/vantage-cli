@@ -3,13 +3,12 @@ title: Multipass Singlenode Deployment
 description: Deploy single-node SLURM cluster using Multipass virtual machines
 ---
 
-# Multipass Singlenode Deployment
-
 Deploy a complete single-node SLURM cluster using Multipass virtual machines for isolated HPC development and testing.
 
 ## Overview
 
 Multipass provides lightweight Ubuntu virtual machines that can host complete HPC environments:
+
 - **Multipass**: Ubuntu VM manager by Canonical
 - **SLURM**: Complete HPC workload manager in a single VM
 - **Shared Storage**: NFS or local filesystem sharing
@@ -18,9 +17,10 @@ Multipass provides lightweight Ubuntu virtual machines that can host complete HP
 
 ## Prerequisites
 
-Before proceeding, ensure you have completed the [Multipass prerequisites](./index.md#multipass) from the localhost deployment applications overview.
+Before proceeding, ensure you have completed the [Multipass prerequisites](./../index.md#multipass) from the localhost deployment applications overview.
 
 ### Required Components
+
 - Multipass installed and running
 - Sufficient system resources (4GB RAM, 20GB disk minimum)
 - Vantage CLI
@@ -37,6 +37,7 @@ vantage app deploy slurm-multipass-localhost
 ```
 
 **Features:**
+
 - Complete SLURM installation in single VM
 - Controller, database, and compute in one node
 - Pre-configured user environment
@@ -45,6 +46,7 @@ vantage app deploy slurm-multipass-localhost
 - SSH access configured
 
 **Architecture:**
+
 - **Single VM**: Ubuntu 22.04 LTS
 - **SLURM Controller**: slurmctld daemon
 - **SLURM Database**: slurmdbd with MySQL
