@@ -1,17 +1,5 @@
 # Copyright (C) 2025 Vantage Compute Corporation
-# This    #     # Use UniversalOutputFormatter for consistent delete rendering
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_delete(
-        resource_name="Job Script",
-        resource_id=str(script_id),
-        success_message=f"Job script '{script_data.get('name')}' deleted successfully!"
-    )versalOutputFormatter for consistent delete rendering
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_delete(
-        resource_name="Job Script",
-        resource_id=str(script_id),
-        success_message=f"Job script '{script_data.get('name')}' deleted successfully!"
-    )m is free software: you can redistribute it and/or modify it under
+# This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, version 3.
 #
@@ -64,11 +52,10 @@ async def delete_job_script(
     
     response = await client.delete(f"/job-scripts/{script_id}")
     
-    # DELETE typically returns empty response on success (204 No Content)
-    if ctx.obj.json_output:
-        print_json(data={"message": f"Job script {script_id} deleted successfully"})
-    else:
-        ctx.obj.console.print(
-            f"✅ Job script '{script_name}' deleted successfully!",
-            style="green",
-        )
+    # Use UniversalOutputFormatter for consistent delete rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_delete(
+        resource_name="Job Script",
+        resource_id=str(script_id),
+        success_message=f"Job script '{script_name}' deleted successfully!"
+    )

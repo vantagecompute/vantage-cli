@@ -41,4 +41,12 @@ async def delete_license_product(
 
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
     response = await client.delete(f"/products/{product_id}")
-    client.print_json(response)
+    
+    # Use UniversalOutputFormatter for consistent delete rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_delete(
+        resource_name="License Product",
+        resource_id=str(product_id),
+        success_message=f"License product deleted successfully!"
+    )

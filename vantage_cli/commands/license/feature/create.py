@@ -53,5 +53,13 @@ async def create_license_feature(
         if description:
             payload["description"] = description
     
-    response = await client.post("/features", payload)
-    client.print_json(response)
+    response = await client.post("/features", json=feature_data)
+    
+    # Use UniversalOutputFormatter for consistent create rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_create(
+        data=response,
+        resource_name="License Feature",
+        success_message=f"License feature '{response.get('name')}' created successfully!"
+    )

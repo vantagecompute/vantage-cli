@@ -13,7 +13,7 @@
 
 from vantage_cli import AsyncTyper
 
-from .booking import booking_app
+from .booking import app as booking_app
 from .configuration import configuration_app
 from .deployment import deployment_app
 from .feature import feature_app

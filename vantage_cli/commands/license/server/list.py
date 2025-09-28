@@ -50,5 +50,13 @@ async def list_license_servers(
     if offset:
         params["offset"] = offset
     
-    response = await client.get("/license_servers", params=params)
-    client.print_json(response)
+    response = await client.get("/servers", params=params)
+    
+    # Use UniversalOutputFormatter for consistent list rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_list(
+        data=response,
+        resource_name="License Servers",
+        empty_message="No license servers found."
+    )

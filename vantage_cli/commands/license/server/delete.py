@@ -40,5 +40,13 @@ async def delete_license_server(
             raise typer.Exit(0)
 
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    response = await client.delete(f"/license_servers/{server_id}")
-    client.print_json(response)
+    response = await client.delete(f"/servers/{server_id}")
+    
+    # Use UniversalOutputFormatter for consistent delete rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_delete(
+        resource_name="License Server",
+        resource_id=str(server_id),
+        success_message=f"License server deleted successfully!"
+    )

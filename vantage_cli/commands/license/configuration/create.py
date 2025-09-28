@@ -50,5 +50,13 @@ async def create_license_configuration(
     if description is not None:
         payload["description"] = description
     
-    response = await client.post("/configurations", payload)
-    client.print_json(response)
+    response = await client.post("/configurations", json=config_data)
+    
+    # Use UniversalOutputFormatter for consistent create rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_create(
+        data=response,
+        resource_name="License Configuration",
+        success_message=f"License configuration '{response.get('name')}' created successfully!"
+    )

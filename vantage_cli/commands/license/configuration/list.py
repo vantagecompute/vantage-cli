@@ -50,5 +50,13 @@ async def list_license_configurations(
     if offset is not None:
         params["offset"] = offset
         
-    configurations = await client.get("/configurations", params=params)
-    client.print_json(configurations)
+    response = await client.get("/configurations", params=params)
+    
+    # Use UniversalOutputFormatter for consistent list rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_list(
+        data=response,
+        resource_name="License Configurations",
+        empty_message="No license configurations found."
+    )

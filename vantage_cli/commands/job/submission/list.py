@@ -14,12 +14,11 @@
 from typing import Optional
 
 import typer
-from rich import print_json
-from rich.table import Table
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.render import UniversalOutputFormatter
 
 
 @handle_abort
@@ -78,41 +77,10 @@ async def list_job_submissions(
     response = await client.get("/job-submissions", params=params)
     submissions_data = response
     
-    if ctx.obj.json_output:
-        print_json(data=submissions_data)
-    else:
-        submissions = submissions_data.get("items", [])
-        if not submissions:
-            ctx.obj.console.print("📋 No job submissions found.")
-            return
-        
-        table = Table(title="Job Submissions", show_header=True, header_style="bold magenta")
-        table.add_column("ID", style="cyan", min_width=8)
-        table.add_column("Name", style="green", min_width=20)
-        table.add_column("Owner", style="blue", min_width=15)
-        table.add_column("Description", style="white", min_width=30)
-        table.add_column("Script ID", style="yellow", min_width=10)
-        table.add_column("SLURM ID", style="purple", min_width=10)
-        table.add_column("Status", style="red", min_width=10)
-        table.add_column("Created", style="dim", min_width=10)
-        
-        for submission in submissions:
-            table.add_row(
-                str(submission.get("id", "")),
-                submission.get("name", ""),
-                submission.get("owner_email", ""),
-                submission.get("description", "") or "N/A",
-                str(submission.get("job_script_id", "")) if submission.get("job_script_id") else "N/A",
-                str(submission.get("slurm_job_id", "")) if submission.get("slurm_job_id") else "N/A",
-                submission.get("status", ""),
-                submission.get("created_at", "")[:10] if submission.get("created_at") else "",
-            )
-        
-        ctx.obj.console.print(table)
-        
-        # Show pagination info
-        total = submissions_data.get("total", 0)
-        current_page = submissions_data.get("page", 1)
-        pages = submissions_data.get("pages", 1)
-        
-        ctx.obj.console.print(f"\nPage {current_page} of {pages} (Total: {total})")
+    # Use UniversalOutputFormatter for consistent list rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_list(
+        data=submissions_data,
+        resource_name="Job Submissions",
+        empty_message="No job submissions found."
+    )

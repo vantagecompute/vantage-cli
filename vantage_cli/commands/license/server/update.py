@@ -50,5 +50,14 @@ async def update_license_server(
     if description is not None:
         payload["description"] = description
     
-    response = await client.put(f"/license_servers/{server_id}", payload)
-    client.print_json(response)
+    response = await client.put(f"/servers/{server_id}", json=update_data)
+    
+    # Use UniversalOutputFormatter for consistent update rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_update(
+        data=response,
+        resource_name="License Server",
+        resource_id=str(server_id),
+        success_message=f"License server '{response.get('name')}' updated successfully!"
+    )

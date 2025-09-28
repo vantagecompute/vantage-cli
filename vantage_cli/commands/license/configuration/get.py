@@ -29,4 +29,12 @@ async def get_license_configuration(
     """Get details of a specific license configuration."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
     response = await client.get(f"/configurations/{config_id}")
-    client.print_json(response)
+    
+    # Use UniversalOutputFormatter for consistent get rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_get(
+        data=response,
+        resource_name="License Configuration",
+        resource_id=str(config_id)
+    )

@@ -34,53 +34,11 @@ async def delete_network(
     # Check for JSON output mode
     json_output = getattr(ctx.obj, "json_output", False)
 
-    # If JSON mode, bypass all visual rendering
-    if json_output:
-        result: Dict[str, Any] = {
-            "network_id": network_id,
-            "status": "deleted",
-            "force": force,
-            "message": f"Network {network_id} deleted successfully",
-        }
-        RenderStepOutput.json_bypass(result)
-        return
-
-    # Regular rendering for non-JSON mode
-    step_names = [
-        "Validating network",
-        "Detaching instances",
-        "Removing subnets",
-        "Deleting network",
-    ]
-    if force:
-        step_names = ["Validating network", "Force deleting network"]
-
-    console = ctx.obj.console
-
-    with RenderStepOutput(
-        console=console,
-        operation_name="Deleting network",
-        step_names=step_names,
-        json_output=json_output,
-        command_start_time=command_start_time,
-    ) as renderer:
-        renderer.advance("Validating network", "starting")
-        # Simulate validation
-        renderer.advance("Validating network", "completed")
-
-        if force:
-            renderer.advance("Force deleting network", "starting")
-            # Simulate force deletion
-            renderer.advance("Force deleting network", "completed")
-        else:
-            renderer.advance("Detaching instances", "starting")
-            # Simulate detaching instances
-            renderer.advance("Detaching instances", "completed")
-
-            renderer.advance("Removing subnets", "starting")
-            # Simulate subnet removal
-            renderer.advance("Removing subnets", "completed")
-
-            renderer.advance("Deleting network", "starting")
-            # Simulate network deletion
-            renderer.advance("Deleting network", "completed")
+        # Use UniversalOutputFormatter for consistent delete rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_delete(
+        resource_name="Network",
+        resource_id=network_id,
+        success_message=f"Network '{network_id}' deleted successfully!"
+    )

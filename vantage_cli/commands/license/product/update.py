@@ -50,5 +50,14 @@ async def update_license_product(
     if license_type is not None:
         payload["license_type"] = license_type
     
-    response = await client.put(f"/products/{product_id}", payload)
-    client.print_json(response)
+    response = await client.put(f"/products/{product_id}", json=update_data)
+    
+    # Use UniversalOutputFormatter for consistent update rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_update(
+        data=response,
+        resource_name="License Product",
+        resource_id=str(product_id),
+        success_message=f"License product '{response.get('name')}' updated successfully!"
+    )

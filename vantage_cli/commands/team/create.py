@@ -12,7 +12,7 @@
 """Create team command."""
 
 import typer
-from rich import print_json
+
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
@@ -22,7 +22,20 @@ from vantage_cli.exceptions import handle_abort
 @handle_abort
 async def create_team(ctx: typer.Context):
     """Create a new team."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(data={"team_id": "team-12345", "status": "created"})
-    else:
-        ctx.obj.console.print("👥 Team team-12345 created successfully!")
+    # Mock team creation result
+    result = {
+        "team_id": "team-new-456",
+        "name": name,
+        "description": description or "No description provided",
+        "member_count": 0,
+        "created_at": "2025-09-15T14:30:00Z",
+    }
+    
+    # Use UniversalOutputFormatter for consistent create rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_create(
+        data=result,
+        resource_name="Team",
+        success_message=f"Team '{name}' created successfully!"
+    )

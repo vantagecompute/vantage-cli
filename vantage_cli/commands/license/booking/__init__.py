@@ -11,6 +11,19 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """License booking management commands."""
 
-from .main import app as booking_app
+import typer
 
-__all__ = ["booking_app"]
+from .list import list_bookings
+from .get import get_booking  
+from .create import create_booking
+from .delete import delete_booking
+
+app = typer.Typer(help="License booking management commands")
+
+# Register commands
+app.command("list", help="List all license bookings")(list_bookings)
+app.command("get", help="Get a specific license booking by ID")(get_booking)
+app.command("create", help="Create a new license booking")(create_booking)
+app.command("delete", help="Delete a license booking")(delete_booking)
+
+__all__ = ["app"]

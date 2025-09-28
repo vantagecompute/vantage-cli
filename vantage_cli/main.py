@@ -24,6 +24,7 @@ from rich import print_json
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from typer.core import TyperGroup
 
 from vantage_cli import AsyncTyper, __version__
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
@@ -59,6 +60,10 @@ from vantage_cli.config import (
 from vantage_cli.constants import VANTAGE_CLI_DEV_APPS_DIR
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.schemas import CliContext, Persona, TokenSet
+
+# Set terminal width for Rich error messages to match our console width
+import os
+os.environ["COLUMNS"] = "200"
 
 app = AsyncTyper(
     name="Vantage CLI",
@@ -136,8 +141,8 @@ def main(ctx: typer.Context):
     setup_logging(verbose=verbose)
 
     # Create a single console instance for the entire application
-    # console = Console(width=150)
-    console = Console()
+    # console = Console(width=200)
+    console = Console(width=200, color_system="auto", force_terminal=True)
 
     cli_ctx = CliContext(
         profile=active_profile, verbose=verbose, json_output=json_output, console=console

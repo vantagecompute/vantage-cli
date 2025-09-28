@@ -56,5 +56,14 @@ async def update_license_feature(
             ctx.obj.console.print("❌ Error: No update data provided")
             raise typer.Exit(1)
     
-    response = await client.put(f"/features/{feature_id}", payload)
-    client.print_json(response)
+    response = await client.put(f"/features/{feature_id}", json=update_data)
+    
+    # Use UniversalOutputFormatter for consistent update rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_update(
+        data=response,
+        resource_name="License Feature",
+        resource_id=str(feature_id),
+        success_message=f"License feature '{response.get('name')}' updated successfully!"
+    )

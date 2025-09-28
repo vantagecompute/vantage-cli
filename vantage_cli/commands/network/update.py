@@ -43,36 +43,20 @@ async def update_network(
     # Check for JSON output mode
     json_output = getattr(ctx.obj, "json_output", False)
 
-    # If JSON mode, bypass all visual rendering
-    if json_output:
-        result: Dict[str, Any] = {
-            "network_id": network_id,
-            "updates": {"name": name, "description": description, "enable_dns": enable_dns},
-            "status": "updated",
-            "message": f"Network {network_id} updated successfully",
-        }
-        RenderStepOutput.json_bypass(result)
-        return
+        # Mock result for network update
+    result = {
+        "status": "success",
+        "message": f"Network '{network_id}' updated successfully",
+        "network_id": network_id,
+        "updates": {"name": name} if name else {},
+    }
 
-    # Regular rendering for non-JSON mode
-    step_names = ["Validating network", "Applying configuration changes", "Updating DNS settings"]
-    console = ctx.obj.console
-
-    with RenderStepOutput(
-        console=console,
-        operation_name="Updating network",
-        step_names=step_names,
-        json_output=json_output,
-        command_start_time=command_start_time,
-    ) as renderer:
-        renderer.advance("Validating network", "starting")
-        # Simulate validation
-        renderer.advance("Validating network", "completed")
-
-        renderer.advance("Applying configuration changes", "starting")
-        # Simulate applying changes
-        renderer.advance("Applying configuration changes", "completed")
-
-        renderer.advance("Updating DNS settings", "starting")
-        # Simulate DNS updates
-        renderer.advance("Updating DNS settings", "completed")
+    # Use UniversalOutputFormatter for consistent update rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_update(
+        data=result,
+        resource_name="Network",
+        resource_id=network_id,
+        success_message=f"Network '{network_id}' updated successfully!"
+    )

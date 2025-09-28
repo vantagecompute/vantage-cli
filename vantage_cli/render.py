@@ -1181,11 +1181,16 @@ class UniversalOutputFormatter:
         # Add remaining fields alphabetically
         sorted_keys.extend(sorted(all_keys))
         
-        # Add columns with nice formatting
-        for key in sorted_keys:
+        # Calculate proportional widths that fill the available space
+        column_widths = self._calculate_proportional_widths(sorted_keys)
+        
+        # Add columns with proportional widths
+        for i, key in enumerate(sorted_keys):
             # Format column headers nicely
             header = self._format_column_header(key)
-            table.add_column(header, style=self._get_column_style(key))
+            style = self._get_column_style(key)
+            width = column_widths[i]
+            table.add_column(header, style=style, width=width, no_wrap=True)
         
         # Add rows
         for item in items:
@@ -1279,6 +1284,112 @@ class UniversalOutputFormatter:
         else:
             return "white"
     
+    def _get_column_max_width(self, key: str) -> int:
+        """Get maximum width for a column based on its key to prevent wrapping."""
+        key_lower = key.lower()
+        
+        # Field-specific width limits
+        if key_lower == "id":
+            return 15
+        elif key_lower in ["name", "title"]:
+            return 25
+        elif key_lower == "description":
+            return 40
+        elif key_lower in ["status", "state"]:
+            return 12
+        elif key_lower.endswith("_at") or "date" in key_lower or "time" in key_lower:
+            return 12
+        elif key_lower in ["email", "url", "endpoint"]:
+            return 30
+        elif key_lower in ["region", "zone", "location"]:
+            return 15
+        elif key_lower in ["cidr", "ip", "subnet"]:
+            return 18
+        else:
+            # Default max width for unknown fields
+            return 20
+    
+    def _get_field_max_length(self, key: str) -> int:
+        """Get maximum character length for a field value to prevent wrapping."""
+        # This should match the column max width minus some padding for table borders
+        return self._get_column_max_width(key)
+    
+    def _calculate_proportional_widths(self, keys: List[str]) -> List[int]:
+        """Calculate proportional column widths that fill the 200-character width.
+        
+        Args:
+            keys: List of column keys
+            
+        Returns:
+            List of column widths that sum to approximately 200 characters
+        """
+        if not keys:
+            return []
+        
+        # Total available width (200 chars minus table borders and padding)
+        # Rich table uses: | col1 | col2 | col3 |
+        # So we need space for: (num_cols + 1) border chars + (num_cols * 2) padding
+        total_available = 200 - (len(keys) + 1) - (len(keys) * 2)
+        
+        # Get relative priority weights for each field type
+        field_weights = {}
+        for key in keys:
+            field_weights[key] = self._get_field_priority_weight(key)
+        
+        # Calculate total weight
+        total_weight = sum(field_weights.values())
+        
+        # Calculate proportional widths
+        widths = []
+        remaining_width = total_available
+        
+        for i, key in enumerate(keys):
+            if i == len(keys) - 1:
+                # Last column gets all remaining width
+                widths.append(max(8, remaining_width))  # Minimum 8 chars
+            else:
+                # Calculate proportional width
+                weight_ratio = field_weights[key] / total_weight
+                width = int(total_available * weight_ratio)
+                width = max(8, min(width, 50))  # Between 8 and 50 chars
+                widths.append(width)
+                remaining_width -= width
+        
+        return widths
+    
+    def _get_field_priority_weight(self, key: str) -> float:
+        """Get priority weight for field type to determine column width allocation.
+        
+        Higher weight = wider column in proportional distribution.
+        """
+        key_lower = key.lower()
+        
+        # High priority fields (get more space)
+        if key_lower in ["description", "message", "details"]:
+            return 3.0
+        elif key_lower in ["name", "title"]:
+            return 2.0
+        elif key_lower in ["email", "url", "endpoint"]:
+            return 2.0
+        
+        # Medium priority fields 
+        elif key_lower in ["id"]:
+            return 1.5
+        elif key_lower.endswith("_at") or "date" in key_lower or "time" in key_lower:
+            return 1.5
+        elif key_lower in ["region", "zone", "location", "cidr", "ip", "subnet"]:
+            return 1.5
+        
+        # Low priority fields (get less space)
+        elif key_lower in ["status", "state"]:
+            return 1.0
+        elif key_lower in ["is_archived", "archived", "enabled", "active"]:
+            return 0.8
+        
+        # Default weight
+        else:
+            return 1.2
+    
     def _format_cell_value(self, key: str, value: Any) -> str:
         """Format a cell value for display."""
         if value is None:
@@ -1308,9 +1419,10 @@ class UniversalOutputFormatter:
             elif key.lower() in ["status", "state"]:
                 return value.upper()
             else:
-                # Truncate very long strings
-                if len(value) > 50:
-                    return value[:47] + "..."
+                # Truncate strings based on field-specific limits to prevent wrapping
+                max_length = self._get_field_max_length(key)
+                if len(value) > max_length:
+                    return value[:max_length-3] + "..."
                 return value
         else:
             return str(value)

@@ -47,5 +47,13 @@ async def create_license_server(
     if description is not None:
         payload["description"] = description
     
-    response = await client.post("/license_servers", payload)
-    client.print_json(response)
+    response = await client.post("/servers", json=server_data)
+    
+    # Use UniversalOutputFormatter for consistent create rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_create(
+        data=response,
+        resource_name="License Server",
+        success_message=f"License server '{response.get('name')}' created successfully!"
+    )

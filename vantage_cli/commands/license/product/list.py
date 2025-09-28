@@ -51,4 +51,12 @@ async def list_license_products(
         params["offset"] = offset
     
     response = await client.get("/products", params=params)
-    client.print_json(response)
+    
+    # Use UniversalOutputFormatter for consistent list rendering
+    from vantage_cli.render import UniversalOutputFormatter
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_list(
+        data=response,
+        resource_name="License Products",
+        empty_message="No license products found."
+    )
