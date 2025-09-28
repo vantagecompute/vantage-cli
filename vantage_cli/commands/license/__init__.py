@@ -13,8 +13,10 @@
 
 from vantage_cli import AsyncTyper
 
+from .booking import booking_app
 from .configuration import configuration_app
 from .deployment import deployment_app
+from .feature import feature_app
 from .product import product_app
 from .server import server_app
 
@@ -27,7 +29,9 @@ license_app = AsyncTyper(
 )
 
 # Register subcommands
+license_app.add_typer(booking_app, name="booking")
 license_app.add_typer(server_app, name="server")
 license_app.add_typer(product_app, name="product")
 license_app.add_typer(configuration_app, name="configuration")
 license_app.add_typer(deployment_app, name="deployment")
+license_app.add_typer(feature_app, name="feature")

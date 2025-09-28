@@ -14,10 +14,10 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -27,19 +27,6 @@ async def get_license_product(
     product_id: Annotated[str, typer.Argument(help="ID of the license product to get")],
 ):
     """Get details of a specific license product."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "product_id": product_id,
-                "name": f"License Product {product_id}",
-                "version": "1.0.0",
-                "status": "active",
-                "message": "License product details retrieved successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("📦 License Product Get Command")
-        ctx.obj.console.print(f"📋 Getting details for license product: {product_id}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
+    response = await client.get(f"/products/{product_id}")
+    client.print_json(response)

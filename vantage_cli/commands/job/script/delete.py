@@ -1,5 +1,17 @@
 # Copyright (C) 2025 Vantage Compute Corporation
-# This program is free software: you can redistribute it and/or modify it under
+# This    #     # Use UniversalOutputFormatter for consistent delete rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_delete(
+        resource_name="Job Script",
+        resource_id=str(script_id),
+        success_message=f"Job script '{script_data.get('name')}' deleted successfully!"
+    )versalOutputFormatter for consistent delete rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_delete(
+        resource_name="Job Script",
+        resource_id=str(script_id),
+        success_message=f"Job script '{script_data.get('name')}' deleted successfully!"
+    )m is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, version 3.
 #
@@ -14,20 +26,49 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.render import UniversalOutputFormatter
 
 
 @handle_abort
 @attach_settings
 async def delete_job_script(
     ctx: typer.Context,
-    script_id: Annotated[str, typer.Argument(help="ID of the job script to delete")],
+    script_id: Annotated[int, typer.Argument(help="ID of the job script to delete")],
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
 ):
     """Delete a job script."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(data={"script_id": script_id, "status": "deleted"})
+    # Create REST API client
+    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    script_name = str(script_id)
+    
+    if not yes and not ctx.obj.json_output:
+        # Get script info for confirmation
+        try:
+            response = await client.get(f"/job-scripts/{script_id}")
+            script_data = response
+            script_name = script_data.get("name", str(script_id))
+        except Exception:
+            script_name = str(script_id)
+        
+        confirm = typer.confirm(
+            f"Are you sure you want to delete job script '{script_name}'? This action cannot be undone."
+        )
+        if not confirm:
+            ctx.obj.console.print("❌ Delete operation cancelled.", style="yellow")
+            raise typer.Exit(0)
+    
+    response = await client.delete(f"/job-scripts/{script_id}")
+    
+    # DELETE typically returns empty response on success (204 No Content)
+    if ctx.obj.json_output:
+        print_json(data={"message": f"Job script {script_id} deleted successfully"})
     else:
-        ctx.obj.console.print(f"🗑️ Job script {script_id} deleted successfully!")
+        ctx.obj.console.print(
+            f"✅ Job script '{script_name}' deleted successfully!",
+            style="green",
+        )

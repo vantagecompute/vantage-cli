@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get license server command."""
+"""Get license feature command."""
 
 from typing import Annotated
 
@@ -22,11 +22,12 @@ from vantage_cli.commands.license.client import lm_rest_client
 
 @handle_abort
 @attach_settings
-async def get_license_server(
+async def get_license_feature(
     ctx: typer.Context,
-    server_id: Annotated[str, typer.Argument(help="ID of the license server to get")],
+    feature_id: Annotated[str, typer.Argument(help="ID of the license feature to get")],
 ):
-    """Get details of a specific license server."""
+    """Get details of a specific license feature."""
+    """Get a specific license feature."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    response = await client.get(f"/license_servers/{server_id}")
+    response = await client.get(f"/features/{feature_id}")
     client.print_json(response)

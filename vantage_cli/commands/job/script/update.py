@@ -11,23 +11,71 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update job script command."""
 
-from typing import Annotated
+import json
+from pathlib import Path
+from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.render import UniversalOutputFormatter
 
 
 @handle_abort
 @attach_settings
 async def update_job_script(
     ctx: typer.Context,
-    script_id: Annotated[str, typer.Argument(help="ID of the job script to update")],
+    script_id: Annotated[int, typer.Argument(help="ID of the job script to update")],
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="New name for the job script"),
+    description: Optional[str] = typer.Option(
+        None, "--description", "-d", help="New description for the job script"
+    ),
+    is_archived: Optional[bool] = typer.Option(
+        None, "--archived/--not-archived", help="Archive or unarchive the job script"
+    ),
+    json_file: Optional[Path] = typer.Option(
+        None, "--json-file", "-f", help="Path to JSON file containing update data"
+    ),
 ):
-    """Update a job script configuration."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(data={"script_id": script_id, "status": "updated"})
+    """Update a job script."""
+    # Create REST API client
+    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    if json_file:
+        # Read data from JSON file
+        try:
+            with open(json_file, "r") as f:
+                update_data = json.load(f)
+        except Exception as e:
+            ctx.obj.console.print(f"❌ Error reading JSON file: {e}", style="red")
+            raise typer.Exit(1)
     else:
-        ctx.obj.console.print(f"🔄 Job script {script_id} updated successfully!")
+        # Build update data from command options
+        update_data = {}
+        
+        if name is not None:
+            update_data["name"] = name
+        if description is not None:
+            update_data["description"] = description
+        if is_archived is not None:
+            update_data["is_archived"] = is_archived
+        
+        if not update_data:
+            ctx.obj.console.print(
+                "❌ No update fields provided. Use --name, --description, or --archived options.",
+                style="red"
+            )
+            raise typer.Exit(1)
+    
+    result = await client.put(f"/job-scripts/{script_id}", json=update_data)
+    
+    # Use UniversalOutputFormatter for consistent update rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_update(
+        data=result,
+        resource_name="Job Script",
+        resource_id=str(script_id),
+        success_message=f"Job script '{result.get('name')}' updated successfully!"
+    )

@@ -11,13 +11,13 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update license configuration command."""
 
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -39,30 +39,18 @@ async def update_license_configuration(
     ] = None,
 ):
     """Update an existing license configuration."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        update_data: Dict[str, Any] = {"config_id": config_id}
-        if name:
-            update_data["name"] = name
-        if license_type:
-            update_data["license_type"] = license_type
-        if max_users:
-            update_data["max_users"] = max_users
-        if description:
-            update_data["description"] = description
-
-        update_data["message"] = "License configuration updated successfully"
-        print_json(data=update_data)
-    else:
-        # Rich console output
-        ctx.obj.console.print("⚙️ License Configuration Update Command")
-        ctx.obj.console.print(f"📋 Updating license configuration: {config_id}")
-        if name:
-            ctx.obj.console.print(f"📝 New name: {name}")
-        if license_type:
-            ctx.obj.console.print(f"🔒 New license type: {license_type}")
-        if max_users:
-            ctx.obj.console.print(f"👥 New max users: {max_users}")
-        if description:
-            ctx.obj.console.print(f"📄 New description: {description}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    # Build the update payload with only provided fields
+    payload = {}
+    if name is not None:
+        payload["name"] = name
+    if license_type is not None:
+        payload["license_type"] = license_type
+    if max_users is not None:
+        payload["max_users"] = max_users
+    if description is not None:
+        payload["description"] = description
+    
+    response = await client.put(f"/configurations/{config_id}", payload)
+    client.print_json(response)

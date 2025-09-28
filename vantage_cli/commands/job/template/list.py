@@ -11,35 +11,61 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """List job templates command."""
 
+from typing import Optional
+
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.render import UniversalOutputFormatter
 
 
 @handle_abort
 @attach_settings
-async def list_job_templates(ctx: typer.Context):
+async def list_job_templates(
+    ctx: typer.Context,
+    search: Optional[str] = typer.Option(None, "--search", "-s", help="Search job templates"),
+    sort_field: Optional[str] = typer.Option(
+        None, "--sort-field", help="Field to sort by"
+    ),
+    sort_ascending: bool = typer.Option(
+        True, "--sort-ascending/--sort-descending", help="Sort order"
+    ),
+    user_only: bool = typer.Option(
+        False, "--user-only", help="Show only user's job templates"
+    ),
+    include_archived: bool = typer.Option(
+        False, "--include-archived", help="Include archived job templates"
+    ),
+    limit: int = typer.Option(50, "--limit", "-l", help="Maximum number of results"),
+    offset: int = typer.Option(0, "--offset", "-o", help="Number of results to skip"),
+):
     """List all job templates."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(
-            data={
-                "templates": [
-                    {
-                        "template_id": "tpl-12345",
-                        "name": "example1",
-                        "description": "Example template 1",
-                    },
-                    {
-                        "template_id": "tpl-67890",
-                        "name": "example2",
-                        "description": "Example template 2",
-                    },
-                ]
-            }
-        )
-    else:
-        ctx.obj.console.print("📋 Job templates:")
-        ctx.obj.console.print("  tpl-12345 - example1 (Example template 1)")
-        ctx.obj.console.print("  tpl-67890 - example2 (Example template 2)")
+    # Create REST API client
+    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    # Build query parameters
+    params = {
+        "page": (offset // limit) + 1,
+        "size": limit,
+        "sort_ascending": sort_ascending,
+        "user_only": user_only,
+        "include_archived": include_archived,
+    }
+    
+    if search:
+        params["search"] = search
+    if sort_field:
+        params["sort_field"] = sort_field
+    
+    response = await client.get("/job-script-templates", params=params)
+    templates_data = response
+    
+    # Use UniversalOutputFormatter for consistent list rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_list(
+        data=templates_data,
+        resource_name="Job Templates",
+        empty_message="No job templates found."
+    )

@@ -14,10 +14,10 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -25,11 +25,9 @@ from vantage_cli.exceptions import handle_abort
 async def create_license_server(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the license server to create")],
-    host: Annotated[
-        str, typer.Option("--host", "-h", help="License server hostname or IP address")
-    ],
+    host: Annotated[str, typer.Option("--host", "-h", help="Server hostname or IP address")],
     port: Annotated[
-        Optional[int], typer.Option("--port", "-p", help="License server port")
+        Optional[int], typer.Option("--port", "-p", help="Server port number")
     ] = 27000,
     description: Annotated[
         Optional[str],
@@ -37,23 +35,17 @@ async def create_license_server(
     ] = None,
 ):
     """Create a new license server."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "server_id": "server-new-123",
-                "name": name,
-                "host": host,
-                "port": port,
-                "description": description,
-                "status": "created",
-                "message": "License server created successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("🔑 License Server Create Command")
-        ctx.obj.console.print(f"📋 Creating license server: {name} at {host}:{port}")
-        if description:
-            ctx.obj.console.print(f"📝 Description: {description}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    # Build the request payload
+    payload = {
+        "name": name,
+        "host": host,
+        "port": port,
+    }
+    
+    if description is not None:
+        payload["description"] = description
+    
+    response = await client.post("/license_servers", payload)
+    client.print_json(response)

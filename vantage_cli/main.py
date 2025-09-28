@@ -45,6 +45,7 @@ from vantage_cli.commands.cloud import cloud_app
 from vantage_cli.commands.cluster import cluster_app
 from vantage_cli.commands.config import config_app
 from vantage_cli.commands.deployment import deployment_app
+from vantage_cli.commands.job import job_app
 from vantage_cli.commands.license import license_app
 from vantage_cli.commands.network import network_app
 from vantage_cli.commands.notebook import notebook_app
@@ -84,12 +85,13 @@ app.add_typer(app_app, name="app")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(cluster_app, name="cluster")
 app.add_typer(config_app, name="config")
+app.add_typer(deployment_app, name="deployment")
+app.add_typer(job_app, name="job")
 app.add_typer(license_app, name="license")
 app.add_typer(network_app, name="network")
 app.add_typer(notebook_app, name="notebook")
 app.add_typer(profile_app, name="profile")
 app.add_typer(storage_app, name="storage")
-app.add_typer(deployment_app, name="deployment")
 
 
 def setup_logging(verbose: bool = False):

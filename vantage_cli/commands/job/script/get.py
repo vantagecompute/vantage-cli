@@ -14,29 +14,30 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.render import UniversalOutputFormatter
 
 
 @handle_abort
 @attach_settings
 async def get_job_script(
     ctx: typer.Context,
-    script_id: Annotated[str, typer.Argument(help="ID of the job script to retrieve")],
+    script_id: Annotated[int, typer.Argument(help="ID of the job script to retrieve")],
 ):
     """Get details of a specific job script."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(
-            data={
-                "script_id": script_id,
-                "name": "example-script",
-                "script_type": "bash",
-                "status": "active",
-            }
-        )
-    else:
-        ctx.obj.console.print(
-            f"📜 Job Script: [bold blue]{script_id}[/bold blue] - example-script"
-        )
+    # Create REST API client
+    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    response = await client.get(f"/job-scripts/{script_id}")
+    script_data = response
+    
+    # Use UniversalOutputFormatter for consistent get rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_get(
+        data=script_data,
+        resource_name="Job Script",
+        resource_id=str(script_id)
+    )

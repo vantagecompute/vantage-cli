@@ -14,10 +14,10 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -37,30 +37,18 @@ async def update_license_product(
     ] = None,
 ):
     """Update an existing license product."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        update_data = {"product_id": product_id}
-        if name:
-            update_data["name"] = name
-        if version:
-            update_data["version"] = version
-        if description:
-            update_data["description"] = description
-        if license_type:
-            update_data["license_type"] = license_type
-
-        update_data["message"] = "License product updated successfully"
-        print_json(data=update_data)
-    else:
-        # Rich console output
-        ctx.obj.console.print("📦 License Product Update Command")
-        ctx.obj.console.print(f"📋 Updating license product: {product_id}")
-        if name:
-            ctx.obj.console.print(f"📝 New name: {name}")
-        if version:
-            ctx.obj.console.print(f"🔢 New version: {version}")
-        if description:
-            ctx.obj.console.print(f"📄 New description: {description}")
-        if license_type:
-            ctx.obj.console.print(f"🔒 New license type: {license_type}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    # Build the update payload with only provided fields
+    payload = {}
+    if name is not None:
+        payload["name"] = name
+    if version is not None:
+        payload["version"] = version
+    if description is not None:
+        payload["description"] = description
+    if license_type is not None:
+        payload["license_type"] = license_type
+    
+    response = await client.put(f"/products/{product_id}", payload)
+    client.print_json(response)

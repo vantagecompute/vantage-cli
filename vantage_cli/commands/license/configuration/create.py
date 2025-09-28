@@ -14,10 +14,10 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -37,26 +37,18 @@ async def create_license_configuration(
     ] = None,
 ):
     """Create a new license configuration."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "config_id": "config-new-123",
-                "name": name,
-                "license_type": license_type,
-                "max_users": max_users,
-                "description": description,
-                "status": "created",
-                "message": "License configuration created successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("⚙️ License Configuration Create Command")
-        ctx.obj.console.print(f"📋 Creating license configuration: {name}")
-        ctx.obj.console.print(f"🔒 License type: {license_type}")
-        if max_users:
-            ctx.obj.console.print(f"👥 Max users: {max_users}")
-        if description:
-            ctx.obj.console.print(f"📝 Description: {description}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    # Build the request payload
+    payload = {
+        "name": name,
+        "license_type": license_type,
+    }
+    
+    if max_users is not None:
+        payload["max_users"] = max_users
+    if description is not None:
+        payload["description"] = description
+    
+    response = await client.post("/configurations", payload)
+    client.print_json(response)

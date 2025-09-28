@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Create license product command."""
+"""List license features command."""
 
 from typing import Annotated, Optional
 
@@ -22,31 +22,33 @@ from vantage_cli.commands.license.client import lm_rest_client
 
 @handle_abort
 @attach_settings
-async def create_license_product(
+async def list_license_features(
     ctx: typer.Context,
-    name: Annotated[str, typer.Argument(help="Name of the license product to create")],
-    version: Annotated[str, typer.Option("--version", "-v", help="Product version")],
-    description: Annotated[
-        Optional[str],
-        typer.Option("--description", "-d", help="Description of the license product"),
+    search: Annotated[
+        Optional[str], typer.Option("--search", "-s", help="Search features by name or id")
     ] = None,
-    license_type: Annotated[
-        Optional[str],
-        typer.Option("--type", "-t", help="Type of license (concurrent, node-locked, etc.)"),
-    ] = "concurrent",
+    sort: Annotated[
+        Optional[str], typer.Option("--sort", help="Sort by field (name, id, created_at)")
+    ] = None,
+    limit: Annotated[
+        Optional[int], typer.Option("--limit", "-l", help="Maximum number of features to return")
+    ] = None,
+    offset: Annotated[
+        Optional[int], typer.Option("--offset", "-o", help="Number of features to skip")
+    ] = None,
 ):
-    """Create a new license product."""
+    """List all license features."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
     
-    # Build the request payload
-    payload = {
-        "name": name,
-        "version": version,
-        "license_type": license_type,
-    }
+    params = {}
+    if search:
+        params["search"] = search
+    if sort:
+        params["sort"] = sort
+    if limit:
+        params["limit"] = limit
+    if offset:
+        params["offset"] = offset
     
-    if description is not None:
-        payload["description"] = description
-    
-    response = await client.post("/products", payload)
+    response = await client.get("/features", params=params)
     client.print_json(response)

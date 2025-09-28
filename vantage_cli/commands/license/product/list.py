@@ -11,40 +11,44 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """List license products command."""
 
+from typing import Annotated, Optional
+
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
 @attach_settings
-async def list_license_products(ctx: typer.Context):
+async def list_license_products(
+    ctx: typer.Context,
+    search: Annotated[
+        Optional[str], typer.Option("--search", "-s", help="Search term for filtering products")
+    ] = None,
+    sort: Annotated[
+        Optional[str], typer.Option("--sort", help="Sort field for ordering results")
+    ] = None,
+    limit: Annotated[
+        Optional[int], typer.Option("--limit", "-l", help="Maximum number of results to return")
+    ] = None,
+    offset: Annotated[
+        Optional[int], typer.Option("--offset", "-o", help="Number of results to skip")
+    ] = None,
+):
     """List all license products."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "products": [
-                    {
-                        "id": "product-1",
-                        "name": "Software License A",
-                        "version": "1.0.0",
-                        "status": "active",
-                    },
-                    {
-                        "id": "product-2",
-                        "name": "Software License B",
-                        "version": "2.1.0",
-                        "status": "active",
-                    },
-                ],
-                "message": "License products listed successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("📦 License Product List Command")
-        ctx.obj.console.print("📋 This command will list all license products")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
+    
+    params = {}
+    if search:
+        params["search"] = search
+    if sort:
+        params["sort"] = sort
+    if limit:
+        params["limit"] = limit
+    if offset:
+        params["offset"] = offset
+    
+    response = await client.get("/products", params=params)
+    client.print_json(response)

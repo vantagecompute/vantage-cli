@@ -48,7 +48,6 @@ async def list_clusters(
                     creationParameters
                 }
             }
-            total
         }
     }
     """

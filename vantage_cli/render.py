@@ -1086,3 +1086,479 @@ class TerminalOutputManager:
                 self.console.print(message, style=style)
             else:
                 self.console.print(message)
+
+
+class UniversalOutputFormatter:
+    """Universal output formatter for all CLI commands.
+    
+    This class provides a centralized way to format and display data from all commands,
+    supporting both JSON output and rich table formatting. It automatically detects
+    data structure and creates appropriate tables.
+    
+    Usage:
+        formatter = UniversalOutputFormatter(console, json_output=ctx.obj.json_output)
+        formatter.output(data, title="Job Scripts")
+    """
+    
+    def __init__(self, console: Console, json_output: bool = False):
+        """Initialize the output formatter.
+        
+        Args:
+            console: Rich console for output
+            json_output: Whether to output JSON instead of formatted tables
+        """
+        self.console = console
+        self.json_output = json_output
+    
+    def output(self, data: Any, title: str = "", empty_message: str = "No items found.") -> None:
+        """Output data either as JSON or formatted table.
+        
+        Args:
+            data: Data to output (dict, list, or simple value)
+            title: Title for the table display
+            empty_message: Message to show when data is empty
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            self._output_table(data, title, empty_message)
+    
+    def _output_json(self, data: Any) -> None:
+        """Output data as formatted JSON."""
+        if data is None:
+            self.console.print_json("{}")
+        else:
+            self.console.print_json(json.dumps(data, indent=2))
+    
+    def _output_table(self, data: Any, title: str, empty_message: str) -> None:
+        """Output data as a formatted table."""
+        if not data:
+            self.console.print(f"📋 {empty_message}", style="yellow")
+            return
+        
+        # Handle different data types
+        if isinstance(data, dict):
+            if "items" in data and isinstance(data["items"], list):
+                # Paginated response format
+                self._render_list_as_table(data["items"], title)
+                self._render_pagination_info(data)
+            else:
+                # Single item
+                self._render_dict_as_table(data, title or "Details")
+        elif isinstance(data, list):
+            if len(data) == 0:
+                self.console.print(f"📋 {empty_message}", style="yellow")
+            else:
+                self._render_list_as_table(data, title)
+        else:
+            # Simple value
+            self.console.print(data)
+    
+    def _render_list_as_table(self, items: List[Dict[str, Any]], title: str) -> None:
+        """Render a list of items as a table."""
+        if not items:
+            return
+        
+        # Create table with dynamic columns based on first item
+        table = Table(title=title if title else None, show_header=True, header_style="bold magenta")
+        
+        # Get all unique keys from all items to handle inconsistent data
+        all_keys = set()
+        for item in items:
+            if isinstance(item, dict):
+                all_keys.update(item.keys())
+        
+        # Sort keys for consistent column order, with common fields first
+        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        sorted_keys = []
+        
+        # Add common fields first if they exist
+        for field in common_fields:
+            if field in all_keys:
+                sorted_keys.append(field)
+                all_keys.remove(field)
+        
+        # Add remaining fields alphabetically
+        sorted_keys.extend(sorted(all_keys))
+        
+        # Add columns with nice formatting
+        for key in sorted_keys:
+            # Format column headers nicely
+            header = self._format_column_header(key)
+            table.add_column(header, style=self._get_column_style(key))
+        
+        # Add rows
+        for item in items:
+            if isinstance(item, dict):
+                row = []
+                for key in sorted_keys:
+                    value = item.get(key, "")
+                    formatted_value = self._format_cell_value(key, value)
+                    row.append(formatted_value)
+                table.add_row(*row)
+        
+        self.console.print(table)
+    
+    def _render_dict_as_table(self, item: Dict[str, Any], title: str) -> None:
+        """Render a single dictionary as a details table."""
+        table = Table(title=f"📋 {title}", show_header=True, header_style="bold cyan")
+        table.add_column("Field", style="cyan", width=20)
+        table.add_column("Value", style="white")
+        
+        # Sort keys with common ones first
+        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        sorted_keys = []
+        
+        for field in common_fields:
+            if field in item:
+                sorted_keys.append(field)
+        
+        # Add remaining fields
+        remaining = [k for k in sorted(item.keys()) if k not in common_fields]
+        sorted_keys.extend(remaining)
+        
+        for key in sorted_keys:
+            header = self._format_column_header(key)
+            value = self._format_cell_value(key, item[key])
+            table.add_row(header, value)
+        
+        self.console.print(table)
+    
+    def _render_pagination_info(self, data: Dict[str, Any]) -> None:
+        """Render pagination information if available."""
+        if all(key in data for key in ["page", "pages", "total"]):
+            page_info = f"Page {data['page']} of {data['pages']} (Total: {data['total']})"
+            self.console.print(f"\n{page_info}", style="dim")
+    
+    def _format_column_header(self, key: str) -> str:
+        """Format a column header nicely."""
+        # Handle common abbreviations and special cases
+        special_cases = {
+            "id": "ID",
+            "api": "API",
+            "url": "URL",
+            "json": "JSON",
+            "xml": "XML",
+            "html": "HTML",
+            "http": "HTTP",
+            "https": "HTTPS",
+            "ip": "IP",
+            "cpu": "CPU",
+            "gpu": "GPU",
+            "ram": "RAM",
+            "os": "OS",
+            "ui": "UI",
+            "cli": "CLI",
+            "db": "DB",
+        }
+        
+        # Split on underscores and capitalize each word
+        words = key.lower().split("_")
+        formatted_words = []
+        
+        for word in words:
+            if word in special_cases:
+                formatted_words.append(special_cases[word])
+            else:
+                formatted_words.append(word.capitalize())
+        
+        return " ".join(formatted_words)
+    
+    def _get_column_style(self, key: str) -> str:
+        """Get appropriate style for a column based on its key."""
+        if key.lower() in ["id"]:
+            return "cyan"
+        elif key.lower() in ["name", "title"]:
+            return "green"
+        elif key.lower() in ["status", "state"]:
+            return "yellow"
+        elif key.lower().endswith("_at") or "date" in key.lower() or "time" in key.lower():
+            return "blue"
+        elif key.lower() in ["description"]:
+            return "white"
+        else:
+            return "white"
+    
+    def _format_cell_value(self, key: str, value: Any) -> str:
+        """Format a cell value for display."""
+        if value is None:
+            return "N/A"
+        elif value == "":
+            return "N/A"
+        elif isinstance(value, bool):
+            return "Yes" if value else "No"
+        elif isinstance(value, (list, dict)):
+            # For complex nested data, show a summary
+            if isinstance(value, list):
+                return f"[{len(value)} items]" if value else "[]"
+            else:
+                return f"[{len(value)} keys]" if value else "{}"
+        elif isinstance(value, str):
+            # Handle common formatting cases
+            if key.lower().endswith("_at") or "date" in key.lower():
+                # Try to format dates nicely, fallback to original
+                try:
+                    from datetime import datetime
+                    if "T" in value and value.endswith("Z"):
+                        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                        return dt.strftime("%Y-%m-%d")
+                    return value
+                except:
+                    return value
+            elif key.lower() in ["status", "state"]:
+                return value.upper()
+            else:
+                # Truncate very long strings
+                if len(value) > 50:
+                    return value[:47] + "..."
+                return value
+        else:
+            return str(value)
+    
+    def success(self, message: str) -> None:
+        """Display a success message."""
+        if not self.json_output:
+            self.console.print(f"✅ {message}", style="green")
+    
+    def error(self, message: str) -> None:
+        """Display an error message."""
+        if not self.json_output:
+            self.console.print(f"❌ {message}", style="red")
+    
+    def warning(self, message: str) -> None:
+        """Display a warning message."""
+        if not self.json_output:
+            self.console.print(f"⚠️ {message}", style="yellow")
+    
+    def info(self, message: str) -> None:
+        """Display an info message."""
+        if not self.json_output:
+            self.console.print(f"ℹ️ {message}", style="blue")
+    
+    # ============================================================================
+    # CRUD Operation Render Functions
+    # ============================================================================
+    
+    def render_list(self, data: Any, resource_name: str, empty_message: Optional[str] = None) -> None:
+        """Render a list of resources (for LIST operations).
+        
+        Args:
+            data: Response data containing list of items
+            resource_name: Human-readable name for the resource type (e.g., "Job Scripts")
+            empty_message: Custom message when no items found
+        """
+        if empty_message is None:
+            empty_message = f"No {resource_name.lower()} found."
+        
+        self.output(data, title=resource_name, empty_message=empty_message)
+    
+    def render_get(self, data: Any, resource_name: str, resource_id: str = "") -> None:
+        """Render a single resource (for GET operations).
+        
+        Args:
+            data: Response data for the single resource
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the resource being displayed
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            title = f"{resource_name}"
+            if resource_id:
+                title += f" (ID: {resource_id})"
+            
+            if isinstance(data, dict):
+                self._render_dict_as_table(data, title)
+            else:
+                self.console.print(f"📄 {title}")
+                self.console.print(data)
+    
+    def render_create(self, data: Any, resource_name: str, success_message: Optional[str] = None) -> None:
+        """Render result of resource creation (for CREATE operations).
+        
+        Args:
+            data: Response data from creation
+            resource_name: Human-readable name for the resource type
+            success_message: Custom success message
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            if success_message is None:
+                resource_id = ""
+                if isinstance(data, dict) and "id" in data:
+                    resource_id = f" (ID: {data['id']})"
+                success_message = f"{resource_name} created successfully{resource_id}"
+            
+            self.success(success_message)
+            
+            # Show key details of created resource
+            if isinstance(data, dict) and data:
+                self.console.print("\n📋 Created Resource Details:")
+                self._render_dict_as_table(data, "")
+    
+    def render_update(self, data: Any, resource_name: str, resource_id: str = "", success_message: Optional[str] = None) -> None:
+        """Render result of resource update (for UPDATE operations).
+        
+        Args:
+            data: Response data from update
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the updated resource
+            success_message: Custom success message
+        """
+        if self.json_output:
+            self._output_json(data)
+        else:
+            if success_message is None:
+                id_part = f" (ID: {resource_id})" if resource_id else ""
+                success_message = f"{resource_name} updated successfully{id_part}"
+            
+            self.success(success_message)
+            
+            # Show updated resource details
+            if isinstance(data, dict) and data:
+                self.console.print("\n📋 Updated Resource Details:")
+                self._render_dict_as_table(data, "")
+    
+    def render_delete(self, resource_name: str, resource_id: str = "", success_message: Optional[str] = None, data: Any = None) -> None:
+        """Render result of resource deletion (for DELETE operations).
+        
+        Args:
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the deleted resource
+            success_message: Custom success message
+            data: Optional response data from deletion
+        """
+        if self.json_output and data is not None:
+            self._output_json(data)
+        else:
+            if success_message is None:
+                id_part = f" (ID: {resource_id})" if resource_id else ""
+                success_message = f"{resource_name} deleted successfully{id_part}"
+            
+            self.success(success_message)
+    
+    def render_error(self, error_message: str, details: Any = None) -> None:
+        """Render error information for any failed operation.
+        
+        Args:
+            error_message: Main error message
+            details: Optional additional error details
+        """
+        if self.json_output:
+            error_data = {"error": error_message}
+            if details:
+                error_data["details"] = details
+            self._output_json(error_data)
+        else:
+            self.error(error_message)
+            if details and isinstance(details, dict):
+                self.console.print("\n📋 Error Details:")
+                self._render_dict_as_table(details, "")
+            elif details:
+                self.console.print(f"\nDetails: {details}")
+    
+    def render_confirmation(self, message: str, resource_name: str = "", resource_id: str = "") -> None:
+        """Render confirmation prompts for destructive operations.
+        
+        Args:
+            message: Confirmation message
+            resource_name: Human-readable name for the resource type
+            resource_id: ID of the resource being affected
+        """
+        if not self.json_output:
+            if resource_name and resource_id:
+                self.console.print(f"🗑️  {resource_name} (ID: {resource_id})")
+            self.console.print(f"⚠️  {message}", style="yellow bold")
+    
+    def render_operation_status(self, operation: str, resource_name: str, status: str, details: str = "") -> None:
+        """Render status of long-running operations.
+        
+        Args:
+            operation: Type of operation (e.g., "Deployment", "Migration")
+            resource_name: Human-readable name for the resource
+            status: Current status (e.g., "In Progress", "Completed", "Failed")
+            details: Additional status details
+        """
+        if self.json_output:
+            status_data = {
+                "operation": operation,
+                "resource": resource_name,
+                "status": status,
+                "details": details
+            }
+            self._output_json(status_data)
+        else:
+            status_style = {
+                "completed": "green",
+                "success": "green", 
+                "in progress": "yellow",
+                "pending": "yellow",
+                "failed": "red",
+                "error": "red"
+            }.get(status.lower(), "blue")
+            
+            self.console.print(f"🔄 {operation} - {resource_name}")
+            self.console.print(f"Status: {status}", style=status_style)
+            if details:
+                self.console.print(f"Details: {details}")
+    
+    def render_bulk_operation(self, operation: str, results: Dict[str, Any], resource_name: str) -> None:
+        """Render results of bulk operations affecting multiple resources.
+        
+        Args:
+            operation: Type of bulk operation (e.g., "Bulk Delete", "Bulk Update")
+            results: Dictionary with success/failure counts and details
+            resource_name: Human-readable name for the resource type
+        """
+        if self.json_output:
+            self._output_json(results)
+        else:
+            total = results.get("total", 0)
+            success = results.get("success", 0)
+            failed = results.get("failed", 0)
+            
+            self.console.print(f"📊 {operation} - {resource_name}")
+            self.console.print(f"Total processed: {total}")
+            if success > 0:
+                self.console.print(f"✅ Successful: {success}", style="green")
+            if failed > 0:
+                self.console.print(f"❌ Failed: {failed}", style="red")
+            
+            # Show detailed results if available
+            if "details" in results and isinstance(results["details"], list):
+                self.console.print("\n📋 Detailed Results:")
+                for detail in results["details"]:
+                    if isinstance(detail, dict):
+                        status_icon = "✅" if detail.get("success") else "❌"
+                        resource_id = detail.get("id", "Unknown")
+                        message = detail.get("message", "")
+                        self.console.print(f"{status_icon} ID {resource_id}: {message}")
+    
+    def render_validation_results(self, validation_results: Dict[str, Any]) -> None:
+        """Render validation results for data validation operations.
+        
+        Args:
+            validation_results: Dictionary containing validation results
+        """
+        if self.json_output:
+            self._output_json(validation_results)
+        else:
+            is_valid = validation_results.get("valid", False)
+            errors = validation_results.get("errors", [])
+            warnings = validation_results.get("warnings", [])
+            
+            if is_valid:
+                self.success("Validation successful")
+            else:
+                self.error("Validation failed")
+            
+            if errors:
+                self.console.print("\n❌ Validation Errors:")
+                for error in errors:
+                    self.console.print(f"  • {error}", style="red")
+            
+            if warnings:
+                self.console.print("\n⚠️  Validation Warnings:")
+                for warning in warnings:
+                    self.console.print(f"  • {warning}", style="yellow")

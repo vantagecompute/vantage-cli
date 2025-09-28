@@ -14,10 +14,10 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -39,17 +39,6 @@ async def delete_license_server(
             ctx.obj.console.print("❌ Operation cancelled.")
             raise typer.Exit(0)
 
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "server_id": server_id,
-                "status": "deleted",
-                "message": f"License server '{server_id}' deleted successfully",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print("🔑 License Server Delete Command")
-        ctx.obj.console.print(f"📋 Deleting license server: {server_id}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
+    response = await client.delete(f"/license_servers/{server_id}")
+    client.print_json(response)

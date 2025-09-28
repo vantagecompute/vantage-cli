@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get license server command."""
+"""Delete license feature command."""
 
 from typing import Annotated
 
@@ -22,11 +22,23 @@ from vantage_cli.commands.license.client import lm_rest_client
 
 @handle_abort
 @attach_settings
-async def get_license_server(
+async def delete_license_feature(
     ctx: typer.Context,
-    server_id: Annotated[str, typer.Argument(help="ID of the license server to get")],
+    feature_id: Annotated[str, typer.Argument(help="ID of the license feature to delete")],
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Force delete without confirmation")
+    ] = False,
 ):
-    """Get details of a specific license server."""
+    """Delete a license feature."""
+    # Confirmation unless force flag is used
+    if not force:
+        confirmation = typer.confirm(
+            f"Are you sure you want to delete license feature '{feature_id}'?"
+        )
+        if not confirmation:
+            ctx.obj.console.print("❌ Operation cancelled.")
+            raise typer.Exit(0)
+
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    response = await client.get(f"/license_servers/{server_id}")
+    response = await client.delete(f"/features/{feature_id}")
     client.print_json(response)

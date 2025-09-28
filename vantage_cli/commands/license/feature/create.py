@@ -9,9 +9,11 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Update license server command."""
+"""Create license feature command."""
 
 from typing import Annotated, Optional
+import json
+from pathlib import Path
 
 import typer
 
@@ -22,33 +24,34 @@ from vantage_cli.commands.license.client import lm_rest_client
 
 @handle_abort
 @attach_settings
-async def update_license_server(
+async def create_license_feature(
     ctx: typer.Context,
-    server_id: Annotated[str, typer.Argument(help="ID of the license server to update")],
     name: Annotated[
-        Optional[str], typer.Option("--name", "-n", help="New name for the license server")
+        Optional[str], typer.Option("--name", "-n", help="Feature name")
     ] = None,
-    host: Annotated[
-        Optional[str], typer.Option("--host", "-h", help="New hostname or IP address")
-    ] = None,
-    port: Annotated[Optional[int], typer.Option("--port", "-p", help="New port number")] = None,
     description: Annotated[
-        Optional[str], typer.Option("--description", "-d", help="New description")
+        Optional[str], typer.Option("--description", "-d", help="Feature description")
+    ] = None,
+    json_file: Annotated[
+        Optional[Path], typer.Option("--json-file", "-f", help="JSON file with feature data")
     ] = None,
 ):
-    """Update an existing license server."""
+    """Create a new license feature."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
     
-    # Build the update payload with only provided fields
-    payload = {}
-    if name is not None:
-        payload["name"] = name
-    if host is not None:
-        payload["host"] = host
-    if port is not None:
-        payload["port"] = port
-    if description is not None:
-        payload["description"] = description
+    if json_file:
+        if not json_file.exists():
+            ctx.obj.console.print(f"❌ Error: File {json_file} does not exist")
+            raise typer.Exit(1)
+        with open(json_file, 'r') as f:
+            payload = json.load(f)
+    else:
+        if not name:
+            ctx.obj.console.print("❌ Error: --name is required when not using --json-file")
+            raise typer.Exit(1)
+        payload = {"name": name}
+        if description:
+            payload["description"] = description
     
-    response = await client.put(f"/license_servers/{server_id}", payload)
+    response = await client.post("/features", payload)
     client.print_json(response)
