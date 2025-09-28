@@ -17,7 +17,7 @@ Multipass provides lightweight Ubuntu virtual machines that can host complete HP
 
 ## Prerequisites
 
-Before proceeding, ensure you have completed the [Multipass prerequisites](./../index.md#multipass) from the localhost deployment applications overview.
+Before proceeding, ensure you have completed the Multipass prerequisites from the localhost deployment applications overview.
 
 ### Required Components
 
@@ -313,6 +313,7 @@ sudo systemctl restart nfs-kernel-server
 ### VM Issues
 
 **VM Won't Start:**
+
 ```bash
 # Check Multipass status
 multipass version
@@ -327,6 +328,7 @@ df -h
 ```
 
 **Network Issues:**
+
 ```bash
 # Check VM connectivity
 multipass exec slurm-node -- ping google.com
@@ -342,6 +344,7 @@ brctl show
 ### SLURM Issues
 
 **SLURM Services Not Running:**
+
 ```bash
 # SSH into VM
 multipass shell slurm-node
@@ -359,6 +362,7 @@ sudo journalctl -u slurmctld -f
 ```
 
 **Job Submission Issues:**
+
 ```bash
 # Check node status
 sinfo -N
@@ -375,6 +379,7 @@ groups
 ### Performance Issues
 
 **Resource Constraints:**
+
 ```bash
 # Monitor resource usage
 htop
@@ -387,6 +392,7 @@ vantage app deploy slurm-multipass-localhost --cpus=8 --memory=16G
 ```
 
 **Storage Issues:**
+
 ```bash
 # Check disk usage
 df -h
@@ -485,10 +491,10 @@ R -e "install.packages(c('ggplot2', 'dplyr', 'shiny'))"
 
 ## Next Steps
 
-- [Scale to Multi-Node](/vantage-cli/deployment-applications/localhost/microk8s)
-- [HPC Workloads](/vantage-cli/deployment-applications/localhost/charmed-hpc)
-- [Production Deployment](../../../private-vantage-installation.md)
-- [Advanced Configuration](../../../usage.md#3-cluster-management-commands)
+- Scale to Multi-Node
+- HPC Workloads
+- Production Deployment
+- Advanced Configuration
 
 ## Support
 
