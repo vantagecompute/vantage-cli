@@ -25,7 +25,7 @@ We reccomend starting with the localhost provider to get your feet wet.
       </div>
       <div className="card__body text--center">
         <p>Our curated library of localhost sandbox environments.</p>
-        <a href="./deployment-applications/localhost/" className="button button--primary">Learn More</a>
+        <a href="/vantage-cli/deployment-applications/localhost" className="button button--primary">Learn More</a>
       </div>
     </div>
   </div>
@@ -36,7 +36,7 @@ We reccomend starting with the localhost provider to get your feet wet.
       </div>
       <div className="card__body text--center">
         <p> AWS Deployment Applications.</p>
-        <a href="./deployment-applictaions/aws/" className="button button--primary">Learn More</a>
+        <p><em>Coming Soon</em></p>
       </div>
     </div>
   </div>
@@ -47,7 +47,7 @@ We reccomend starting with the localhost provider to get your feet wet.
       </div>
       <div className="card__body text--center">
         <p>Vantage Deployment Applications for K8S.</p>
-        <a href="./deployment-applications/k8s/" className="button button--primary">Learn More</a>
+        <p><em>Coming Soon</em></p>
       </div>
     </div>
   </div>
