@@ -18,7 +18,7 @@ MicroK8s provides a complete Kubernetes experience that can be deployed locally 
 
 ## Prerequisites
 
-Before proceeding, ensure you have completed the [MicroK8s prerequisites](./index.md) from the localhost deployment applications overview.
+Before proceeding, ensure you have completed the MicroK8s prerequisites from the localhost deployment applications overview.
 
 ### Required Components
 
