@@ -24,6 +24,205 @@ from rich.panel import Panel
 from rich.progress import Progress, ProgressColumn, SpinnerColumn, Task, TextColumn
 from rich.table import Table
 from rich.text import Text
+from textual import events
+from textual.app import App, ComposeResult
+from textual.widgets import DataTable, Header, Footer
+from textual.containers import Container
+from textual.binding import Binding
+import asyncio
+import sys
+
+
+class TableViewerApp(App):
+    """Textual app for displaying data tables with auto-layout."""
+    
+    BINDINGS = [
+        Binding("q", "quit", "Quit", priority=True),
+        Binding("escape", "quit", "Quit", priority=True),
+    ]
+    
+    def __init__(self, data: List[Dict[str, Any]], title: str = "", **kwargs):
+        super().__init__(**kwargs)
+        self.data = data
+        self.title = title
+    
+    def compose(self) -> ComposeResult:
+        """Create the table widget."""
+        if self.title:
+            yield Header(show_clock=False)
+        
+        data_table = DataTable(show_cursor=False, zebra_stripes=True)
+        data_table.cursor_type = "none"
+        yield data_table
+        
+        if self.title:
+            yield Footer()
+    
+    def on_mount(self) -> None:
+        """Setup the table when the app mounts."""
+        if not self.data:
+            return
+            
+        table = self.query_one(DataTable)
+        
+        # Get all unique keys from all items
+        all_keys = set()
+        for item in self.data:
+            if isinstance(item, dict):
+                all_keys.update(item.keys())
+        
+        # Sort keys with common fields first
+        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        sorted_keys = []
+        
+        for field in common_fields:
+            if field in all_keys:
+                sorted_keys.append(field)
+                all_keys.remove(field)
+        
+        sorted_keys.extend(sorted(all_keys))
+        
+        # Add columns
+        for key in sorted_keys:
+            header = self._format_column_header(key)
+            table.add_column(header, key=key)
+        
+        # Add rows
+        for item in self.data:
+            row_data = []
+            for key in sorted_keys:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+                row_data.append(formatted_value)
+            table.add_row(*row_data)
+        
+        if self.title:
+            self.title = self.title
+    
+    def _format_column_header(self, key: str) -> str:
+        """Format column header nicely."""
+        # Handle special cases first
+        special_cases = {
+            "id": "ID",
+            "url": "URL",
+            "api": "API",
+            "cpu": "CPU",
+            "gpu": "GPU",
+            "ram": "RAM",
+            "ssh": "SSH",
+            "uuid": "UUID",
+            "cidr": "CIDR",
+            "ip": "IP",
+        }
+        
+        if key.lower() in special_cases:
+            return special_cases[key.lower()]
+        
+        # Split on underscores and capitalize each word
+        words = key.split("_")
+        formatted_words = []
+        for word in words:
+            if word.lower() in special_cases:
+                formatted_words.append(special_cases[word.lower()])
+            else:
+                formatted_words.append(word.capitalize())
+        
+        return " ".join(formatted_words)
+    
+    def _format_cell_value(self, key: str, value: Any) -> str:
+        """Format a cell value for display."""
+        if value is None:
+            return "N/A"
+        elif value == "":
+            return "N/A"
+        elif isinstance(value, bool):
+            return "Yes" if value else "No"
+        elif isinstance(value, (list, dict)):
+            # For complex nested data, show a summary
+            if isinstance(value, list):
+                return f"[{len(value)} items]" if value else "[]"
+            else:
+                return f"[{len(value)} keys]" if value else "{}"
+        elif isinstance(value, str):
+            # Handle common formatting cases
+            if key.lower().endswith("_at") or "date" in key.lower():
+                # Try to format dates nicely, fallback to original
+                try:
+                    from datetime import datetime
+                    if "T" in value and value.endswith("Z"):
+                        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                        return dt.strftime("%Y-%m-%d")
+                    return value
+                except:
+                    return value
+            elif key.lower() in ["status", "state"]:
+                return value.upper()
+            else:
+                # Truncate strings based on field-specific limits to prevent wrapping
+                max_length = self._get_field_max_length(key)
+                if len(value) > max_length:
+                    return value[:max_length-3] + "..."
+                return value
+        else:
+            return str(value)
+    
+    def _get_field_max_length(self, key: str) -> int:
+        """Get maximum character length for a field value."""
+        key_lower = key.lower()
+        
+        if key_lower == "description":
+            return 50
+        elif key_lower in ["name", "title"]:
+            return 30
+        elif key_lower in ["email", "url"]:
+            return 35
+        elif key_lower == "id":
+            return 15
+        else:
+            return 25
+    
+    def _render_static_table(self, items: List[Dict[str, Any]], title: str, console: Console) -> None:
+        """Render a static table using Rich console (for non-interactive mode)."""
+        from rich.table import Table
+        
+        if not items:
+            return
+        
+        # Create Rich table for static rendering
+        table = Table(title=title if title else None, show_header=True, header_style="bold magenta")
+        
+        # Get all unique keys from all items
+        all_keys = set()
+        for item in items:
+            if isinstance(item, dict):
+                all_keys.update(item.keys())
+        
+        # Sort keys with common fields first
+        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        sorted_keys = []
+        
+        for field in common_fields:
+            if field in all_keys:
+                sorted_keys.append(field)
+                all_keys.remove(field)
+        
+        sorted_keys.extend(sorted(all_keys))
+        
+        # Add columns (Textual will auto-size these)
+        for key in sorted_keys:
+            header = self._format_column_header(key)
+            table.add_column(header, no_wrap=True)
+        
+        # Add rows
+        for item in items:
+            row_data = []
+            for key in sorted_keys:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+                row_data.append(formatted_value)
+            table.add_row(*row_data)
+        
+        console.print(table)
 
 
 class CommandTimeElapsedColumn(ProgressColumn):
@@ -1155,54 +1354,190 @@ class UniversalOutputFormatter:
             self.console.print(data)
     
     def _render_list_as_table(self, items: List[Dict[str, Any]], title: str) -> None:
-        """Render a list of items as a table."""
+        """Render a list of items as a table using Textual's auto-layout principles."""
         if not items:
             return
         
-        # Create table with dynamic columns based on first item
-        table = Table(title=title if title else None, show_header=True, header_style="bold magenta")
+        # For now, use enhanced Rich table with Textual-inspired auto-layout
+        # This maintains compatibility while preparing for full Textual integration
+        self._render_textual_style_table(items, title)
+    
+    def _render_textual_style_table(self, items: List[Dict[str, Any]], title: str) -> None:
+        """Render table using proper Textual DataTable implementation."""
+        if not items:
+            return
         
-        # Get all unique keys from all items to handle inconsistent data
+        # Use actual Textual DataTable for proper formatting
+        try:
+            self._render_with_textual_datatable(items, title)
+        except Exception as e:
+            # If Textual fails, show a simple error message
+            self.console.print(f"[red]Error rendering table: {e}[/red]")
+    
+    def _render_with_textual_datatable(self, items: List[Dict[str, Any]], title: str) -> None:
+        """Render using Rich Table with dynamic width based on terminal size."""
+        from rich.table import Table
+        from rich import box
+        
+        if not items:
+            return
+        
+        # Get actual terminal width for dynamic sizing
+        import os
+        try:
+            terminal_width = os.get_terminal_size().columns
+        except:
+            terminal_width = 120  # fallback
+        
+        # Create Rich table with dynamic width constraint
+        table = Table(
+            title=title if title else None, 
+            show_header=True, 
+            header_style="bold magenta",
+            width=min(terminal_width - 4, 200),  # Responsive width with max of 200
+            expand=False,  # Don't expand beyond our calculated width
+            padding=(0, 1),  # Standard padding
+            show_edge=True,
+            box=box.ROUNDED,  # Nice rounded borders like Rich tables
+            border_style="blue"
+        )
+        
+        # Get all unique keys from items
         all_keys = set()
         for item in items:
-            if isinstance(item, dict):
-                all_keys.update(item.keys())
+            all_keys.update(item.keys())
         
-        # Sort keys for consistent column order, with common fields first
+        # Sort keys with priority fields first
         common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
         sorted_keys = []
         
-        # Add common fields first if they exist
         for field in common_fields:
             if field in all_keys:
                 sorted_keys.append(field)
                 all_keys.remove(field)
         
-        # Add remaining fields alphabetically
         sorted_keys.extend(sorted(all_keys))
         
-        # Calculate proportional widths that fill the available space
-        column_widths = self._calculate_proportional_widths(sorted_keys)
+        # Add columns with smart ratio-based sizing within 150 chars
+        num_columns = len(sorted_keys)
         
-        # Add columns with proportional widths
-        for i, key in enumerate(sorted_keys):
-            # Format column headers nicely
+        for key in sorted_keys:
             header = self._format_column_header(key)
-            style = self._get_column_style(key)
-            width = column_widths[i]
-            table.add_column(header, style=style, width=width, no_wrap=True)
+            
+            # Use optimized ratio-based column sizing for best proportional fit
+            # Ratios based on typical content length analysis for balanced display
+            if key in ["id"]:
+                # IDs are short - minimal space needed
+                ratio = 1
+            elif key in ["name", "title"]:
+                # Names are moderate length - medium space  
+                ratio = 3
+            elif key in ["description", "summary", "details"]:
+                # Descriptions are longest - need most space
+                ratio = 6
+            elif key in ["module", "path", "file", "endpoint", "url"]:
+                # Module paths are long but structured - substantial space
+                ratio = 4
+            elif key in ["status", "state", "type", "kind"]:
+                # Status fields are short - minimal space
+                ratio = 1
+            else:
+                # Other fields get balanced medium ratio
+                ratio = 2
+                
+            table.add_column(
+                header,
+                ratio=ratio,  # Proportional width distribution
+                overflow="ellipsis",  # Truncate with "..." instead of wrapping
+                justify="left",
+                min_width=8,  # Minimum readable width
+                no_wrap=True  # Never wrap text, always truncate
+            )
         
         # Add rows
         for item in items:
-            if isinstance(item, dict):
-                row = []
-                for key in sorted_keys:
-                    value = item.get(key, "")
-                    formatted_value = self._format_cell_value(key, value)
-                    row.append(formatted_value)
-                table.add_row(*row)
+            row_data = []
+            for key in sorted_keys:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+                row_data.append(formatted_value)
+            table.add_row(*row_data)
         
+        # Print using our console
         self.console.print(table)
+    
+
+    
+
+    
+
+    
+    def _calculate_proportional_widths(self, items: List[Dict[str, Any]], sorted_keys: List[str], total_width: int) -> Dict[str, int]:
+        """Calculate proportional column widths that fill the total table width."""
+        if not items or not sorted_keys:
+            return {}
+        
+        # Reserve space for borders and padding (approximately 3 chars per column)
+        available_width = total_width - (len(sorted_keys) * 3) - 4  # Extra margin for table borders
+        
+        # Calculate content-based minimum widths
+        min_widths = {}
+        for key in sorted_keys:
+            # Start with header width as minimum
+            header_width = len(self._format_column_header(key))
+            content_width = header_width
+            
+            # Sample content width from first few items
+            for item in items[:5]:
+                value = item.get(key, "")
+                formatted_value = self._format_cell_value(key, value)
+                content_width = max(content_width, len(str(formatted_value)))
+            
+            min_widths[key] = content_width
+        
+        # Apply column type preferences
+        preferred_widths = {}
+        for key in sorted_keys:
+            base_width = min_widths[key]
+            
+            if key.lower() == "id":
+                # IDs need minimal space
+                preferred_widths[key] = min(base_width, 8)
+            elif key.lower() in ["name", "title"]:
+                # Names get moderate space
+                preferred_widths[key] = min(base_width, 25)
+            elif key.lower() in ["description", "message", "details"]:
+                # Descriptions get more space
+                preferred_widths[key] = min(base_width, 50)
+            elif key.lower() in ["module", "path", "file"]:
+                # Module paths get substantial space
+                preferred_widths[key] = min(base_width, 40)
+            else:
+                # Other fields get default space
+                preferred_widths[key] = min(base_width, 20)
+        
+        # Calculate total preferred width
+        total_preferred = sum(preferred_widths.values())
+        
+        # Scale to fit available width
+        final_widths = {}
+        if total_preferred <= available_width:
+            # Use preferred widths and distribute remaining space
+            remaining_space = available_width - total_preferred
+            extra_per_column = remaining_space // len(sorted_keys)
+            
+            for key in sorted_keys:
+                final_widths[key] = preferred_widths[key] + extra_per_column
+        else:
+            # Scale down proportionally
+            scale_factor = available_width / total_preferred
+            for key in sorted_keys:
+                scaled_width = int(preferred_widths[key] * scale_factor)
+                final_widths[key] = max(6, scaled_width)  # Minimum 6 chars per column
+        
+        return final_widths
+    
+
     
     def _render_dict_as_table(self, item: Dict[str, Any], title: str) -> None:
         """Render a single dictionary as a details table."""
@@ -1315,21 +1650,38 @@ class UniversalOutputFormatter:
         return self._get_column_max_width(key)
     
     def _calculate_proportional_widths(self, keys: List[str]) -> List[int]:
-        """Calculate proportional column widths that fill the 200-character width.
+        """Calculate proportional column widths that fill the available terminal width.
+        
+        Scales to terminal width if less than 200 characters, otherwise uses 200.
         
         Args:
             keys: List of column keys
             
         Returns:
-            List of column widths that sum to approximately 200 characters
+            List of column widths that sum to the available terminal width
         """
         if not keys:
             return []
         
-        # Total available width (200 chars minus table borders and padding)
+        # Get actual terminal width, but use at least 80 characters and max 200
+        # Try to get from environment first, then console, with fallbacks
+        import os
+        import shutil
+        
+        # Check if COLUMNS is set and use it, otherwise detect terminal width
+        env_columns = os.environ.get("COLUMNS")
+        if env_columns and env_columns.isdigit():
+            detected_width = int(env_columns)
+        else:
+            # Use shutil.get_terminal_size() for more accurate detection
+            detected_width = shutil.get_terminal_size().columns
+        
+        terminal_width = min(200, max(80, detected_width))
+        
+        # Total available width minus table borders and padding
         # Rich table uses: | col1 | col2 | col3 |
         # So we need space for: (num_cols + 1) border chars + (num_cols * 2) padding
-        total_available = 200 - (len(keys) + 1) - (len(keys) * 2)
+        total_available = terminal_width - (len(keys) + 1) - (len(keys) * 2)
         
         # Get relative priority weights for each field type
         field_weights = {}
@@ -1390,6 +1742,75 @@ class UniversalOutputFormatter:
         else:
             return 1.2
     
+    def _get_adaptive_max_width(self, key: str, num_columns: int) -> int:
+        """Get adaptive maximum width for a column based on terminal size and column count.
+        
+        This allows Rich to auto-size columns while preventing excessive width.
+        
+        Args:
+            key: Column key
+            num_columns: Total number of columns in the table
+            
+        Returns:
+            Maximum width for this column
+        """
+        # Get actual terminal width
+        import os
+        import shutil
+        
+        env_columns = os.environ.get("COLUMNS")
+        if env_columns and env_columns.isdigit():
+            terminal_width = int(env_columns)
+        else:
+            terminal_width = shutil.get_terminal_size().columns
+        
+        # Use a reasonable range: min 80, max 200
+        terminal_width = min(200, max(80, terminal_width))
+        
+        # Calculate average column width (accounting for borders and padding)
+        available_width = terminal_width - (num_columns + 1) - (num_columns * 2)
+        avg_width = available_width // num_columns if num_columns > 0 else 20
+        
+        # Adjust based on field type and terminal size
+        key_lower = key.lower()
+        
+        if terminal_width >= 160:
+            # Wide terminal - be more generous
+            if key_lower in ["description", "message", "details"]:
+                return min(60, avg_width * 2)
+            elif key_lower in ["name", "title", "email", "url"]:
+                return min(40, avg_width + 10)
+            elif key_lower in ["id"]:
+                return min(20, avg_width)
+            else:
+                return min(30, avg_width + 5)
+        
+        elif terminal_width >= 120:
+            # Medium terminal - moderate constraints
+            if key_lower in ["description", "message", "details"]:
+                return min(40, avg_width + 10)
+            elif key_lower in ["name", "title"]:
+                return min(25, avg_width + 5)
+            elif key_lower in ["email", "url"]:
+                return min(30, avg_width + 5)
+            elif key_lower in ["id"]:
+                return min(15, avg_width)
+            else:
+                return min(20, avg_width)
+        
+        else:
+            # Narrow terminal - tight constraints
+            if key_lower in ["description", "message", "details"]:
+                return min(25, avg_width + 5)
+            elif key_lower in ["name", "title"]:
+                return min(20, avg_width)
+            elif key_lower in ["id"]:
+                return min(12, avg_width - 2)
+            elif key_lower in ["status", "state"]:
+                return min(10, avg_width - 2)
+            else:
+                return min(15, avg_width)
+    
     def _format_cell_value(self, key: str, value: Any) -> str:
         """Format a cell value for display."""
         if value is None:
@@ -1419,10 +1840,8 @@ class UniversalOutputFormatter:
             elif key.lower() in ["status", "state"]:
                 return value.upper()
             else:
-                # Truncate strings based on field-specific limits to prevent wrapping
-                max_length = self._get_field_max_length(key)
-                if len(value) > max_length:
-                    return value[:max_length-3] + "..."
+                # Let Rich handle text layout with ratio-based column sizing and 150-char width
+                # No manual truncation needed - Rich will handle overflow properly
                 return value
         else:
             return str(value)

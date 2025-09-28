@@ -12,6 +12,7 @@ dependencies = [
     "juju ~= 3.6",
     "typer>=0.17.4",
     "rich>=14.1.0",
+    "textual>=0.41.0",
     "ruamel.yaml",
     "pydantic>=2.11",
     "snick>=2.1",
