@@ -23,7 +23,23 @@ const sidebars: SidebarsConfig = {
         'installation',
         'usage',
         'private-vantage-installation',
-        'deployment-applications/index',
+        {
+          type: 'category',
+          label: 'Deployment Applications',
+          items: [
+            'deployment-applications/index',
+            {
+              type: 'category',
+              label: 'Localhost',
+              items: [
+                'deployment-applications/localhost/index',
+                'deployment-applications/localhost/charmed-hpc',
+                'deployment-applications/localhost/microk8s',
+                'deployment-applications/localhost/multipass-singlenode',
+              ],
+            },
+          ],
+        },
         'notebooks',
       ],
     },

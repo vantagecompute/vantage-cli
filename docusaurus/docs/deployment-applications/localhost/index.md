@@ -1,5 +1,4 @@
 ---
-id: deployment-applications-localhost
 title: Localhost Deployment Applications
 description: Deployment Applications for Localhost Sandbox
 ---
