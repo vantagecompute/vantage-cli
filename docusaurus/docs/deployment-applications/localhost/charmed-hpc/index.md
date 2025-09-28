@@ -3,13 +3,12 @@ title: Charmed HPC Localhost Deployment
 description: Deploy Charmed HPC clusters on localhost using LXD and Juju
 ---
 
-# Charmed HPC Localhost Deployment
-
 Deploy production-like HPC clusters on your localhost using Charmed HPC, LXD containers, and Juju orchestration.
 
 ## Overview
 
 Charmed HPC provides a complete High Performance Computing stack that can be deployed locally using:
+
 - **LXD**: Container hypervisor for lightweight virtualization
 - **Juju**: Application orchestration and lifecycle management
 - **SLURM**: Workload manager and job scheduler
@@ -17,9 +16,10 @@ Charmed HPC provides a complete High Performance Computing stack that can be dep
 
 ## Prerequisites
 
-Before proceeding, ensure you have completed the [Charmed HPC prerequisites](./index.md#charmed-hpc) from the localhost deployment applications overview.
+Before proceeding, ensure you have completed the Charmed HPC prerequisites from the localhost deployment applications overview.
 
 ### Required Components
+
 - LXD (latest/stable)
 - Juju (3.6/stable)
 - Vantage CLI
@@ -36,6 +36,7 @@ vantage app deploy slurm-juju-localhost
 ```
 
 **Features:**
+
 - Multi-node SLURM cluster in containers
 - Head node with scheduler and controller
 - Compute nodes for job execution
@@ -43,6 +44,7 @@ vantage app deploy slurm-juju-localhost
 - User management integration
 
 **Architecture:**
+
 - **Controller**: SLURM controller daemon (slurmctld)
 - **Database**: SLURM accounting database (slurmdbd)
 - **Compute Nodes**: SLURM compute daemon (slurmd)
@@ -174,6 +176,7 @@ lxc restart <container-name>
 ```
 
 **Network Connectivity:**
+
 ```bash
 # Check LXD network
 lxc network show lxdbr0
@@ -185,6 +188,7 @@ lxc exec <container-name> -- ping google.com
 ### Performance Tuning
 
 **Container Resources:**
+
 ```bash
 # Increase container memory
 lxc config set <container-name> limits.memory 4GB
@@ -194,6 +198,7 @@ lxc config set <container-name> limits.cpu 2
 ```
 
 **SLURM Configuration:**
+
 ```bash
 # Access SLURM configuration
 juju ssh slurm-controller/0
@@ -220,6 +225,7 @@ vantage app deploy slurm-juju-localhost --charm-revision=25
 ### Integration
 
 **Storage Integration:**
+
 ```bash
 # Add shared storage
 juju deploy ceph-osd --storage osd-devices=/dev/sdb
@@ -227,6 +233,7 @@ juju relate slurm-controller ceph-osd
 ```
 
 **Monitoring Integration:**
+
 ```bash
 # Add Prometheus monitoring
 vantage app deploy prometheus-localhost
@@ -235,14 +242,14 @@ vantage app relate slurm-juju-localhost prometheus-localhost
 
 ## Next Steps
 
-- [Submit Jobs to Your Cluster](../../usage.md#7-job-management-workflow)
-- [Monitor Cluster Performance](../../usage.md#7-job-management-workflow)
-- [Production Deployment Guide](../../private-vantage-installation.md)
+- [Submit Jobs to Your Cluster](../../../usage.md#7-job-management-workflow)
+- [Monitor Cluster Performance](../../../usage.md#7-job-management-workflow)
+- [Private Vantage Installation](../../../private-vantage-installation.md)
 
 ## Support
 
 For issues specific to Charmed HPC localhost deployments:
 
-- [Troubleshooting Guide](../../troubleshooting.md)
-- [Community Support](../../contact.md)
+- [Troubleshooting Guide](../../../troubleshooting.md)
+- [Community Support](../../../contact.md)
 - [Charmed HPC Documentation](https://charmed-hpc.readthedocs.io/)

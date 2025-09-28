@@ -62,7 +62,7 @@ sudo snap install multipass
 multipass --version
 ```
 
-Multipass is now installed. Proceed to the <a href="/vantage-cli/deployment-applications/localhost/multipass-singlenode">Multipass Singlenode Deployment Application Documentation</a>.
+Multipass is now installed. Proceed to the <a href="/vantage-cli/deployment-applications/localhost/multipass">Multipass Singlenode Deployment Application Documentation</a>.
 
 ### Charmed HPC
 

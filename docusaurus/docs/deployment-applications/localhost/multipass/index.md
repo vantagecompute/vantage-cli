@@ -485,15 +485,15 @@ R -e "install.packages(c('ggplot2', 'dplyr', 'shiny'))"
 
 ## Next Steps
 
-- [Scale to Multi-Node](./microk8s.md)
-- [HPC Workloads](./charmed-hpc.md)
-- [Production Deployment](../../private-vantage-installation.md)
-- [Advanced Configuration](../../usage.md#3-cluster-management-commands)
+- [Scale to Multi-Node](/vantage-cli/deployment-applications/localhost/microk8s)
+- [HPC Workloads](/vantage-cli/deployment-applications/localhost/charmed-hpc)
+- [Production Deployment](../../../private-vantage-installation.md)
+- [Advanced Configuration](../../../usage.md#3-cluster-management-commands)
 
 ## Support
 
 For Multipass single-node deployment support:
 
-- [Troubleshooting Guide](../../troubleshooting.md)
-- [Community Support](../../contact.md)
+- [Troubleshooting Guide](../../../troubleshooting.md)
+- [Community Support](../../../contact.md)
 - [Multipass Documentation](https://multipass.run/docs)

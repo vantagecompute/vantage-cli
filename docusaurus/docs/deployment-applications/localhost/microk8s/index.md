@@ -3,13 +3,12 @@ title: MicroK8s Localhost Deployment
 description: Deploy applications on MicroK8s Kubernetes cluster for localhost development
 ---
 
-# MicroK8s Localhost Deployment
-
 Deploy production-like applications on your localhost using MicroK8s, a lightweight Kubernetes distribution perfect for development and testing.
 
 ## Overview
 
 MicroK8s provides a complete Kubernetes experience that can be deployed locally with:
+
 - **MicroK8s**: Lightweight Kubernetes distribution
 - **Helm**: Package manager for Kubernetes applications
 - **SLURM**: HPC workload management on Kubernetes
@@ -19,9 +18,10 @@ MicroK8s provides a complete Kubernetes experience that can be deployed locally 
 
 ## Prerequisites
 
-Before proceeding, ensure you have completed the [MicroK8s prerequisites](./index.md#microk8s) from the localhost deployment applications overview.
+Before proceeding, ensure you have completed the [MicroK8s prerequisites](./index.md) from the localhost deployment applications overview.
 
 ### Required Components
+
 - MicroK8s (1.29/stable)
 - Enabled addons: hostpath-storage, dns, metallb
 - Vantage CLI
@@ -38,6 +38,7 @@ vantage app deploy slurm-microk8s-localhost
 ```
 
 **Features:**
+
 - Containerized SLURM cluster on Kubernetes
 - Horizontal pod autoscaling
 - Persistent volume storage
@@ -53,6 +54,7 @@ vantage app deploy jupyterhub-microk8s-localhost
 ```
 
 **Features:**
+
 - Multi-user Jupyter notebook environment
 - GPU support (if available)
 - Custom Docker images
@@ -68,6 +70,7 @@ vantage app deploy keycloak-microk8s-localhost
 ```
 
 **Features:**
+
 - Single Sign-On (SSO)
 - User federation
 - Identity brokering
@@ -83,6 +86,7 @@ vantage app deploy full-microk8s-localhost
 ```
 
 **Components:**
+
 - SLURM cluster with job scheduling
 - JupyterHub for interactive computing
 - Keycloak for authentication
@@ -251,6 +255,7 @@ microk8s helm upgrade slurm-microk8s-localhost ./chart --values custom-values.ya
 ### Common Issues
 
 **Pod Startup Issues:**
+
 ```bash
 # Check pod status
 microk8s kubectl get pods -o wide
@@ -263,6 +268,7 @@ microk8s kubectl logs <pod-name> --previous
 ```
 
 **Storage Issues:**
+
 ```bash
 # Check PVC status
 microk8s kubectl get pvc
@@ -275,6 +281,7 @@ df -h /var/snap/microk8s/common/default-storage
 ```
 
 **Network Issues:**
+
 ```bash
 # Check service endpoints
 microk8s kubectl get endpoints
@@ -289,6 +296,7 @@ microk8s kubectl get configmap config -n metallb-system -o yaml
 ### Performance Optimization
 
 **Resource Allocation:**
+
 ```bash
 # Monitor resource usage
 microk8s kubectl top nodes
@@ -370,14 +378,14 @@ vantage app config slurm-microk8s-localhost \
 
 ## Next Steps
 
-- [Submit Jobs via Kubernetes](../../usage.md#7-job-management-workflow)
-- [Cloud Migration Guide](../../private-vantage-installation.md)
-- [Monitoring Setup](../../usage.md#7-job-management-workflow)
+- [Submit Jobs via Kubernetes](../../../usage.md#7-job-management-workflow)
+- [Private Vantage Installation](../../../private-vantage-installation.md)
+- [Monitoring Setup](../../../usage.md#7-job-management-workflow)
 
 ## Support
 
 For MicroK8s-specific issues:
 
-- [MicroK8s Troubleshooting](https://microk8s.io/docs/troubleshooting)
-- [Vantage Troubleshooting Guide](../../troubleshooting.md)
-- [Community Support](../../contact.md)
+- [Troubleshooting Guide](../../../troubleshooting.md)
+- [Contact Support](../../../contact.md)
+- [Community Support](../../../contact.md)
