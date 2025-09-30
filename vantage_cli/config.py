@@ -43,6 +43,7 @@ class Settings(BaseModel):
         "k8s",
     ]
     vantage_url: str = "https://app.vantagecompute.ai"
+    oidc_client_id: str = "default"
     oidc_max_poll_time: int = 5 * 60  # 5 minutes
 
     def _get_url_for_profile(self, endpoint: str) -> str:

@@ -17,6 +17,7 @@ import typer
 from loguru import logger
 
 from vantage_cli.sdk.base import BaseLocalResourceSDK
+from vantage_cli.cache import clear_token_cache
 from vantage_cli.config import (
     Settings,
     dump_settings,
@@ -70,22 +71,34 @@ class ProfileSDK(BaseLocalResourceSDK):
             import shutil
             shutil.rmtree(profile_cache_dir)
     
-    async def list_profiles(self, ctx: typer.Context, **kwargs: Any) -> List[Profile]:
-        """List all profiles as Profile objects.
+    async def list(self, ctx: typer.Context, **kwargs: Any) -> List[Dict[str, Any]]:
+        """List all profiles as dict data (base class compatibility).
         
         Args:
             ctx: Typer context
-            **kwargs: Additional filtering parameters
+            **kwargs: Additional parameters
+            
+        Returns:
+            List of profile data dictionaries
+        """
+        profiles = await self.get_profiles(ctx, **kwargs)
+        return [profile.model_dump() for profile in profiles]
+    
+    async def get_profiles(self, ctx: typer.Context, **kwargs: Any) -> List[Profile]:
+        """Get all profiles as Profile objects.
+        
+        Args:
+            ctx: Typer context
+            **kwargs: Additional parameters
             
         Returns:
             List of Profile objects
         """
-        from vantage_cli.config import get_active_profile
         
         all_profiles_raw = self._load_all_resources()
         active_profile = get_active_profile()
         
-        profiles = []
+        profiles: List[Profile] = []
         for profile_name, settings_data in all_profiles_raw.items():
             try:
                 settings = Settings(**settings_data)
@@ -112,8 +125,6 @@ class ProfileSDK(BaseLocalResourceSDK):
         Returns:
             Profile object or None if not found
         """
-        from vantage_cli.config import get_active_profile
-        
         all_profiles_raw = self._load_all_resources()
         
         if profile_name not in all_profiles_raw:
@@ -135,7 +146,6 @@ class ProfileSDK(BaseLocalResourceSDK):
     
     def _clear_profile_token_cache(self, profile_name: str) -> None:
         """Clear cached tokens for a profile."""
-        from vantage_cli.cache import clear_token_cache
         try:
             clear_token_cache(profile_name)
         except Exception as e:
@@ -291,12 +301,17 @@ class ProfileSDK(BaseLocalResourceSDK):
                 log_message=f"Profile deletion error: {str(e)}",
             )
     
-    async def activate(self, ctx: typer.Context, profile_name: str) -> Dict[str, Any]:
+    def get_all_profiles(self) -> Dict[str, Any]:
+        """Get all profiles from the config file (public version of _load_all_resources)."""
+        return self._load_all_resources()
+    
+    async def activate(self, ctx: typer.Context, profile_name: str, **kwargs: Any) -> Dict[str, Any]:
         """Activate a profile.
         
         Args:
             ctx: Typer context
             profile_name: Name of profile to activate
+            **kwargs: Additional parameters
             
         Returns:
             Profile activation result
