@@ -23,15 +23,16 @@ from jose import jwt
 from jose.exceptions import ExpiredSignatureError
 from loguru import logger
 from pydantic import ValidationError
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from vantage_cli.cache import load_tokens_from_cache, save_tokens_to_cache
 from vantage_cli.client import make_oauth_request
 from vantage_cli.config import Settings
-from vantage_cli.constants import USER_CONFIG_FILE
+from vantage_cli.constants import USER_CONFIG_FILE, OIDC_DEVICE_PATH, OIDC_TOKEN_PATH
 from vantage_cli.exceptions import Abort
 from vantage_cli.render import terminal_message
 from vantage_cli.schemas import CliContext, DeviceCodeData, IdentityData, Persona, TokenSet
-from vantage_cli.time_loop import TimeLoop
 
 
 def extract_persona(
@@ -343,13 +344,13 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
         raise RuntimeError("HTTP client not initialized")
     if ctx.settings is None:
         raise RuntimeError("Settings not initialized")
-
-    device_path = "/realms/vantage/protocol/openid-connect/auth/device"
-    token_path = "/realms/vantage/protocol/openid-connect/token"
+    
+    # Use console from context or create a new one
+    console = ctx.console if ctx.console is not None else Console()
 
     device_code_data: DeviceCodeData = await make_oauth_request(
         ctx.client,
-        device_path,
+        OIDC_DEVICE_PATH,
         data={
             "client_id": ctx.settings.oidc_client_id,
         },
@@ -375,63 +376,86 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
         subject="Waiting for login",
     )
 
-    for tick in TimeLoop(
-        ctx.settings.oidc_max_poll_time,
-        message="Waiting for web login",
-    ):
-        # For polling, we need to handle error responses as dict, not TokenSet
-        response_data: dict[str, Any] = {}
-        try:
-            # Attempt to get a successful token response
-            token_data = await make_oauth_request(
-                ctx.client,
-                token_path,
-                data={
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code_data.device_code,
-                    "client_id": ctx.settings.oidc_client_id,
-                },
-                response_model_cls=TokenSet,
-                abort_message="IGNORE",  # We'll handle errors manually
-                abort_subject="IGNORE",
-            )
-            return token_data
-        except Exception:
-            # If it fails, make a raw request to get the error details
-            response = await ctx.client.post(
-                f"{ctx.settings.oidc_base_url}{token_path}",
-                data={
-                    "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-                    "device_code": device_code_data.device_code,
-                    "client_id": ctx.settings.oidc_client_id,
-                },
-            )
-            response_data = response.json()
-
-        if "error" in response_data:
-            if response_data["error"] == "authorization_pending":
-                logger.debug(f"Token fetch attempt #{tick.counter} failed")
-                logger.debug(f"Will try again in {device_code_data.interval} seconds")
-                await asyncio.sleep(device_code_data.interval)
-            elif response_data["error"] == "slow_down":
-                logger.debug(f"Server requested slow down on attempt #{tick.counter}")
-                logger.debug(f"Will try again in {device_code_data.interval * 2} seconds")
-                await asyncio.sleep(device_code_data.interval * 2)
-            else:
-                # TODO: Test this failure condition
-                raise Abort(
-                    snick.unwrap(
-                        """
-                        There was a problem retrieving a device verification code
-                        from the auth provider:
-                        Unexpected failure retrieving access token.
-                        """
-                    ),
-                    subject="Unexpected error",
-                    log_message=f"Unexpected error response: {response_data}",
+    # Calculate timeout and start time
+    start_time = datetime.datetime.now()
+    timeout_seconds = ctx.settings.oidc_max_poll_time  # This is already in seconds (int)
+    attempt = 0
+    
+    # Create a progress display with just a spinner and elapsed time
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold green]{task.description}"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task("Waiting for browser authentication...", total=None)
+        
+        while True:
+            attempt += 1
+            elapsed = (datetime.datetime.now() - start_time).total_seconds()
+            
+            # Check timeout
+            if elapsed >= timeout_seconds:
+                break
+                
+            # Update task description with remaining time
+            minutes_remaining = max(0, (timeout_seconds - elapsed) / 60)
+            progress.update(task, description=f"Waiting for browser authentication... ({minutes_remaining:.1f}m remaining)")
+            
+            # For polling, we need to handle error responses as dict, not TokenSet
+            response_data: dict[str, Any] = {}
+            try:
+                # Attempt to get a successful token response
+                token_data = await make_oauth_request(
+                    ctx.client,
+                    OIDC_TOKEN_PATH,
+                    data={
+                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                        "device_code": device_code_data.device_code,
+                        "client_id": ctx.settings.oidc_client_id,
+                    },
+                    response_model_cls=TokenSet,
+                    abort_message="IGNORE",  # We'll handle errors manually
+                    abort_subject="IGNORE",
                 )
-        else:
-            return TokenSet(**response_data)
+                return token_data
+            except Exception:
+                # If it fails, make a raw request to get the error details
+                response = await ctx.client.post(
+                    f"{ctx.settings.oidc_base_url}{OIDC_TOKEN_PATH}",
+                    data={
+                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                        "device_code": device_code_data.device_code,
+                        "client_id": ctx.settings.oidc_client_id,
+                    },
+                )
+                response_data = response.json()
+
+            if "error" in response_data:
+                if response_data["error"] == "authorization_pending":
+                    logger.debug(f"Token fetch attempt #{attempt} failed")
+                    logger.debug(f"Will try again in {device_code_data.interval} seconds")
+                    await asyncio.sleep(device_code_data.interval)
+                elif response_data["error"] == "slow_down":
+                    logger.debug(f"Server requested slow down on attempt #{attempt}")
+                    logger.debug(f"Will try again in {device_code_data.interval * 2} seconds")
+                    await asyncio.sleep(device_code_data.interval * 2)
+                else:
+                    # TODO: Test this failure condition
+                    raise Abort(
+                        snick.unwrap(
+                            """
+                            There was a problem retrieving a device verification code
+                            from the auth provider:
+                            Unexpected failure retrieving access token.
+                            """
+                        ),
+                        subject="Unexpected error",
+                        log_message=f"Unexpected error response: {response_data}",
+                    )
+            else:
+                return TokenSet(**response_data)
 
     raise Abort(
         "Login process was not completed in time. Please try again.",

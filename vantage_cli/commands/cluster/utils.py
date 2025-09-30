@@ -11,7 +11,6 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Shared utilities for cluster commands."""
 
-import textwrap
 from typing import Any, Dict, Optional
 
 import httpx
@@ -22,7 +21,7 @@ from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.auth import extract_persona
 from vantage_cli.config import Settings
 from vantage_cli.exceptions import Abort
-from vantage_cli.gql_client import create_async_graphql_client
+from vantage_cli.sdk.cluster import get as get_cluster_sdk
 
 
 def get_cloud_choices() -> list[str]:
@@ -118,7 +117,7 @@ async def get_cluster_client_secret(ctx: typer.Context, client_id: str) -> Optio
 
 
 async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str, Any] | None:
-    """Get cluster details by name from vantage-api using GraphQL client auth.
+    """Get cluster details by name using the cluster SDK.
 
     Args:
         ctx: Typer context carrying settings/profile
@@ -135,55 +134,13 @@ async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str
             log_message="Settings not configured",
         )
 
-    query = textwrap.dedent("""\
-        query getClusters($first: Int!) {
-            clusters(first: $first) {
-                edges {
-                    node {
-                        name
-                        status
-                        clientId
-                        description
-                        ownerEmail
-                        provider
-                        cloudAccountId
-                        creationParameters
-                    }
-                }
-            }
-        }
-        """)
-
-    variables = {"first": 100}  # Fetch up to 100 clusters
-
     try:
-        # Create async GraphQL client
-        graphql_client = create_async_graphql_client(ctx.obj.settings, ctx.obj.profile)
-
-        # Execute the query
-        logger.debug(f"Executing cluster get query for: {cluster_name}")
-        response_data = await graphql_client.execute_async(query, variables)
-
-        # Extract cluster data
-        clusters_data = response_data.get("clusters", {})
-        clusters = [edge["node"] for edge in clusters_data.get("edges", [])]
-
-        # Filter clusters by name (case-insensitive)
-        matching_clusters = [
-            cluster
-            for cluster in clusters
-            if cluster.get("name", "").lower() == cluster_name.lower()
-        ]
-
-        if not matching_clusters:
-            raise Abort(
-                f"No cluster found with name '{cluster_name}'.",
-                subject="Cluster Not Found",
-                log_message=f"Cluster '{cluster_name}' not found",
-            )
-
-        # Get the first (and should be only) cluster
-        cluster = matching_clusters[0]
+        # Use the SDK to get the cluster
+        logger.debug(f"Using SDK to get cluster: {cluster_name}")
+        cluster = await get_cluster_sdk(ctx, cluster_name)
+        
+        if not cluster:
+            return None
 
         # Fetch client secret from API if clientId is available
         client_id = cluster.get("clientId")
@@ -204,10 +161,10 @@ async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages
         raise
-    except (httpx.RequestError, ValueError, KeyError, AttributeError) as e:
+    except Exception as e:
         logger.error(f"Unexpected error getting cluster '{cluster_name}': {e}")
         raise Abort(
-            f"An unexpected error occurred while getting cluster '{cluster_name}'.",
-            subject="Unexpected Error",
-            log_message=f"Unexpected error: {e}",
+            f"Failed to retrieve cluster '{cluster_name}' from Vantage API.",
+            subject="API Error",
+            log_message=f"Cluster get error: {e}",
         )

@@ -321,7 +321,7 @@ class CombinedDocumentationGenerator:
         return html.escape(text, quote=False)
 
     def clean_and_escape_help_content(self, help_content: str) -> List[str]:
-        """Clean and escape help content for safe display in CodeBlock.
+        """Clean and escape help content for safe display in markdown code blocks.
         
         Args:
             help_content: Raw help content
@@ -336,6 +336,8 @@ class CombinedDocumentationGenerator:
             line = re.sub(r'python3? -m vantage_cli\.main', 'vantage', line)
             # Escape HTML tags to prevent MDX parsing issues
             line = self.escape_html_in_text(line)
+            # Remove excessive leading whitespace but preserve structure
+            line = line.rstrip()  # Remove trailing whitespace
             cleaned_lines.append(line)
         return cleaned_lines
 
@@ -345,11 +347,10 @@ class CombinedDocumentationGenerator:
         Returns:
             Markdown header content
         """
-        return """# CLI Command Reference
-
-import Tabs from '@theme/Tabs';
+        return """import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import CodeBlock from '@theme/CodeBlock';
+
+# CLI Command Reference
 
 This document provides a comprehensive reference for all available CLI commands and their options.
 
@@ -375,9 +376,9 @@ This document provides a comprehensive reference for all available CLI commands 
                     
                     # Show authentication commands directly (no tabs since they are top-level)
                     markdown.append(f"### {cmd.title()}\n")
-                    markdown.append('<CodeBlock language="text" title="CLI Help">')
+                    markdown.append('```text')
                     markdown.extend(cleaned_lines)
-                    markdown.append("</CodeBlock>\n")
+                    markdown.append('```\n')
         
         return '\n'.join(markdown)
 
@@ -414,9 +415,9 @@ This document provides a comprehensive reference for all available CLI commands 
                 
                 markdown.append(f"<TabItem value=\"{command_name}\" label=\"🔹 {command_name}\">")
                 markdown.append("")
-                markdown.append('<CodeBlock language="text" title="CLI Help">')
+                markdown.append('```text')
                 markdown.extend(cleaned_lines)
-                markdown.append("</CodeBlock>")
+                markdown.append('```')
                 markdown.append("")
                 markdown.append("</TabItem>")
             
@@ -440,9 +441,9 @@ This document provides a comprehensive reference for all available CLI commands 
                 # Clean and escape the help content
                 cleaned_lines = self.clean_and_escape_help_content(help_content)
                 
-                markdown.append('<CodeBlock language="text" title="CLI Help">')
+                markdown.append('```text')
                 markdown.extend(cleaned_lines)
-                markdown.append("</CodeBlock>\n")
+                markdown.append('```\n')
         
         return '\n'.join(markdown)
 
@@ -475,9 +476,9 @@ This document provides a comprehensive reference for all available CLI commands 
                 main_command_label = command_path[-1]
                 markdown.append(f"<TabItem value=\"{main_command_label}\" label=\"🔹 {main_command_label}\">")
                 markdown.append("")
-                markdown.append('<CodeBlock language="text" title="CLI Help">')
+                markdown.append('```text')
                 markdown.extend(cleaned_lines)
-                markdown.append("</CodeBlock>")
+                markdown.append('```')
                 markdown.append("")
                 markdown.append("</TabItem>")
                 
@@ -498,9 +499,9 @@ This document provides a comprehensive reference for all available CLI commands 
             # Leaf command - show the entire help content in a code block
             cleaned_lines = self.clean_and_escape_help_content(help_content)
             
-            markdown.append('<CodeBlock language="text" title="CLI Help">')
+            markdown.append('```text')
             markdown.extend(cleaned_lines)
-            markdown.append("</CodeBlock>")
+            markdown.append('```')
             markdown.append("")
         
         return '\n'.join(markdown)
@@ -544,9 +545,9 @@ This document provides a comprehensive reference for all available CLI commands 
             # Extract, clean and escape the help output
             cleaned_lines = self.clean_and_escape_help_content(main_help)
             
-            markdown.append('<CodeBlock language="text" title="CLI Help">')
+            markdown.append('```text')
             markdown.extend(cleaned_lines)
-            markdown.append("</CodeBlock>\n")
+            markdown.append('```\n')
         
         # Authentication commands
         print("Processing authentication commands...")
@@ -577,9 +578,9 @@ This document provides a comprehensive reference for all available CLI commands 
                     
                     markdown.append("<TabItem value=\"config\" label=\"🔹 config\">")
                     markdown.append("")
-                    markdown.append('<CodeBlock language="text" title="CLI Help">')
+                    markdown.append('```text')
                     markdown.extend(cleaned_lines)
-                    markdown.append("</CodeBlock>")
+                    markdown.append('```')
                     markdown.append("")
                     markdown.append("</TabItem>")
                 
@@ -600,9 +601,9 @@ This document provides a comprehensive reference for all available CLI commands 
                 if config_help:
                     cleaned_lines = self.clean_and_escape_help_content(config_help)
                     
-                    markdown.append('<CodeBlock language="text" title="CLI Help">')
+                    markdown.append('```text')
                     markdown.extend(cleaned_lines)
-                    markdown.append("</CodeBlock>\n")
+                    markdown.append('```\n')
         
         return '\n'.join(markdown)
 
@@ -644,7 +645,7 @@ def main():
     import sys
     
     # Parse command line arguments
-    output_file = "docusaurus/docs/commands.md"
+    output_file = "docusaurus/docs/commands.mdx"
     module_path = "vantage_cli.main"
     
     if len(sys.argv) > 1:

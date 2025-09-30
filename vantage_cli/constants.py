@@ -66,3 +66,7 @@ ERROR_NO_CLUSTER_DATA = "[red]Error: No cluster data provided.[/red]"
 ERROR_NO_CLIENT_ID = "[red]Error: No client ID found in cluster data.[/red]"
 ERROR_NO_CLIENT_SECRET = "[red]Error: No client secret found in cluster data.[/red]"
 ERROR_MULTIPASS_NOT_FOUND = "[red]Error: 'multipass' is not installed or not found in PATH.[/red]"
+
+# OIDC authentication paths
+OIDC_DEVICE_PATH = "/realms/vantage/protocol/openid-connect/auth/device"
+OIDC_TOKEN_PATH = "/realms/vantage/protocol/openid-connect/token"

@@ -16,8 +16,8 @@ from loguru import logger
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.gql_client import create_async_graphql_client
 from vantage_cli.render import RenderStepOutput
+from vantage_cli.sdk.cluster import list as list_clusters_sdk
 
 from .render import render_clusters_table
 
@@ -32,44 +32,18 @@ async def list_clusters(
     json_output = getattr(ctx.obj, "json_output", False)
     verbose = getattr(ctx.obj, "verbose", False)
 
-    # GraphQL query to fetch clusters
-    query = """
-    query getClusters($first: Int!) {
-        clusters(first: $first) {
-            edges {
-                node {
-                    name
-                    status
-                    clientId
-                    description
-                    ownerEmail
-                    provider
-                    cloudAccountId
-                    creationParameters
+    try:
+        # Use the SDK to get clusters
+        logger.debug("Using SDK to list clusters")
+        clusters = await list_clusters_sdk(ctx)
+        
+        if json_output:
+            # For JSON output, format as the original GraphQL response structure
+            response_data = {
+                "clusters": {
+                    "edges": [{"node": cluster} for cluster in clusters]
                 }
             }
-        }
-    }
-    """
-
-    variables = {"first": 100}  # Fetch up to 100 clusters
-
-    try:
-        # Create async GraphQL client
-        profile = getattr(ctx.obj, "profile", "default")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
-
-        # Execute the query
-        logger.debug("Executing clusters query")
-        response_data = await graphql_client.execute_async(query, variables)
-
-        # Extract cluster data
-        clusters_data = response_data.get("clusters", {})
-        clusters = [edge["node"] for edge in clusters_data.get("edges", [])]
-        total_count = clusters_data.get("total", 0)
-
-        if json_output:
-            # JSON output - bypass progress system entirely
             RenderStepOutput.json_bypass(response_data)
             return
 
@@ -98,7 +72,7 @@ async def list_clusters(
                 clusters,
                 ctx.obj.console,
                 title="Clusters List",
-                total_count=total_count,
+                total_count=len(clusters),
                 json_output=False,
             )
 

@@ -11,6 +11,13 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Main typer app for vantage-cli."""
 
+# Disable HTTP library logging before any imports that might use httpx
+import logging
+logging.getLogger("httpx").disabled = True
+logging.getLogger("httpcore").disabled = True
+logging.getLogger("urllib3").disabled = True
+logging.getLogger("requests").disabled = True
+
 import datetime
 import shutil
 import subprocess
@@ -43,6 +50,7 @@ from vantage_cli.commands.alias import (
 )
 from vantage_cli.commands.app import app_app
 from vantage_cli.commands.cloud import cloud_app
+from vantage_cli.commands.cli_dash import cli_dash
 from vantage_cli.commands.cluster import cluster_app
 from vantage_cli.commands.config import config_app
 from vantage_cli.commands.deployment import deployment_app
@@ -101,6 +109,8 @@ app.add_typer(storage_app, name="storage")
 
 def setup_logging(verbose: bool = False):
     """Configure logging based on verbosity level."""
+    import logging
+    
     logger.remove()
 
     if verbose:
@@ -113,6 +123,17 @@ def setup_logging(verbose: bool = False):
         # Disable rich tracebacks in normal mode
         # Reset exception handler to default
         sys.excepthook = sys.__excepthook__
+        
+        # Completely suppress HTTP logs by setting them to CRITICAL level
+        # This prevents HTTP request/response logs from cluttering the user interface
+        logging.getLogger("httpx").setLevel(logging.CRITICAL)
+        logging.getLogger("httpcore").setLevel(logging.CRITICAL)
+        logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+        logging.getLogger("requests").setLevel(logging.CRITICAL)
+        
+        # Also suppress any potential root logger or httpx._client logs
+        logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
+        logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
 
     logger.debug("Logging initialized")
 
@@ -142,7 +163,7 @@ def main(ctx: typer.Context):
 
     # Create a single console instance for the entire application
     # console = Console(width=200)
-    console = Console(width=200, color_system="auto", force_terminal=True)
+    console = Console(color_system="auto", force_terminal=True)
 
     cli_ctx = CliContext(
         profile=active_profile, verbose=verbose, json_output=json_output, console=console
@@ -403,6 +424,8 @@ async def whoami(ctx: typer.Context):
             )
             console.print()
 
+# CLI Dashboard command
+app.command("cli-dash")(cli_dash)
 
 # Register alias commands
 app.command("apps", hidden=True)(apps_command)
