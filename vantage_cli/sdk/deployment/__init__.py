@@ -1,0 +1,21 @@
+# Copyright (C) 2025 Vantage Compute Corporation
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, version 3.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <https://www.gnu.org/licenses/>.
+"""Deployment SDK initialization."""
+
+from .crud import deployment_sdk
+
+# Expose the main list and get functions
+list = deployment_sdk.list
+get = deployment_sdk.get
+get_deployment = deployment_sdk.get_deployment
+
+__all__ = ["deployment_sdk", "list", "get", "get_deployment"]

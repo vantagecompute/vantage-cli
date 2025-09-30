@@ -32,6 +32,7 @@ from vantage_cli.config import (
 from vantage_cli.constants import USER_CONFIG_FILE, USER_TOKEN_CACHE_DIR
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.render import RenderStepOutput
+from vantage_cli.sdk.profile import profile_sdk
 
 
 @handle_abort
@@ -58,14 +59,12 @@ async def create_profile(
     activate: Annotated[
         bool, typer.Option("--activate", help="Activate this profile after creation")
     ] = False,
-    json_output: Annotated[
-        bool, typer.Option("--json", "-j", help="Output in JSON format")
-    ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
-    ] = False,
 ):
     """Create a new Vantage CLI profile."""
+    # Get flags from context
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+    
     # Use the json_output parameter directly
     effective_json = json_output
 
@@ -175,14 +174,12 @@ def delete_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to delete")],
     force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
-    json_output: Annotated[
-        bool, typer.Option("--json", "-j", help="Output in JSON format")
-    ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
-    ] = False,
 ):
     """Delete a Vantage CLI profile."""
+    # Get flags from context
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+    
     # Use the json_output parameter directly
     effective_json = json_output
 
@@ -287,50 +284,44 @@ def delete_profile(
 
 
 @handle_abort
-def get_profile(
+async def get_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to get details for")],
-    json_output: Annotated[
-        bool, typer.Option("--json", "-j", help="Output in JSON format")
-    ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
-    ] = False,
 ):
     """Get details of a specific Vantage CLI profile."""
+    # Get flags from context
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+    
     # Use the json_output parameter directly
     effective_json = json_output
 
-    # Check if profile exists
-    existing_profiles = _get_all_profiles()
-
-    if profile_name not in existing_profiles:
-        message = f"Profile '{profile_name}' does not exist."
-        if effective_json:
-            result = {"success": False, "profile_name": profile_name, "message": message}
-            print_json(data=result)
-            return
-        else:
-            raise Abort(
-                message,
-                subject="Profile Not Found",
-                log_message=f"Profile '{profile_name}' not found",
-            )
-
     try:
-        # Load the profile settings
-        profile_data = existing_profiles[profile_name]
-        settings = Settings(**profile_data)
+        # Use the SDK to get the profile as a Profile object
+        profile = await profile_sdk.get_profile(ctx, profile_name)
+
+        if not profile:
+            message = f"Profile '{profile_name}' does not exist."
+            if effective_json:
+                result = {"success": False, "profile_name": profile_name, "message": message}
+                print_json(data=result)
+                return
+            else:
+                raise Abort(
+                    message,
+                    subject="Profile Not Found",
+                    log_message=f"Profile '{profile_name}' not found",
+                )
 
         if effective_json:
             result = {
                 "success": True,
-                "profile_name": profile_name,
-                "settings": settings.model_dump(),
+                "profile_name": profile.name,
+                "settings": profile.settings.model_dump(),
             }
             print_json(data=result)
         else:
-            _render_profile_details(profile_name, settings, ctx.obj.console)
+            _render_profile_details(profile.name, profile.settings, ctx.obj.console)
 
     except Exception as e:
         logger.error(f"Failed to get profile '{profile_name}': {str(e)}")
@@ -350,31 +341,24 @@ def get_profile(
 
 
 @handle_abort
-def list_profiles(
+async def list_profiles(
     ctx: typer.Context,
-    json_output: Annotated[
-        bool, typer.Option("--json", "-j", help="Output in JSON format")
-    ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
-    ] = False,
 ):
     """List all Vantage CLI profiles."""
+    # Get flags from context
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+    
     # Use the json_output parameter directly
     effective_json = json_output
 
     try:
-        # Get active profile from file system
-        active_profile = get_active_profile()
+        # Use the SDK to get profiles as Profile objects
+        profiles = await profile_sdk.list_profiles(ctx)
 
-        # Get all profiles
-        all_profiles = _get_all_profiles()
-
-        if not all_profiles:
+        if not profiles:
             if effective_json:
-                from vantage_cli.render import render_json
-
-                render_json({"profiles": [], "total": 0, "current_profile": active_profile})
+                RenderStepOutput.json_bypass([])
             else:
                 ctx.obj.console.print()
                 ctx.obj.console.print(Panel("No profiles found.", title="[yellow]No Profiles"))
@@ -382,24 +366,17 @@ def list_profiles(
             return
 
         if effective_json:
-            # JSON output - bypass progress system entirely
+            # JSON output - convert Profile objects to dicts for serialization
             profiles_list = []
-            for name, settings_data in all_profiles.items():
-                profile_info = {
-                    "name": name,
-                    "settings": settings_data,
-                    "is_current": name == active_profile,
+            for profile in profiles:
+                profile_dict = {
+                    "name": profile.name,
+                    "settings": profile.settings.model_dump(),
+                    "is_active": profile.is_active,
                 }
-                profiles_list.append(profile_info)
+                profiles_list.append(profile_dict)
 
-            result = {
-                "profiles": profiles_list,
-                "total": len(profiles_list),
-                "current_profile": active_profile,
-            }
-            from vantage_cli.render import render_json
-
-            render_json(result)
+            RenderStepOutput.json_bypass(profiles_list)
             return
 
         # Rich output with progress system
@@ -419,17 +396,23 @@ def list_profiles(
             # Step 2: Format and display output
             renderer.start_step("Formatting output")
 
-            _render_profiles_table(all_profiles, active_profile, ctx.obj.console)
+            # Convert Profile objects to dict format for the table renderer
+            profiles_dict = {}
+            active_profile_name = "default"  # fallback
+            for profile in profiles:
+                profiles_dict[profile.name] = profile.settings.model_dump()
+                if profile.is_active:
+                    active_profile_name = profile.name
+
+            _render_profiles_table(profiles_dict, active_profile_name, ctx.obj.console)
 
             renderer.complete_step("Formatting output")
 
     except Exception as e:
         logger.error(f"Failed to list profiles: {str(e)}")
         if effective_json:
-            from vantage_cli.render import render_json
-
             result = {"success": False, "message": f"Failed to list profiles: {str(e)}"}
-            render_json(result)
+            RenderStepOutput.json_bypass(result)
         else:
             raise Abort(
                 f"Failed to list profiles: {str(e)}",
@@ -442,14 +425,12 @@ def list_profiles(
 def use_profile(
     ctx: typer.Context,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to activate")],
-    json_output: Annotated[
-        bool, typer.Option("--json", "-j", help="Output in JSON format")
-    ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
-    ] = False,
 ):
     """Activate a profile for use in the current session."""
+    # Get flags from context
+    json_output = getattr(ctx.obj, "json_output", False)
+    verbose = getattr(ctx.obj, "verbose", False)
+    
     # Use the json_output parameter directly
     effective_json = json_output
 

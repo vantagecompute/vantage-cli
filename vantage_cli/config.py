@@ -48,9 +48,7 @@ class Settings(BaseModel):
     oidc_client_id: str = "default"
     oidc_max_poll_time: int = 5 * 60  # 5 minutes
 
-    @computed_field
-    @property
-    def dev_apps_gh_url(self) -> Optional[str]:
+    def get_dev_apps_gh_url(self) -> Optional[str]:
         """Construct the GitHub URL for the dev apps repository."""
         if gh_pat := os.environ.get("GH_PAT"):
             return f"https://{gh_pat}@github.com/vantagecompute/vantage-cli-dev-apps.git"

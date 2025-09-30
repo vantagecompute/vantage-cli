@@ -190,7 +190,7 @@ async def dev_clear(ctx: typer.Context):
 @attach_settings
 async def dev_init(ctx: typer.Context):
     """Initialize the vantage-cli dev apps directory by cloning from GitHub."""
-    if clone_url := ctx.obj.settings.dev_apps_gh_url:
+    if clone_url := ctx.obj.settings.get_dev_apps_gh_url():
         if VANTAGE_CLI_DEV_APPS_DIR.exists():
             shutil.rmtree(VANTAGE_CLI_DEV_APPS_DIR)
         try:

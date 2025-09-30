@@ -87,28 +87,106 @@ class ClusterDetailSchema(VantageClusterContext):
     creation_parameters: Dict[str, Any]
 
 
+class Cluster(BaseModel):
+    """Schema for cluster data."""
+
+    name: str
+    status: str
+    client_id: str
+    description: str
+    owner_email: str
+    provider: str
+    cloud_account_id: Optional[str] = None
+    creation_parameters: Dict[str, Any] = {}
+
+    @computed_field
+    @property
+    def is_ready(self) -> bool:
+        """Check if the cluster is ready."""
+        return self.status.lower() == "ready"
+
+    @computed_field
+    @property
+    def cluster_type(self) -> str:
+        """Get cluster type based on provider."""
+        provider_mapping = {
+            "on_prem": "On-Premises",
+            "aws": "AWS",
+            "gcp": "Google Cloud",
+            "azure": "Azure",
+            "localhost": "Local"
+        }
+        return provider_mapping.get(self.provider, self.provider.title())
+
+
 class Deployment(BaseModel):
     """Schema for deployment data."""
 
-    # Core identification
-    name: str
+    deployment_id: str
+    deployment_name: str
     app_name: str
-    # Cloud and infrastructure details
+    cluster_name: str
+    cluster_id: str
     cloud: str
+    created_at: str
+    status: str
+    updated_at: Optional[str] = None
+    
+    # Additional fields that might be present
     deployment_type: Optional[str] = None
     k8s_namespaces: Optional[List[str]] = None
-
-    # Status and timestamps
-    status: str
-    created_at: str
-    updated_at: Optional[str] = None
-
-    # Extended data
     cluster_data: Optional[VantageClusterContext] = None
     metadata: Dict[str, Any] = {}
+
+    @computed_field
+    @property
+    def is_active(self) -> bool:
+        """Check if the deployment is active."""
+        return self.status.lower() == "active"
+
+    @computed_field
+    @property
+    def formatted_created_at(self) -> str:
+        """Get formatted creation timestamp."""
+        try:
+            from datetime import datetime
+            dt = datetime.fromisoformat(self.created_at.replace("Z", "+00:00"))
+            return dt.strftime("%Y-%m-%d %H:%M")
+        except (ValueError, AttributeError):
+            return self.created_at
 
     @computed_field
     @property
     def compatible_integrations(self) -> list[str]:
         """Get a list of compatible integration types based on the cloud type."""
         return PROVIDER_SUBSTRATE_MAPPINGS.get(self.cloud, [])
+
+
+class Profile(BaseModel):
+    """Schema for profile data."""
+
+    name: str
+    settings: Settings
+    is_active: bool = False
+
+    @computed_field
+    @property
+    def api_base_url(self) -> str:
+        """Get the API base URL from settings."""
+        return self.settings.api_base_url
+
+    @computed_field
+    @property
+    def oidc_base_url(self) -> str:
+        """Get the OIDC base URL from settings."""
+        return self.settings.oidc_base_url
+
+    @computed_field
+    @property
+    def oidc_client_id(self) -> str:
+        """Get the OIDC client ID from settings."""
+        return self.settings.oidc_client_id
+
+    def get_dev_apps_gh_url(self) -> Optional[str]:
+        """Get the development apps GitHub URL from settings."""
+        return self.settings.get_dev_apps_gh_url()

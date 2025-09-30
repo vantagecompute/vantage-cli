@@ -18,10 +18,10 @@ import typer
 from rich.table import Table
 from typing_extensions import Annotated
 
-from vantage_cli.apps.common import load_deployments
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.render import RenderStepOutput
+from vantage_cli.sdk.deployment import deployment_sdk
 
 
 @attach_settings
@@ -41,55 +41,16 @@ async def list_deployments(
     verbose = getattr(ctx.obj, "verbose", False)
 
     try:
-        # Load deployments from YAML file
-        deployments_data = load_deployments(ctx.obj.console)
-        active_deployments = {
-            dep_id: dep_data
-            for dep_id, dep_data in deployments_data["deployments"].items()
-            if dep_data.get("status") == "active"
-        }
+        # Use the SDK to get deployments
+        deployments = await deployment_sdk.list(ctx, cloud=cloud, status="active")
 
-        # Apply cloud filter if specified
-        if cloud:
-            active_deployments = {
-                dep_id: dep_data
-                for dep_id, dep_data in active_deployments.items()
-                if dep_data.get("cloud", "unknown").lower() == cloud.lower()
-            }
+        if json_output:
+            # JSON output - return deployments list directly
+            RenderStepOutput.json_bypass(deployments)
+            return
 
         # Get command start time for timing
         command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
-
-        if json_output:
-            # JSON output - bypass progress system entirely
-            deployments_list = []
-            for deployment_id, deployment_data in active_deployments.items():
-                deployment_info = {
-                    "deployment_id": deployment_id,
-                    "deployment_name": deployment_data.get("deployment_name", "unknown"),
-                    "app_name": deployment_data.get("app_name", "unknown"),
-                    "cluster_name": deployment_data.get("cluster_name", "unknown"),
-                    "cluster_id": deployment_data.get("cluster_id", "unknown"),
-                    "cloud": deployment_data.get("cloud", "unknown"),
-                    "created_at": deployment_data.get("created_at", "unknown"),
-                    "status": deployment_data.get("status", "unknown"),
-                }
-                deployments_list.append(deployment_info)
-
-            renderer = RenderStepOutput(
-                console=ctx.obj.console,
-                operation_name="Listing deployments",
-                step_names=[],
-                verbose=verbose,
-                command_start_time=command_start_time,
-            )
-            return renderer.json_bypass(
-                {
-                    "deployments": deployments_list,
-                    "total_count": len(deployments_list),
-                    "cloud_filter": cloud,
-                }
-            )
 
         # Rich output with progress system
         renderer = RenderStepOutput(
@@ -111,7 +72,7 @@ async def list_deployments(
             renderer.start_step("Formatting output")
 
             # Rich table output
-            if not active_deployments:
+            if not deployments:
                 ctx.obj.console.print("[yellow]No active deployments found.[/yellow]")
                 ctx.obj.console.print(
                     "[dim]Use 'vantage deployment create <app> <cluster>' to create a deployment.[/dim]"
@@ -130,13 +91,14 @@ async def list_deployments(
             table.add_column("Created", style="white", width=20)
             table.add_column("Status", style="magenta", width=10)
 
-            for deployment_id, deployment_data in active_deployments.items():
-                deployment_name = deployment_data.get("deployment_name", "unknown")
-                app_name = deployment_data.get("app_name", "unknown")
-                cluster_name = deployment_data.get("cluster_name", "unknown")
-                cloud_name = deployment_data.get("cloud", "unknown")
-                created_at = deployment_data.get("created_at", "unknown")
-                status = deployment_data.get("status", "unknown")
+            for deployment in deployments:
+                deployment_id = deployment.get("deployment_id", "unknown")
+                deployment_name = deployment.get("deployment_name", "unknown")
+                app_name = deployment.get("app_name", "unknown")
+                cluster_name = deployment.get("cluster_name", "unknown")
+                cloud_name = deployment.get("cloud", "unknown")
+                created_at = deployment.get("created_at", "unknown")
+                status = deployment.get("status", "unknown")
 
                 # Format the created_at timestamp if it's an ISO format
                 if created_at != "unknown":
@@ -160,7 +122,7 @@ async def list_deployments(
             renderer.table_step(table)
 
             # Show summary with cloud filter info if applicable
-            summary_msg = f"\n[bold]Found {len(active_deployments)} active deployment(s)"
+            summary_msg = f"\n[bold]Found {len(deployments)} active deployment(s)"
             if cloud:
                 summary_msg += f" for cloud '{cloud}'"
             summary_msg += "[/bold]"

@@ -11,10 +11,11 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Cluster CRUD SDK using the base CRUD classes."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 import typer
 
 from vantage_cli.sdk.base import BaseGraphQLResourceSDK
+from vantage_cli.schemas import Cluster
 
 
 class ClusterSDK(BaseGraphQLResourceSDK):
@@ -67,6 +68,73 @@ class ClusterSDK(BaseGraphQLResourceSDK):
         This is a placeholder for future implementation.
         """
         raise NotImplementedError("Cluster deletion is not yet implemented")
+
+    async def list_clusters(self, ctx: typer.Context, **kwargs: Any) -> List[Cluster]:
+        """List all clusters as Cluster objects.
+        
+        Args:
+            ctx: Typer context
+            **kwargs: Additional filtering parameters
+            
+        Returns:
+            List of Cluster objects
+        """
+        # Get raw cluster data from the base list method
+        clusters_raw = await self.list(ctx, **kwargs)
+        
+        clusters: List[Cluster] = []
+        for cluster_data in clusters_raw:
+            try:
+                cluster = Cluster(
+                    name=cluster_data.get("name", ""),
+                    status=cluster_data.get("status", "unknown"),
+                    client_id=cluster_data.get("clientId", ""),
+                    description=cluster_data.get("description", ""),
+                    owner_email=cluster_data.get("ownerEmail", ""),
+                    provider=cluster_data.get("provider", "unknown"),
+                    cloud_account_id=cluster_data.get("cloudAccountId"),
+                    creation_parameters=cluster_data.get("creationParameters", {})
+                )
+                clusters.append(cluster)
+            except Exception as e:
+                from loguru import logger
+                logger.warning(f"Failed to parse cluster data: {e}")
+                continue
+        
+        return clusters
+
+    async def get_cluster(self, ctx: typer.Context, cluster_name: str, **kwargs: Any) -> Optional[Cluster]:
+        """Get a specific cluster as a Cluster object.
+        
+        Args:
+            ctx: Typer context
+            cluster_name: Name of the cluster to retrieve
+            **kwargs: Additional parameters
+            
+        Returns:
+            Cluster object or None if not found
+        """
+        # Get raw cluster data from the base get method
+        cluster_data = await self.get(ctx, cluster_name, **kwargs)
+        
+        if not cluster_data:
+            return None
+        
+        try:
+            return Cluster(
+                name=cluster_data.get("name", ""),
+                status=cluster_data.get("status", "unknown"),
+                client_id=cluster_data.get("clientId", ""),
+                description=cluster_data.get("description", ""),
+                owner_email=cluster_data.get("ownerEmail", ""),
+                provider=cluster_data.get("provider", "unknown"),
+                cloud_account_id=cluster_data.get("cloudAccountId"),
+                creation_parameters=cluster_data.get("creationParameters", {})
+            )
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"Failed to parse cluster data for '{cluster_name}': {e}")
+            return None
 
 
 # Create a singleton instance for use in commands

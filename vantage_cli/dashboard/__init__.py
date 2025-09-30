@@ -36,6 +36,8 @@ from rich.text import Text
 
 from .dependency_tracker import Worker, WorkerState, DependencyTracker
 from .cluster_management_tab_pane import ClusterManagementTabPane
+from .profile_management_tab_pane import ProfileManagementTabPane
+from .deployment_management_tab_pane import DeploymentManagementTabPane
 
 
 @dataclass
@@ -420,6 +422,14 @@ class DashboardApp(App):
                 # Add cluster management tab if enabled and context is available
                 if self.config.enable_clusters and self.ctx:
                     yield ClusterManagementTabPane(self.ctx)
+                
+                # Add profile management tab if context is available
+                if self.ctx:
+                    yield ProfileManagementTabPane(self.ctx)
+                
+                # Add deployment management tab if context is available
+                if self.ctx:
+                    yield DeploymentManagementTabPane(self.ctx)
             
             # Control buttons
             if self.config.enable_controls:

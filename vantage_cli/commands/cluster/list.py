@@ -38,13 +38,8 @@ async def list_clusters(
         clusters = await list_clusters_sdk(ctx)
         
         if json_output:
-            # For JSON output, format as the original GraphQL response structure
-            response_data = {
-                "clusters": {
-                    "edges": [{"node": cluster} for cluster in clusters]
-                }
-            }
-            RenderStepOutput.json_bypass(response_data)
+            # For JSON output, return the clusters list directly
+            RenderStepOutput.json_bypass(clusters)
             return
 
         # Rich output with progress system

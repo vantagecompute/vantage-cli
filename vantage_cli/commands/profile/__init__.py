@@ -11,12 +11,12 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Profile management commands for Vantage CLI."""
 
-import typer
+from vantage_cli import AsyncTyper
 
 from .crud import create_profile, delete_profile, get_profile, list_profiles, use_profile
 
 # Create the profile app
-profile_app = typer.Typer(
+profile_app = AsyncTyper(
     name="profile",
     help="Manage Vantage CLI profiles to work with different environments and configurations.",
     invoke_without_command=True,

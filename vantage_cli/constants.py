@@ -23,6 +23,10 @@ CLOUD_TYPE_K8S = "k8s"
 CLOUD_TYPE_VM = "vm"
 CLOUD_TYPE_CONTAINER = "container"
 
+PROVIDER_SUBSTRATE_MULTIPASS = "multipass"
+PROVIDER_SUBSTRATE_LXD = "lxd"
+PROVIDER_SUBSTRATE_MICROK8S = "microk8s"
+
 
 PROVIDER_SUBSTRATE_MAPPINGS = {
     "localhost": ["multipass", "microk8s", "lxd"],
@@ -61,12 +65,12 @@ ENV_OIDC_DOMAIN = "VANTAGE_OIDC_DOMAIN"
 ENV_BASE_API_URL = "VANTAGE_BASE_API_URL"
 ENV_TUNNEL_API_URL = "VANTAGE_TUNNEL_API_URL"
 
+# OIDC paths
+OIDC_DEVICE_PATH = "/device"
+OIDC_TOKEN_PATH = "/token"
+
 # Error messages
 ERROR_NO_CLUSTER_DATA = "[red]Error: No cluster data provided.[/red]"
 ERROR_NO_CLIENT_ID = "[red]Error: No client ID found in cluster data.[/red]"
 ERROR_NO_CLIENT_SECRET = "[red]Error: No client secret found in cluster data.[/red]"
 ERROR_MULTIPASS_NOT_FOUND = "[red]Error: 'multipass' is not installed or not found in PATH.[/red]"
-
-# OIDC authentication paths
-OIDC_DEVICE_PATH = "/realms/vantage/protocol/openid-connect/auth/device"
-OIDC_TOKEN_PATH = "/realms/vantage/protocol/openid-connect/token"

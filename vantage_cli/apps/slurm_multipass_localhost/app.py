@@ -15,7 +15,7 @@ import os
 import subprocess
 from pathlib import Path
 from shutil import which
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import typer
 from loguru import logger
@@ -45,21 +45,10 @@ from vantage_cli.exceptions import handle_abort
 from vantage_cli.render import DeploymentStep, deployment_progress_panel
 from vantage_cli.schemas import VantageClusterContext
 
+from .constants import APP_NAME
+
 # Note: Cloud-init generation now handled by centralized template engine
 # See vantage_cli/apps/templates.py for CloudInitTemplate and VantageClusterContext
-
-
-def _validate_and_extract_credentials(
-    cluster_data: Dict[str, Any], console: Console
-) -> tuple[str, str | None]:
-    """Validate cluster data and extract client credentials.
-
-    Returns:
-        Tuple of (client_id, client_secret)
-    """
-    cluster_data = validate_cluster_data(cluster_data, console)
-    client_id, client_secret = validate_client_credentials(cluster_data, console)
-    return client_id, client_secret
 
 
 async def _get_client_secret_if_needed(
@@ -78,24 +67,6 @@ async def _get_client_secret_if_needed(
             console.print(f"[red]Failed to get client secret: {e}[/red]")
             raise
     return require_client_secret(client_secret, console)
-
-
-def _create_deployment_with_id(
-    app_name: str, cluster_name: str, cluster_data: Dict[str, Any], console: Console, verbose: bool
-) -> str:
-    """Create deployment with initial status and return deployment ID."""
-    deployment_id = generate_default_deployment_name(app_name, cluster_name)
-    create_deployment_with_init_status(
-        deployment_id=deployment_id,
-        app_name=app_name,
-        cluster_name=cluster_name,
-        cluster_data=cluster_data,
-        console=console,
-        verbose=verbose,
-        cloud=CLOUD_LOCALHOST,
-        cloud_type=CLOUD_TYPE_VM,
-    )
-    return deployment_id
 
 
 def _get_jupyterhub_token(cluster_data: Dict[str, Any], verbose: bool) -> str:
@@ -303,7 +274,8 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool
     console = ctx.obj.console
 
     # Validate cluster data and extract credentials
-    client_id, client_secret = _validate_and_extract_credentials(cluster_data, console)
+    cluster_data = validate_cluster_data(cluster_data, console)
+    client_id, client_secret = validate_client_credentials(cluster_data, console)
 
     # Get client secret from API if not in cluster data
     if not client_secret:
@@ -312,11 +284,8 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool
     # Extract cluster name from cluster data
     cluster_name = cluster_data.get("name", "unknown-cluster")
 
-    # Generate deployment ID and create deployment with init status
-    app_name = "slurm-multipass-localhost"
-    deployment_id = _create_deployment_with_id(
-        app_name, cluster_name, cluster_data, console, verbose
-    )
+    # Generate deployment ID
+    deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
 
     if verbose:
         logger.debug("Client secret obtained (or placeholder used).")
@@ -341,6 +310,20 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool
         "deployment_name", f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
     )
     instance_name = deployment_name
+
+    # Create deployment with init status - only once
+    create_deployment_with_init_status(
+        deployment_id=deployment_id,
+        app_name=APP_NAME,
+        cluster_name=cluster_name,
+        cluster_data=cluster_data,
+        console=console,
+        deployment_name=deployment_name,
+        verbose=verbose,
+        cloud=CLOUD_LOCALHOST,
+        cloud_type=CLOUD_TYPE_VM,
+        k8s_namespaces=[],  # Will be populated as namespaces are created
+    )
 
     # Define deployment steps
     steps = [
@@ -417,15 +400,15 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool
         raise typer.Exit(1)
 
 
-# Typer CLI commands
+# Command functions that the deployment system will discover
 @handle_abort
 @attach_settings
 async def deploy_command(
     ctx: typer.Context,
     cluster_name: Annotated[
-        str,
+        Optional[str],
         typer.Argument(help="Name of the cluster to deploy"),
-    ],
+    ] = None,
     dev_run: Annotated[
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
@@ -434,6 +417,9 @@ async def deploy_command(
     # Check for Multipass early before doing any other work
     check_multipass_available()
 
+    if cluster_name is None:
+        cluster_name = "unknown"
+
     cluster_data = generate_dev_cluster_data(cluster_name)
     if not dev_run:
         from vantage_cli.commands.cluster import utils as cluster_utils
@@ -441,6 +427,10 @@ async def deploy_command(
         cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
         if cluster_data is None:
             raise ValueError(f"Cluster '{cluster_name}' not found")
+    else:
+        ctx.obj.console.print(
+            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
+        )
 
     await deploy(ctx=ctx, cluster_data=cluster_data)
 
