@@ -31,8 +31,7 @@ from vantage_cli.apps.common import (
     validate_client_credentials,
     validate_cluster_data,
 )
-from vantage_cli.apps.slurm_multipass_localhost.utils import check_multipass_available
-from vantage_cli.apps.templates import CloudInitTemplate
+
 from vantage_cli.config import attach_settings
 from vantage_cli.constants import (
     CLOUD_LOCALHOST,
@@ -46,9 +45,8 @@ from vantage_cli.render import DeploymentStep, deployment_progress_panel
 from vantage_cli.schemas import VantageClusterContext
 
 from .constants import APP_NAME
-
-# Note: Cloud-init generation now handled by centralized template engine
-# See vantage_cli/apps/templates.py for CloudInitTemplate and VantageClusterContext
+from .utils import check_multipass_available
+from .templates import CloudInitTemplate
 
 
 async def _get_client_secret_if_needed(

@@ -173,19 +173,31 @@ class Profile(BaseModel):
     @property
     def api_base_url(self) -> str:
         """Get the API base URL from settings."""
-        return self.settings.api_base_url
+        return self.settings.get_api_base_url()
+
+    @computed_field
+    @property
+    def tunnel_url(self) -> str:
+        """Get the Tunnel URL from settings."""
+        return self.settings.get_tunnel_url()
+
+    @computed_field
+    @property
+    def ldap_url(self) -> str:
+        """Get the ldap URL from settings."""
+        return self.settings.get_ldap_url()
 
     @computed_field
     @property
     def oidc_base_url(self) -> str:
         """Get the OIDC base URL from settings."""
-        return self.settings.oidc_base_url
+        return self.settings.get_oidc_base_url()
 
     @computed_field
     @property
     def oidc_client_id(self) -> str:
         """Get the OIDC client ID from settings."""
-        return self.settings.oidc_client_id
+        return self.settings.get_oidc_client_id()
 
     def get_dev_apps_gh_url(self) -> Optional[str]:
         """Get the development apps GitHub URL from settings."""

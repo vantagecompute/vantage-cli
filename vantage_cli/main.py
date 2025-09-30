@@ -13,10 +13,6 @@
 
 # Disable HTTP library logging before any imports that might use httpx
 import logging
-logging.getLogger("httpx").disabled = True
-logging.getLogger("httpcore").disabled = True
-logging.getLogger("urllib3").disabled = True
-logging.getLogger("requests").disabled = True
 
 import datetime
 import shutil
@@ -31,7 +27,6 @@ from rich import print_json
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from typer.core import TyperGroup
 
 from vantage_cli import AsyncTyper, __version__
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
@@ -65,13 +60,19 @@ from vantage_cli.config import (
     ensure_default_profile_exists,
     get_active_profile,
 )
-from vantage_cli.constants import VANTAGE_CLI_DEV_APPS_DIR
-from vantage_cli.exceptions import handle_abort
-from vantage_cli.schemas import CliContext, Persona, TokenSet
+from .constants import VANTAGE_CLI_DEV_APPS_DIR
+from .exceptions import handle_abort
+from .schemas import CliContext, Persona, TokenSet
+from .utils import get_dev_apps_gh_url
 
 # Set terminal width for Rich error messages to match our console width
 import os
+
+
 os.environ["COLUMNS"] = "200"
+
+logging.getLogger("httpx").disabled = True
+logging.getLogger("httpcore").disabled = True
 
 app = AsyncTyper(
     name="Vantage CLI",
@@ -80,7 +81,6 @@ app = AsyncTyper(
     no_args_is_help=True,
     invoke_without_command=True,
 )
-
 
 @app.command()
 @handle_abort
@@ -119,6 +119,9 @@ def setup_logging(verbose: bool = False):
         from rich import traceback
 
         traceback.install()
+        logging.getLogger("httpx").disabled = False
+        logging.getLogger("httpcore").disabled = False
+
     else:
         # Disable rich tracebacks in normal mode
         # Reset exception handler to default
@@ -126,14 +129,14 @@ def setup_logging(verbose: bool = False):
         
         # Completely suppress HTTP logs by setting them to CRITICAL level
         # This prevents HTTP request/response logs from cluttering the user interface
-        logging.getLogger("httpx").setLevel(logging.CRITICAL)
-        logging.getLogger("httpcore").setLevel(logging.CRITICAL)
-        logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-        logging.getLogger("requests").setLevel(logging.CRITICAL)
+        #logging.getLogger("httpx").setLevel(logging.CRITICAL)
+        #logging.getLogger("httpcore").setLevel(logging.CRITICAL)
+        #logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+        #ogging.getLogger("requests").setLevel(logging.CRITICAL)
         
         # Also suppress any potential root logger or httpx._client logs
-        logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
-        logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
+        #logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
+        #logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
 
     logger.debug("Logging initialized")
 
@@ -165,9 +168,7 @@ def main(ctx: typer.Context):
     # console = Console(width=200)
     console = Console(color_system="auto", force_terminal=True)
 
-    cli_ctx = CliContext(
-        profile=active_profile, verbose=verbose, json_output=json_output, console=console
-    )
+    cli_ctx = CliContext(profile=active_profile, json_output=json_output, verbose=verbose, console=console)
     ctx.obj = cli_ctx
 
 
@@ -190,7 +191,7 @@ async def dev_clear(ctx: typer.Context):
 @attach_settings
 async def dev_init(ctx: typer.Context):
     """Initialize the vantage-cli dev apps directory by cloning from GitHub."""
-    if clone_url := ctx.obj.settings.get_dev_apps_gh_url():
+    if clone_url := get_dev_apps_gh_url():
         if VANTAGE_CLI_DEV_APPS_DIR.exists():
             shutil.rmtree(VANTAGE_CLI_DEV_APPS_DIR)
         try:

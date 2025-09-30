@@ -66,8 +66,8 @@ ENV_BASE_API_URL = "VANTAGE_BASE_API_URL"
 ENV_TUNNEL_API_URL = "VANTAGE_TUNNEL_API_URL"
 
 # OIDC paths
-OIDC_DEVICE_PATH = "/device"
-OIDC_TOKEN_PATH = "/token"
+OIDC_DEVICE_PATH = "/realms/vantage/device"
+OIDC_TOKEN_PATH = "/realms/vantage/protocol/openid-connect/token"
 
 # Error messages
 ERROR_NO_CLUSTER_DATA = "[red]Error: No cluster data provided.[/red]"

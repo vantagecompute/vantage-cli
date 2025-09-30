@@ -157,92 +157,63 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
         """Generate SSSD configuration."""
         return generate_sssd_conf(context)
 
-
 def generate_sssd_conf(context: VantageClusterContext) -> str:
     """Generate SSSD configuration string."""
     sssd_conf = dedent(f"""\
-    [sssd]
-    # Core configuration
-    config_file_version = 2
-    services = nss, pam, ssh, autofs
-    domains  = vantagecompute.ai
-    
-    # Debugging (for NSS)
-    [nss]
-    debug_level = 7
-    
-    # -----------------------------------------------------------------------------
-    # Domain-specific settings for example.com
-    # -----------------------------------------------------------------------------
-    [domain/vantagecompute.ai]
-    # ─── Identity and Authentication ─────────────────────────────────────────────
-    id_provider      = ldap
-    auth_provider    = ldap
-    chpass_provider  = ldap
-    access_provider  = ldap
-    
-    # LDAP servers and search bases
-    ldap_uri               = ldap://192.168.7.120
-    ldap_search_base       = dc=vantagecompute,dc=ai
-    ldap_user_search_base  = ou=People,dc=vantagecompute,dc=ai
-    ldap_group_search_base = ou=Groups,dc=vantagecompute,dc=ai
-    
-    # Credentials for binding to LDAP
-    ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou=<keycloak-org-id>,ou=organizations,dc=vantagecompute,dc=ai
-    ldap_default_authtok      = OKrGUle0JqsOw8Nhfptgh0_DCClrSI2QiW9xG6T70mo
-    ldap_default_authtok_type = password
-    
-    # ─── Access control ───────────────────────────────────────────────────────────
-    # Only allow slurm-users to log in
-    ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,dc=vantagecompute,dc=ai
-    
-    # ─── SSH public key lookup ────────────────────────────────────────────────────
-    ldap_user_ssh_public_key = sshPublicKey
-    
-    # ─── Group mapping ─────────────────────────────────────────────────────────────
-    ldap_group_object_class = groupOfNames
-    ldap_group_member       = member
-    ldap_group_name         = cn
-    ldap_group_gid_number   = gidNumber
-    
-    # ─── Autofs integration ───────────────────────────────────────────────────────
-    autofs_provider               = ldap
-    ldap_autofs_search_base       = ou=auto.master,dc=vantagecompute,dc=ai
-    ldap_autofs_map_object_class  = automountMap
-    ldap_autofs_entry_object_class= automount
-    ldap_autofs_map_name          = automountMapName
-    ldap_autofs_entry_key         = automountKey
-    ldap_autofs_entry_value       = automountInformation
-    
-    # ─── Caching and performance ──────────────────────────────────────────────────
-    cache_credentials   = true
-    entry_cache_timeout = 600
-    enumerate           = false
-    
-    # ─── Schema type ───────────────────────────────────────────────────────────────
-    ldap_schema = rfc2307bis
-    """)
+        [sssd]
+        config_file_version = 2
+        services = nss, pam, ssh, autofs
+        domains  = vantagecompute.ai
+        
+        [nss]
+        debug_level = 7
+        
+        [domain/vantagecompute.ai]
+        id_provider      = ldap
+        auth_provider    = ldap
+        chpass_provider  = ldap
+        access_provider  = ldap
+        
+        # LDAP servers and search bases
+        ldap_uri               = ldap://{context.ldap_url}
+        ldap_search_base       = dc=vantagecompute,dc=ai
+        ldap_user_search_base  = ou=People,dc=vantagecompute,dc=ai
+        ldap_group_search_base = ou=Groups,dc=vantagecompute,dc=ai
+        
+        # Credentials for binding to LDAP
+        ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou={context.org_id},ou=organizations,dc=vantagecompute,dc=ai
+        ldap_default_authtok      = {context.sssd_binder_password}
+        ldap_default_authtok_type = password
+        
+        # ─── Access control ───────────────────────────────────────────────────────────
+        # Only allow slurm-users to log in
+        ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,ou={context.org_id},ou=organizations,dc=vantagecompute,dc=ai
+        
+        # ─── SSH public key lookup ────────────────────────────────────────────────────
+        ldap_user_ssh_public_key = sshPublicKey
+        
+        # ─── Group mapping ─────────────────────────────────────────────────────────────
+        ldap_group_object_class = groupOfNames
+        ldap_group_member       = member
+        ldap_group_name         = cn
+        ldap_group_gid_number   = gidNumber
+        
+        # ─── Autofs integration ───────────────────────────────────────────────────────
+        autofs_provider               = ldap
+        ldap_autofs_search_base       = ou=auto.master,dc=vantagecompute,dc=ai
+        ldap_autofs_map_object_class  = automountMap
+        ldap_autofs_entry_object_class= automount
+        ldap_autofs_map_name          = automountMapName
+        ldap_autofs_entry_key         = automountKey
+        ldap_autofs_entry_value       = automountInformation
+        
+        # ─── Caching and performance ──────────────────────────────────────────────────
+        cache_credentials   = true
+        entry_cache_timeout = 600
+        enumerate           = false
+        
+        # ─── Schema type ───────────────────────────────────────────────────────────────
+        ldap_schema = rfc2307bis
+        """
+    )
     return sssd_conf
-
-
-class JujuBundleTemplate:
-    """Template engine for Juju bundle configurations."""
-
-    @staticmethod
-    def generate_bundle_config(context: VantageClusterContext) -> Dict[str, Any]:
-        """Generate Juju bundle configuration."""
-        # This would contain the bundle configuration
-        # For now, returning a basic structure
-        return {
-            "bundle": "vantage-jupyterhub-slurm",
-            "applications": {
-                "vantage-jupyterhub": {
-                    "charm": "vantage-jupyterhub",
-                    "options": {
-                        "client_id": context.client_id,
-                        "oidc_domain": context.oidc_domain,
-                        "base_api_url": context.base_api_url,
-                    },
-                }
-            },
-        }

@@ -173,10 +173,7 @@ class ProfileSDK(BaseLocalResourceSDK):
             # Create settings object
             settings_data = resource_data.get("settings", {})
             settings = Settings(
-                api_base_url=settings_data.get("api_base_url", "https://apis.vantagecompute.ai"),
-                oidc_base_url=settings_data.get("oidc_base_url", "https://auth.vantagecompute.ai"),
-                tunnel_api_url=settings_data.get("tunnel_api_url", "https://tunnel.vantagecompute.ai"),
-                oidc_client_id=settings_data.get("oidc_client_id", "default"),
+                vantage_url=settings_data.get("vantage_url", "https://app.vantagecompute.ai"),
                 oidc_max_poll_time=settings_data.get("oidc_max_poll_time", 300),
             )
             

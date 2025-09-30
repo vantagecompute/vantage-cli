@@ -42,30 +42,46 @@ class Settings(BaseModel):
         "on-premises",
         "k8s",
     ]
-    api_base_url: str = "https://apis.vantagecompute.ai"
-    oidc_base_url: str = "https://auth.vantagecompute.ai"
-    tunnel_api_url: str = "https://tunnel.vantagecompute.ai"
-    oidc_client_id: str = "default"
+    vantage_url: str = "https://app.vantagecompute.ai"
     oidc_max_poll_time: int = 5 * 60  # 5 minutes
 
-    def get_dev_apps_gh_url(self) -> Optional[str]:
-        """Construct the GitHub URL for the dev apps repository."""
-        if gh_pat := os.environ.get("GH_PAT"):
-            return f"https://{gh_pat}@github.com/vantagecompute/vantage-cli-dev-apps.git"
-        return None
+    def _get_url_for_profile(self, endpoint: str) -> str:
+        """Construct the URL for the current profile."""
+        domain_parts = self.vantage_url.split("//")[-1].split(".")[1:4]
+        domain_parts.insert(0, endpoint)
+
+        if endpoint == "ldap":
+            return "ldap://" + ".".join(domain_parts)
+        else:
+            return "https://" + ".".join(domain_parts)
+
+    def get_ldap_url(self) -> str:
+        """Construct the LDAP URL."""
+        return self._get_url_for_profile('ldap')
+
+    def get_auth_url(self) -> str:
+        """Construct the auth URL."""
+        return self._get_url_for_profile('auth')
+
+    def get_tunnel_url(self) -> str:
+        """Construct the tunnel URL."""
+        return self._get_url_for_profile('tunnel')
+
+    def get_apis_url(self) -> str:
+        """Construct the apis URL."""
+        return self._get_url_for_profile('apis')
 
     @computed_field
     @property
     def oidc_domain(self) -> str:
         """Extract the domain from the OIDC base URL."""
-        return self.oidc_base_url.split("//")[-1] + "/realms/vantage"
+        return self.get_auth_url().split("//")[-1] + "/realms/vantage"
 
     @computed_field
     @property
     def oidc_token_url(self) -> str:
         """Construct the OIDC token URL from the base URL."""
-        return f"{self.oidc_base_url}/realms/vantage/protocol/openid-connect/token"
-
+        return f"{self.get_auth_url()}/realms/vantage/protocol/openid-connect/token"
 
 def init_user_filesystem(profile: str) -> None:
     """Initialize the user filesystem directories for a profile."""

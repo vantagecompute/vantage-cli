@@ -38,17 +38,10 @@ from vantage_cli.sdk.profile import profile_sdk
 @handle_abort
 async def create_profile(
     ctx: typer.Context,
-    command_start_time: float,
     profile_name: Annotated[str, typer.Argument(help="Name of the profile to create")],
-    api_base_url: Annotated[
-        str, typer.Option("--api-url", help="API base URL")
-    ] = "https://apis.vantagecompute.ai",
-    tunnel_api_url: Annotated[
-        str, typer.Option("--tunnel-url", help="Tunnel API URL")
-    ] = "https://tunnel.vantagecompute.ai",
-    oidc_base_url: Annotated[
-        str, typer.Option("--oidc-url", help="OIDC base URL")
-    ] = "https://auth.vantagecompute.ai",
+    vantage_url: Annotated[
+        str, typer.Option("--vantage-url", help="Vantage Platform URL")
+    ] = "https://app.vantagecompute.ai",
     oidc_client_id: Annotated[str, typer.Option("--client-id", help="OIDC client ID")] = "default",
     oidc_max_poll_time: Annotated[
         int, typer.Option("--max-poll-time", help="OIDC max poll time in seconds")
@@ -78,7 +71,7 @@ async def create_profile(
         operation_name=f"Create Profile '{profile_name}'",
         step_names=["Validating parameters", "Creating profile", "Configuring settings"],
         verbose=verbose,
-        command_start_time=command_start_time,
+        command_start_time=ctx.obj.command_start_time,
     )
 
     with renderer:
@@ -103,10 +96,7 @@ async def create_profile(
         # Create the settings
         try:
             settings = Settings(
-                api_base_url=api_base_url,
-                oidc_base_url=oidc_base_url,
-                tunnel_api_url=tunnel_api_url,
-                oidc_client_id=oidc_client_id,
+                vantage_url=vantage_url,
                 oidc_max_poll_time=oidc_max_poll_time,
             )
 
@@ -527,9 +517,7 @@ def _render_profiles_table(
     # Add columns
     table.add_column("Name", style="bold cyan")
     table.add_column("Current", style="green", justify="center")
-    table.add_column("API Base URL", style="blue")
-    table.add_column("OIDC Base URL", style="yellow")
-    table.add_column("Tunnel API URL", style="yellow")
+    table.add_column("Vantage URL", style="blue")
     table.add_column("Client ID", style="white")
 
     # Add rows
@@ -537,13 +525,11 @@ def _render_profiles_table(
         current_marker = "✓" if name == current_profile else ""
 
         # Handle both old and new settings format
-        api_url = settings_data.get("api_base_url", "N/A")
-        oidc_url = settings_data.get("oidc_base_url", "N/A")
-        tunnel_url = settings_data.get("tunnel_api_url", "N/A")
+        vantage_url = settings_data.get("vantage_url", "N/A")
         client_id = settings_data.get("oidc_client_id", "N/A")
 
         table.add_row(
-            name, current_marker, str(api_url), str(oidc_url), str(tunnel_url), str(client_id)
+            name, current_marker, str(vantage_url), str(client_id)
         )
 
     console.print()
@@ -563,13 +549,11 @@ def _render_profile_details(profile_name: str, settings: Settings, console: Cons
 
     # Add profile information
     table.add_row("Profile Name", profile_name)
-    table.add_row("API Base URL", settings.api_base_url)
-    table.add_row("OIDC Base URL", settings.oidc_base_url)
-    table.add_row("Tunnel Base URL", settings.tunnel_api_url)
+    table.add_row("API Base URL", settings.get_apis_url())
+    table.add_row("OIDC Base URL", settings.get_auth_url())
+    table.add_row("Tunnel Base URL", settings.get_tunnel_url())
     table.add_row("OIDC Domain", settings.oidc_domain)
-    table.add_row("OIDC Client ID", settings.oidc_client_id)
     table.add_row("OIDC Max Poll Time", f"{settings.oidc_max_poll_time} seconds")
-    table.add_row("Supported Clouds", ", ".join(settings.supported_clouds))
 
     console.print()
     console.print(table)

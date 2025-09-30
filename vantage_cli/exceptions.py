@@ -99,14 +99,12 @@ class Abort(buzz.Buzz):
         super().__init__(message, *args, **kwargs)
 
 
-def _handle_authentication_error(auth_err: AuthenticationError, console: Console | None = None) -> None:
+def _handle_authentication_error(auth_err: AuthenticationError, console: Console) -> None:
     """Handle authentication errors with consistent messaging."""
     message = (
         "Authentication failed. Your token may be expired or invalid.\n\n"
         "Please run 'vantage login' to authenticate again."
     )
-    if console is None:
-        console = Console()
     console.print()
     console.print(Panel(message, title="[red]Authentication Required"))
     console.print()
@@ -114,7 +112,7 @@ def _handle_authentication_error(auth_err: AuthenticationError, console: Console
     raise typer.Exit(code=1)
 
 
-def _handle_abort_error(err: Abort, console: Console | None = None) -> None:
+def _handle_abort_error(err: Abort, console: Console) -> None:
     """Handle abort errors with consistent messaging."""
     if not err.warn_only:
         if err.log_message is not None:
@@ -128,8 +126,6 @@ def _handle_abort_error(err: Abort, console: Console | None = None) -> None:
         panel_kwargs["title"] = f"[red]{err.subject}"
     message = snick.dedent(err.message)
 
-    if console is None:
-        console = Console()
     console.print()
     console.print(Panel(message, **panel_kwargs))
     console.print()
@@ -145,16 +141,12 @@ def handle_abort(func):
             try:
                 return await func(*args, **kwargs)
             except AuthenticationError as auth_err:
-                # Try to get console from CliContext if available
-                console = None
-                if args and hasattr(args[0], 'obj') and hasattr(args[0].obj, 'console'):
-                    console = args[0].obj.console
+                # Get console from CliContext
+                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
                 _handle_authentication_error(auth_err, console)
             except Abort as err:
-                # Try to get console from CliContext if available
-                console = None
-                if args and hasattr(args[0], 'obj') and hasattr(args[0].obj, 'console'):
-                    console = args[0].obj.console
+                # Get console from CliContext
+                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
                 _handle_abort_error(err, console)
 
         return async_wrapper
@@ -165,16 +157,12 @@ def handle_abort(func):
             try:
                 return func(*args, **kwargs)
             except AuthenticationError as auth_err:
-                # Try to get console from CliContext if available  
-                console = None
-                if args and hasattr(args[0], 'obj') and hasattr(args[0].obj, 'console'):
-                    console = args[0].obj.console
+                # Get console from CliContext
+                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
                 _handle_authentication_error(auth_err, console)
             except Abort as err:
-                # Try to get console from CliContext if available
-                console = None
-                if args and hasattr(args[0], 'obj') and hasattr(args[0].obj, 'console'):
-                    console = args[0].obj.console
+                # Get console from CliContext
+                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
                 _handle_abort_error(err, console)
 
         return wrapper

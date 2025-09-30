@@ -23,7 +23,6 @@ from jose import jwt
 from jose.exceptions import ExpiredSignatureError
 from loguru import logger
 from pydantic import ValidationError
-from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from vantage_cli.cache import load_tokens_from_cache, save_tokens_to_cache
@@ -271,7 +270,7 @@ def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -
     if not token_set.refresh_token:
         return False
 
-    url = f"{settings.oidc_base_url}/realms/vantage/protocol/openid-connect/token"
+    url = f"{settings.oidc_base_url}{OIDC_TOKEN_PATH}"
     logger.debug(f"Requesting refreshed access token from {url}")
 
     try:
@@ -345,8 +344,8 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
     if ctx.settings is None:
         raise RuntimeError("Settings not initialized")
     
-    # Use console from context or create a new one
-    console = ctx.console if ctx.console is not None else Console()
+    # Use console from context - it should always be available
+    console = ctx.console
 
     device_code_data: DeviceCodeData = await make_oauth_request(
         ctx.client,
