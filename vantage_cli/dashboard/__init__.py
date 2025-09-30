@@ -364,21 +364,13 @@ class DashboardApp(App):
                 with TabPane("📊 Dashboard", id="main"):
                     with Vertical():
                         with Horizontal(id="main-panel"):
-                            # Left side: Worker progress and service status
+                            # Left side: Worker progress
                             with Vertical(id="left-content"):
                                 yield Static("📈 Worker Progress", classes="section-header")
                                 with Vertical(id="worker-progress-group"):
                                     for service in self.services:
                                         yield Static(f"{service.emoji} {service.name}")
                                         yield ProgressBar(total=100, id=f"progress-{service.name}")
-                                
-                                yield Static("🌐 Service Status", classes="section-header")
-                                with Vertical(id="service-status-group"):
-                                    yield DataTable(id="deployment-table")
-                                
-                                yield Static("🔗 Deployment Details", classes="section-header")
-                                with Vertical(id="deployment-details-group"):
-                                    yield DataTable(id="deployment-details-table")
                             
                             # Right side: Activity log and platform info
                             with Vertical(id="right-content"):
@@ -453,24 +445,8 @@ class DashboardApp(App):
     
     def setup_tables(self):
         """Set up the data tables"""
-        # Deployment table
-        deploy_table = self.query_one("#deployment-table", DataTable)
-        deploy_table.add_columns("Service", "State", "Depends On")
-        for worker in self.worker_list:
-            deps = ", ".join(worker.depends_on) if worker.depends_on else "None"
-            deploy_table.add_row(worker.id, worker.state.value, deps)
-        
-        # Deployment details table
-        details_table = self.query_one("#deployment-details-table", DataTable)
-        details_table.add_columns("Service", "URL", "Status")
-        
-        for service in self.services:
-            worker = next((w for w in self.worker_list if w.id == service.name), None)
-            if worker and worker.state.value == "complete":
-                status = "🔗 Ready"
-            else:
-                status = "⏳ Pending"
-            details_table.add_row(service.name, service.url, status)
+        # No deployment tables needed - they're handled by the deployment management tab pane
+        pass
     
     def add_log(self, message: str, level: str = "INFO"):
         """Add a message to log widgets"""
@@ -495,47 +471,12 @@ class DashboardApp(App):
         except Exception:
             pass
     
-    def update_deployment_table(self):
-        """Update the deployment table with current worker states"""
-        if not hasattr(self, 'tracker'):
-            return
-            
-        try:
-            # Update main deployment table
-            deploy_table = self.query_one("#deployment-table", DataTable)
-            deploy_table.clear(columns=False)
-            
-            for worker in self.worker_list:
-                current_worker = self.tracker.workers.get(worker.id, worker)
-                state_display = current_worker.state.value
-                deps = ", ".join(worker.depends_on) if worker.depends_on else "None"
-                deploy_table.add_row(worker.id, state_display, deps)
-            
-            # Update deployment details table
-            details_table = self.query_one("#deployment-details-table", DataTable)
-            details_table.clear(columns=False)
-            
-            for service in self.services:
-                current_worker = self.tracker.workers.get(service.name)
-                if current_worker and current_worker.state.value == "complete":
-                    status = "🔗 Ready"
-                elif current_worker and current_worker.state.value == "in-progress":
-                    status = "🔄 Deploying"
-                elif current_worker and current_worker.state.value == "failed":
-                    status = "❌ Failed"
-                else:
-                    status = "⏳ Pending"
-                details_table.add_row(service.name, service.url, status)
-                
-        except Exception:
-            pass
+
     
     def refresh_stats(self):
-        """Update system statistics and deployment table"""
+        """Update system statistics"""
         if not hasattr(self, 'tracker'):
             return
-        
-        self.update_deployment_table()
         
         try:
             import psutil

@@ -66,7 +66,7 @@ class ProfileManagementTabPane(TabPane):
             # Profiles table
             with Vertical(id="profiles-section"):
                 yield Static("📋 Available Profiles", classes="subsection-header")
-                yield DataTable(id="profiles-table")
+                yield DataTable(id="profiles-table", zebra_stripes=True)
             
             # Profile creation section
             with Vertical(id="profile-creation-section"):

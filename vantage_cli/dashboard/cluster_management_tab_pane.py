@@ -64,7 +64,7 @@ class ClusterManagementTabPane(TabPane):
             # Clusters table
             with Vertical(id="clusters-section"):
                 yield Static("📋 Available Clusters", classes="subsection-header")
-                yield DataTable(id="clusters-table")
+                yield DataTable(id="clusters-table", zebra_stripes=True)
             
             # Selected cluster details
             with Vertical(id="cluster-details-section"):

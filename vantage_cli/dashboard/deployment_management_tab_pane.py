@@ -16,7 +16,7 @@ Deployment Management TabPane for Dashboard
 A reusable TabPane widget for managing Vantage deployments in the dashboard.
 """
 
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any
 from datetime import datetime
 
 from textual.app import ComposeResult
@@ -42,12 +42,7 @@ class DeploymentObjectReceived(Message):
         super().__init__()
 
 
-class DeploymentDetailsReceived(Message):
-    """Message sent when deployment details are received from the SDK."""
-    
-    def __init__(self, details: Dict[str, Any]) -> None:
-        self.details = details
-        super().__init__()
+
 
 
 class DeploymentManagementTabPane(TabPane):
@@ -230,6 +225,9 @@ class DeploymentManagementTabPane(TabPane):
         details_table = self.query_one("#deployment-details-table", DataTable)
         details_table.clear()
         
+        # Show loading message
+        details_table.add_row("Status", "Loading deployment details...")
+        
         # Use an async worker to get the deployment object from the SDK
         self.run_worker(self._fetch_deployment_object(deployment.deployment_id), exclusive=True)
     
@@ -272,102 +270,7 @@ class DeploymentManagementTabPane(TabPane):
         for key, value in display_items:
             details_table.add_row(key, str(value))
 
-    def _display_deployment_details(self, details: Dict[str, Any]) -> None:
-        """Display comprehensive deployment details in the details table."""
-        details_table = self.query_one("#deployment-details-table", DataTable)
-        details_table.clear()
-        
-        # Helper function to format datetime
-        def format_datetime(datetime_str: str) -> str:
-            if datetime_str == "unknown" or not datetime_str:
-                return "N/A"
-            try:
-                from datetime import datetime
-                dt = datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
-                return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-            except (ValueError, AttributeError):
-                return datetime_str
-        
-        # Basic deployment information
-        display_items = [
-            ("Deployment ID", details.get("deployment_id", "N/A")),
-            ("Deployment Name", details.get("deployment_name", "N/A")),
-            ("App Name", details.get("app_name", "N/A")),
-            ("Cluster Name", details.get("cluster_name", "N/A")),
-            ("Cluster ID", details.get("cluster_id", "N/A")),
-            ("Cloud", details.get("cloud", "N/A")),
-            ("Cloud Type", details.get("cloud_type", "N/A")),
-            ("Status", details.get("status", "N/A")),
-            ("Created At", format_datetime(details.get("created_at", "N/A"))),
-            ("Updated At", format_datetime(details.get("updated_at", "N/A"))),
-        ]
-        
-        # Add client ID if available
-        client_id = details.get("client_id")
-        if client_id and client_id != "unknown":
-            display_items.append(("Client ID", client_id))
-        
-        # Add K8s namespaces if available
-        k8s_namespaces = details.get("k8s_namespaces", [])
-        if k8s_namespaces:
-            namespaces_str = ", ".join(k8s_namespaces)
-            display_items.append(("K8s Namespaces", namespaces_str))
-        else:
-            display_items.append(("K8s Namespaces", "None"))
-        
-        # Add metadata section
-        metadata = details.get("metadata", {})
-        if metadata:
-            display_items.append(("", ""))  # Separator
-            display_items.append(("=== DEPLOYMENT METADATA ===", ""))
-            for key, value in metadata.items():
-                display_key = key.replace("_", " ").title()
-                display_items.append((f"  {display_key}", str(value)))
-        
-        # Add cluster data section
-        cluster_data = details.get("cluster_data", {})
-        if cluster_data:
-            display_items.append(("", ""))  # Separator
-            display_items.append(("=== CLUSTER INFORMATION ===", ""))
-            
-            # Display key properties first
-            key_properties = [
-                ("name", "Name"),
-                ("clientId", "Client ID"),
-                ("status", "Status"),
-                ("provider", "Provider"),
-                ("description", "Description"),
-                ("ownerEmail", "Owner Email"),
-                ("cloudAccountId", "Cloud Account ID"),
-                ("deployment_name", "Deployment Name"),
-            ]
-            
-            for prop_key, display_name in key_properties:
-                if prop_key in cluster_data:
-                    value = cluster_data[prop_key]
-                    if value is not None:
-                        display_value = str(value) if value != "" else "N/A"
-                        display_items.append((f"  {display_name}", display_value))
-            
-            # Add creation parameters if available
-            creation_params = cluster_data.get("creationParameters", {})
-            if creation_params:
-                display_items.append(("", ""))  # Separator
-                display_items.append(("=== CREATION PARAMETERS ===", ""))
-                
-                for key, value in creation_params.items():
-                    if value is not None:
-                        display_key = key.replace("_", " ").title()
-                        # Mask sensitive data like tokens
-                        if "token" in key.lower() and isinstance(value, str):
-                            display_value = f"{value[:8]}...{value[-8:]}" if len(value) > 16 else value
-                        else:
-                            display_value = str(value) if not isinstance(value, dict) else "Complex Object"
-                        display_items.append((f"  {display_key}", display_value))
-        
-        # Add all items to the table
-        for key, value in display_items:
-            details_table.add_row(key, str(value))
+
     
     def on_deployment_object_received(self, message: DeploymentObjectReceived) -> None:
         """Handle received deployment object."""
