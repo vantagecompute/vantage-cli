@@ -153,7 +153,7 @@ async def list_profiles(
         for profile in profiles:
             profile_dict = {
                 "name": profile.name,
-                "is_active": "✓" if profile.is_active else "",
+                "is_active": profile.is_active,  # Keep as boolean
                 "vantage_url": profile.settings.vantage_url,
                 "oidc_client_id": profile.settings.oidc_client_id or "default",
             }
