@@ -1,28 +1,28 @@
+"""Vantage REST API Client for License Management and related resources.
 """
-Vantage REST API Client for License Management and related resources.
-"""
-import httpx
+
 import json as json_lib
 from typing import Any, Dict, Optional
+
+import httpx
+from loguru import logger
 from rich.console import Console
 from rich.json import JSON
-from loguru import logger
 
 from .auth import extract_persona, refresh_access_token_standalone
 from .cache import load_tokens_from_cache, save_tokens_to_cache
 from .config import Settings
-from .exceptions import Abort
 from .schemas import Persona
 
 
 class VantageRestApiClient:
     def __init__(
-        self, 
-        base_url: str, 
+        self,
+        base_url: str,
         persona: Optional[Persona] = None,
         profile: str = "default",
         settings: Optional[Settings] = None,
-        timeout: int = 30
+        timeout: int = 30,
     ):
         self.base_url = base_url.rstrip("/")
         self.persona = persona
@@ -36,22 +36,24 @@ class VantageRestApiClient:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "VantageRestApiClient/1.0"
+            "User-Agent": "VantageRestApiClient/1.0",
         }
-        
+
         # Add Bearer token if persona is available
         if self.persona and self.persona.token_set.access_token:
             headers["Authorization"] = f"Bearer {self.persona.token_set.access_token}"
-            
+
         return headers
 
     async def _refresh_token_if_needed(self) -> bool:
         """Refresh access token if needed and possible."""
         if not self.persona or not self.persona.token_set.refresh_token:
             return False
-            
+
         try:
-            refresh_success = refresh_access_token_standalone(self.persona.token_set, self.settings)
+            refresh_success = refresh_access_token_standalone(
+                self.persona.token_set, self.settings
+            )
             if refresh_success:
                 # Save updated tokens to cache
                 save_tokens_to_cache(self.profile, self.persona.token_set)
@@ -67,36 +69,40 @@ class VantageRestApiClient:
         headers = self._headers()
         if "headers" in kwargs:
             headers.update(kwargs.pop("headers"))
-        
+
         max_auth_retries = 1
         retry_count = 0
-        
+
         while retry_count <= max_auth_retries:
             try:
                 response = await self.client.request(method, url, headers=headers, **kwargs)
                 response.raise_for_status()
-                
+
                 if response.headers.get("content-type", "").startswith("application/json"):
                     return response.json()
                 return response.text
-                
+
             except httpx.HTTPStatusError as e:
                 # Handle authentication errors with token refresh
                 if e.response.status_code in (401, 403) and retry_count < max_auth_retries:
-                    logger.debug(f"Authentication error {e.response.status_code}, attempting token refresh")
-                    
+                    logger.debug(
+                        f"Authentication error {e.response.status_code}, attempting token refresh"
+                    )
+
                     if await self._refresh_token_if_needed():
                         # Update headers with new token and retry
                         headers = self._headers()
                         retry_count += 1
                         continue
-                
-                self.console.print(f"[red]HTTP Error {e.response.status_code}:[/red] {e.response.text}")
+
+                self.console.print(
+                    f"[red]HTTP Error {e.response.status_code}:[/red] {e.response.text}"
+                )
                 raise
             except Exception as e:
                 self.console.print(f"[red]Request failed:[/red] {str(e)}")
                 raise
-        
+
         # Should never reach here due to loop structure
         raise Exception("Unexpected end of request retry loop")
 
@@ -120,7 +126,7 @@ class VantageRestApiClient:
             except json_lib.JSONDecodeError:
                 self.console.print(data)
                 return
-        
+
         json_obj = JSON.from_data(data)
         self.console.print(json_obj)
 
@@ -129,21 +135,20 @@ class VantageRestApiClient:
 
 
 def create_vantage_rest_client(
-    base_url: str = "https://apis.vantagecompute.ai/lm",
-    profile: str = "default"
+    base_url: str = "https://apis.vantagecompute.ai/lm", profile: str = "default"
 ) -> VantageRestApiClient:
     """Create a VantageRestApiClient with authentication from cache.
-    
+
     This function follows the same pattern as create_async_graphql_client
     by automatically loading tokens and creating a persona.
-    
+
     Args:
         base_url: Base URL for the REST API
         profile: Profile name to use for authentication
-        
+
     Returns:
         Configured VantageRestApiClient instance
-        
+
     Raises:
         Exception: If client creation fails
     """
@@ -151,17 +156,13 @@ def create_vantage_rest_client(
         # Load tokens and create persona
         token_set = load_tokens_from_cache(profile)
         persona = extract_persona(profile, token_set)
-        
+
         # Create client with authentication (it will create default settings if needed)
-        client = VantageRestApiClient(
-            base_url=base_url,
-            persona=persona,
-            profile=profile
-        )
-        
+        client = VantageRestApiClient(base_url=base_url, persona=persona, profile=profile)
+
         logger.debug(f"Created REST API client for {base_url}")
         return client
-        
+
     except Exception as e:
         logger.error(f"Failed to create REST API client: {e}")
         raise

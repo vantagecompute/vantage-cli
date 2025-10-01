@@ -14,6 +14,7 @@
 import os
 from typing import Optional
 
+
 def get_dev_apps_gh_url() -> Optional[str]:
     """Construct the GitHub URL for the dev apps repository."""
     if gh_pat := os.environ.get("GH_PAT"):

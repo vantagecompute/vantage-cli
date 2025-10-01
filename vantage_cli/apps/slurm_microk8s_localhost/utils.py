@@ -310,8 +310,7 @@ SSSD_CONF = dedent("""\
     
     # ─── Schema type ───────────────────────────────────────────────────────────────
     ldap_schema = rfc2307bis
-    """
-)
+    """)
 
 
 def get_chart_values_slurm_operator() -> dict[str, Any]:

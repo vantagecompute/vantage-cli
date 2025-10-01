@@ -15,9 +15,9 @@ from typing import Annotated
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -41,12 +41,13 @@ async def delete_license_feature(
 
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
     response = await client.delete(f"/features/{feature_id}")
-    
+
     # Use UniversalOutputFormatter for consistent delete rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_delete(
         resource_name="License Feature",
         resource_id=str(feature_id),
-        success_message=f"License feature deleted successfully!"
+        success_message="License feature deleted successfully!",
     )

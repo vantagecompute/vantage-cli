@@ -42,7 +42,6 @@ from vantage_cli.config import attach_settings
 from vantage_cli.constants import (
     CLOUD_LOCALHOST,
     CLOUD_TYPE_CONTAINER,
-    ENV_CLIENT_SECRET,
     JUJU_APPLICATION_NAME,
     JUJU_SECRET_NAME,
 )
@@ -292,8 +291,16 @@ async def deploy(
 
         client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
         console.print(f"[debug]DEBUG: Got client secret from API: {bool(client_secret)}")
+        
+        # For on_prem/localhost providers, client secret is not required
+        if not client_secret:
+            provider = cluster_data.get("provider", "").lower()
+            if provider == "on_prem":
+                console.print("[debug]DEBUG: Using placeholder client secret for on_prem deployment")
+                client_secret = "localhost-not-required"
     elif not client_secret and dev_run:
         console.print("[debug]DEBUG: Skipping client secret API call (dev run mode)")
+        client_secret = "dev-mode-placeholder"
     else:
         console.print("[debug]DEBUG: Already have client secret, no API call needed")
 
@@ -394,27 +401,30 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
             advance_step("Validate cluster credentials", "starting")
             console.print("[debug]DEBUG: Starting credential validation")
             # Client credentials already validated at start of function
-
-            # Check environment variable as fallback for client secret
+            
+            # Validate we have client secret
             if not client_secret:
-                client_secret = os.environ.get(ENV_CLIENT_SECRET, None)
-            console.print("[debug]DEBUG: Client secret check - has secret:", bool(client_secret))
-            if not client_secret:
-                console.print("[debug]DEBUG: No client secret found")
+                console.print("[debug]DEBUG: No client secret available")
                 advance_step("Validate cluster credentials", "failed")
-                raise RuntimeError("No client secret found in cluster data, API, or environment.")
+                raise RuntimeError("No client secret found in cluster data or API.")
+            
+            console.print("[debug]DEBUG: Client secret check - has secret:", bool(client_secret))
 
-            # Get jupyterhub_token from cluster data if available, otherwise generate a default
+            # Get jupyterhub_token from cluster data if available
             jupyterhub_token = None
             console.print(
                 "[debug]DEBUG: Checking cluster_data for jupyterhub_token:", bool(cluster_data)
             )
             if cluster_data and "creationParameters" in cluster_data:
-                if jupyterhub_token_data := cluster_data["creationParameters"].get(
-                    "jupyterhub_token"
-                ):
-                    jupyterhub_token = jupyterhub_token_data
+                console.print(
+                    f"[debug]DEBUG: creationParameters keys: {list(cluster_data['creationParameters'].keys())}"
+                )
+                # After GraphQL conversion, keys are in snake_case
+                jupyterhub_token = cluster_data["creationParameters"].get("jupyterhub_token")
+                if jupyterhub_token:
                     console.print("[debug]DEBUG: Found jupyterhub_token in cluster data")
+            else:
+                console.print("[debug]DEBUG: No creationParameters in cluster_data")
 
             console.print(
                 "[debug]DEBUG: Jupyterhub token check - has token:", bool(jupyterhub_token)
@@ -447,10 +457,10 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
                 cluster_name=cluster_name,
                 client_id=client_id,
                 client_secret=client_secret,
-                base_api_url=settings.api_base_url,
-                oidc_base_url=settings.oidc_base_url,
+                base_api_url=settings.get_apis_url(),
+                oidc_base_url=settings.get_auth_url(),
                 oidc_domain=settings.oidc_domain,
-                tunnel_api_url=settings.tunnel_api_url,
+                tunnel_api_url=settings.get_tunnel_url(),
                 jupyterhub_token=jupyterhub_token,
             )
             console.print("[debug]DEBUG: VantageClusterContext created successfully")
@@ -496,9 +506,15 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
             update_deployment_status(deployment_id, "failed", console, verbose=verbose)
             raise typer.Exit(1)
 
-    except Exception:
+    except Exception as e:
         # Update deployment status to failed on error
         update_deployment_status(deployment_id, "failed", console, verbose=verbose)
+        
+        # Print the actual error so we can debug
+        console.print(f"[red]ERROR: Deployment failed with exception: {str(e)}[/red]")
+        import traceback
+        if verbose:
+            console.print(f"[red]{traceback.format_exc()}[/red]")
 
         raise typer.Exit(1)
 

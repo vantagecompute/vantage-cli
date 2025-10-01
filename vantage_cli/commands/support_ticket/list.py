@@ -11,103 +11,78 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """List support tickets command."""
 
-from typing import Any, Dict, List
+from typing import Optional
 
 import typer
-from rich.console import Console
-from rich.table import Table
+from loguru import logger
+from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import RenderStepOutput
+from vantage_cli.exceptions import Abort, handle_abort
+from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
 @handle_abort
 @attach_settings
-async def list_support_tickets(ctx: typer.Context):
+async def list_support_tickets(
+    ctx: typer.Context,
+    status: Annotated[
+        Optional[str],
+        typer.Option("--status", "-s", help="Filter by status (open, in_progress, closed)"),
+    ] = None,
+    priority: Annotated[
+        Optional[str],
+        typer.Option("--priority", help="Filter by priority (low, medium, high, critical)"),
+    ] = None,
+    limit: Annotated[
+        Optional[int], typer.Option("--limit", "-l", help="Maximum number of tickets to return")
+    ] = None,
+):
     """List all support tickets."""
-    # Get command timing
-    command_start_time = getattr(ctx.obj, "command_start_time", None)
+    # Use UniversalOutputFormatter for consistent output
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
-    # Check for JSON output mode
-    json_output = getattr(ctx.obj, "json_output", False)
+    try:
+        # Use the SDK to get support tickets
+        logger.debug("Using SDK to list support tickets")
+        tickets = await support_ticket_sdk.list_tickets(
+            ctx, status=status, priority=priority, limit=limit
+        )
 
-    # Mock support ticket data
-    tickets: List[Dict[str, Any]] = [
-        {
-            "ticket_id": "ticket-12345",
-            "subject": "Help request",
-            "status": "open",
-            "priority": "medium",
-            "created_at": "2025-01-10T10:00:00Z",
-            "updated_at": "2025-01-14T15:30:00Z",
-        },
-        {
-            "ticket_id": "ticket-67890",
-            "subject": "Bug report",
-            "status": "closed",
-            "priority": "high",
-            "created_at": "2025-01-05T08:30:00Z",
-            "updated_at": "2025-01-12T09:15:00Z",
-        },
-        {
-            "ticket_id": "ticket-11111",
-            "subject": "Feature request",
-            "status": "in_progress",
-            "priority": "low",
-            "created_at": "2025-01-12T14:20:00Z",
-            "updated_at": "2025-01-15T11:45:00Z",
-        },
-    ]
-
-    # If JSON mode, bypass all visual rendering
-    if json_output:
-        result = {"tickets": tickets, "count": len(tickets)}
-        RenderStepOutput.json_bypass(result)
-        return
-
-    # Regular rendering for non-JSON mode
-    step_names = ["Fetching support tickets", "Formatting output"]
-    console = Console()
-
-    with RenderStepOutput(
-        console=console,
-        operation_name="Listing support tickets",
-        step_names=step_names,
-        json_output=json_output,
-        command_start_time=command_start_time,
-    ) as renderer:
-        renderer.advance("Fetching support tickets", "starting")
-        # Simulate fetching
-        renderer.advance("Fetching support tickets", "completed")
-
-        renderer.advance("Formatting output", "starting")
-        # Simulate formatting
-        renderer.advance("Formatting output", "completed")
-
-        # Create and display table
-        table = Table(title="Support Tickets")
-        table.add_column("Ticket ID", style="cyan", no_wrap=True)
-        table.add_column("Subject", style="magenta")
-        table.add_column("Status", style="yellow")
-        table.add_column("Priority", style="green")
-        table.add_column("Created", style="dim")
-        table.add_column("Updated", style="dim")
-
-        for ticket in tickets:
-            status_color = {
-                "open": "[red]open[/red]",
-                "closed": "[green]closed[/green]",
-                "in_progress": "[yellow]in_progress[/yellow]",
-            }.get(ticket["status"], ticket["status"])
-
-            table.add_row(
-                ticket["ticket_id"],
-                ticket["subject"],
-                status_color,
-                ticket["priority"],
-                ticket["created_at"],
-                ticket["updated_at"],
+        if not tickets:
+            formatter.render_list(
+                data=[], resource_name="Support Tickets", empty_message="No support tickets found."
             )
+            return
 
-        renderer.table_step(table)
+        # Convert SupportTicket objects to dict format for the formatter
+        tickets_data = []
+        for ticket in tickets:
+            ticket_dict = {
+                "id": ticket.id,
+                "subject": ticket.subject,
+                "status": ticket.status,
+                "priority": ticket.priority,
+                "owner_email": ticket.owner_email,
+                "created_at": ticket.created_at,
+                "updated_at": ticket.updated_at,
+            }
+            tickets_data.append(ticket_dict)
+
+        # Use formatter to render the tickets list
+        formatter.render_list(
+            data=tickets_data,
+            resource_name="Support Tickets",
+            empty_message="No support tickets found.",
+        )
+
+    except Abort:
+        # Re-raise Abort exceptions as they contain user-friendly messages
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error listing support tickets: {e}")
+        formatter.render_error(
+            error_message="An unexpected error occurred while listing support tickets.",
+            details={"error": str(e)},
+        )

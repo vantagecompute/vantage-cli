@@ -46,12 +46,12 @@ from vantage_cli.apps.slurm_microk8s_localhost.constants import (
     REPO_PROMETHEUS_URL,
     REPO_SLURM_URL,
 )
-from vantage_cli.apps.slurm_microk8s_localhost.utils import (
-    get_chart_values_slurm_cluster,
-)
 from vantage_cli.apps.slurm_microk8s_localhost.render import (
     format_deployment_failure_content,
     format_deployment_success_content,
+)
+from vantage_cli.apps.slurm_microk8s_localhost.utils import (
+    get_chart_values_slurm_cluster,
 )
 from vantage_cli.apps.utils import (
     PrerequisiteStatus,
@@ -327,7 +327,7 @@ async def deploy(
 
                 # Step 4: Install cert-manager
                 output.status("🔒 Installing cert-manager...")
-                #_install_cert_manager()
+                # _install_cert_manager()
                 output.success("cert-manager installed")
                 time.sleep(1)
 

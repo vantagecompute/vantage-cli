@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 def get_console_from_context(ctx: typer.Context) -> Console:
     """Get console from typer context, falling back to new Console if not available."""
-    if hasattr(ctx.obj, 'console') and ctx.obj.console is not None:
+    if hasattr(ctx.obj, "console") and ctx.obj.console is not None:
         return ctx.obj.console
     return Console()
 
@@ -142,11 +142,19 @@ def handle_abort(func):
                 return await func(*args, **kwargs)
             except AuthenticationError as auth_err:
                 # Get console from CliContext
-                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
                 _handle_authentication_error(auth_err, console)
             except Abort as err:
                 # Get console from CliContext
-                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
                 _handle_abort_error(err, console)
 
         return async_wrapper
@@ -158,11 +166,19 @@ def handle_abort(func):
                 return func(*args, **kwargs)
             except AuthenticationError as auth_err:
                 # Get console from CliContext
-                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
                 _handle_authentication_error(auth_err, console)
             except Abort as err:
                 # Get console from CliContext
-                console = get_console_from_context(args[0]) if args and hasattr(args[0], 'obj') else Console()
+                console = (
+                    get_console_from_context(args[0])
+                    if args and hasattr(args[0], "obj")
+                    else Console()
+                )
                 _handle_abort_error(err, console)
 
         return wrapper

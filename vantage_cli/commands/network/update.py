@@ -11,13 +11,12 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update network command."""
 
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Optional
 
 import typer
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -43,7 +42,7 @@ async def update_network(
     # Check for JSON output mode
     json_output = getattr(ctx.obj, "json_output", False)
 
-        # Mock result for network update
+    # Mock result for network update
     result = {
         "status": "success",
         "message": f"Network '{network_id}' updated successfully",
@@ -53,10 +52,11 @@ async def update_network(
 
     # Use UniversalOutputFormatter for consistent update rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_update(
         data=result,
         resource_name="Network",
         resource_id=network_id,
-        success_message=f"Network '{network_id}' updated successfully!"
+        success_message=f"Network '{network_id}' updated successfully!",
     )

@@ -38,7 +38,7 @@ def attach_client(func: Callable) -> Callable:
 
         logger.debug("Creating async HTTP client for OAuth operations")
         async with httpx.AsyncClient(
-            base_url=ctx.obj.settings.oidc_base_url,
+            base_url=ctx.obj.settings.get_auth_url(),
             headers={"content-type": "application/x-www-form-urlencoded"},
         ) as client:
             ctx.obj.client = client

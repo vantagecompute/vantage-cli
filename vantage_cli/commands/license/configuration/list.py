@@ -15,9 +15,9 @@ from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -31,7 +31,8 @@ async def list_license_configurations(
         Optional[str], typer.Option("--sort", help="Sort by field (name, id, created_at)")
     ] = None,
     limit: Annotated[
-        Optional[int], typer.Option("--limit", "-l", help="Maximum number of configurations to return")
+        Optional[int],
+        typer.Option("--limit", "-l", help="Maximum number of configurations to return"),
     ] = None,
     offset: Annotated[
         Optional[int], typer.Option("--offset", "-o", help="Number of configurations to skip")
@@ -39,7 +40,7 @@ async def list_license_configurations(
 ):
     """List all license configurations."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     params = {}
     if search:
         params["search"] = search
@@ -49,14 +50,15 @@ async def list_license_configurations(
         params["limit"] = limit
     if offset is not None:
         params["offset"] = offset
-        
+
     response = await client.get("/configurations", params=params)
-    
+
     # Use UniversalOutputFormatter for consistent list rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_list(
         data=response,
         resource_name="License Configurations",
-        empty_message="No license configurations found."
+        empty_message="No license configurations found.",
     )

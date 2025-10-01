@@ -11,13 +11,12 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Delete network command."""
 
-from typing import Annotated, Any, Dict
+from typing import Annotated
 
 import typer
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import RenderStepOutput
 
 
 @handle_abort
@@ -34,11 +33,12 @@ async def delete_network(
     # Check for JSON output mode
     json_output = getattr(ctx.obj, "json_output", False)
 
-        # Use UniversalOutputFormatter for consistent delete rendering
+    # Use UniversalOutputFormatter for consistent delete rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_delete(
         resource_name="Network",
         resource_id=network_id,
-        success_message=f"Network '{network_id}' deleted successfully!"
+        success_message=f"Network '{network_id}' deleted successfully!",
     )

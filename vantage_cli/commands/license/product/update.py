@@ -15,9 +15,9 @@ from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -38,7 +38,7 @@ async def update_license_product(
 ):
     """Update an existing license product."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     # Build the update payload with only provided fields
     payload = {}
     if name is not None:
@@ -49,15 +49,16 @@ async def update_license_product(
         payload["description"] = description
     if license_type is not None:
         payload["license_type"] = license_type
-    
+
     response = await client.put(f"/products/{product_id}", json=update_data)
-    
+
     # Use UniversalOutputFormatter for consistent update rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_update(
         data=response,
         resource_name="License Product",
         resource_id=str(product_id),
-        success_message=f"License product '{response.get('name')}' updated successfully!"
+        success_message=f"License product '{response.get('name')}' updated successfully!",
     )

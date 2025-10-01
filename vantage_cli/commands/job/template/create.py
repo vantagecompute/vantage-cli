@@ -17,9 +17,9 @@ from typing import Optional
 
 import typer
 
+from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.render import UniversalOutputFormatter
 
 
@@ -41,7 +41,7 @@ async def create_job_template(
     """Create a new job template."""
     # Create REST API client
     client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     if json_file:
         # Read data from JSON file
         try:
@@ -53,18 +53,18 @@ async def create_job_template(
     else:
         # Build request data from command options
         template_data = {"name": name}
-        
+
         if description:
             template_data["description"] = description
         if identifier:
             template_data["identifier"] = identifier
-    
+
     result = await client.post("/job-script-templates", json=template_data)
-    
+
     # Use UniversalOutputFormatter for consistent create rendering
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_create(
         data=result,
         resource_name="Job Template",
-        success_message=f"Job template '{result.get('name')}' created successfully!"
+        success_message=f"Job template '{result.get('name')}' created successfully!",
     )

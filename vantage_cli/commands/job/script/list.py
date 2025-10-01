@@ -15,9 +15,9 @@ from typing import Optional
 
 import typer
 
+from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.render import UniversalOutputFormatter
 
 
@@ -29,15 +29,11 @@ async def list_job_scripts(
         None, "--from-template-id", help="Filter by job script template ID"
     ),
     search: Optional[str] = typer.Option(None, "--search", "-s", help="Search job scripts"),
-    sort_field: Optional[str] = typer.Option(
-        None, "--sort-field", help="Field to sort by"
-    ),
+    sort_field: Optional[str] = typer.Option(None, "--sort-field", help="Field to sort by"),
     sort_ascending: bool = typer.Option(
         True, "--sort-ascending/--sort-descending", help="Sort order"
     ),
-    user_only: bool = typer.Option(
-        False, "--user-only", help="Show only user's job scripts"
-    ),
+    user_only: bool = typer.Option(False, "--user-only", help="Show only user's job scripts"),
     include_archived: bool = typer.Option(
         False, "--include-archived", help="Include archived job scripts"
     ),
@@ -47,7 +43,7 @@ async def list_job_scripts(
     """List all job scripts."""
     # Create REST API client
     client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     # Build query parameters
     params = {
         "page": (offset // limit) + 1,
@@ -56,17 +52,17 @@ async def list_job_scripts(
         "user_only": user_only,
         "include_archived": include_archived,
     }
-    
+
     if from_template_id:
         params["from_job_script_template_id"] = from_template_id
     if search:
         params["search"] = search
     if sort_field:
         params["sort_field"] = sort_field
-    
+
     response = await client.get("/job-scripts", params=params)
     scripts_data = response
-    
+
     # Use the UniversalOutputFormatter for consistent output
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.output(data=scripts_data, title="Job Scripts")

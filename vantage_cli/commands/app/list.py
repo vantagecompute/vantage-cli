@@ -32,30 +32,29 @@ async def list_apps(
     # Prepare apps data for output
     apps_data = []
     for app_name, app_info in available_apps.items():
-            app_data = {
-                "name": app_name,
-                "module": app_info["module"].__name__
-                if "module" in app_info and hasattr(app_info["module"], "__name__")
-                else "unknown",
-            }
+        app_data = {
+            "name": app_name,
+            "module": app_info["module"].__name__
+            if "module" in app_info and hasattr(app_info["module"], "__name__")
+            else "unknown",
+        }
 
-            # Try to get description from docstring if available
-            if "deploy_function" in app_info:
-                func = app_info["deploy_function"]
-                if hasattr(func, "__doc__") and func.__doc__:
-                    app_data["description"] = func.__doc__.strip().split("\n")[0]
-                else:
-                    app_data["description"] = "No documentation available"
+        # Try to get description from docstring if available
+        if "deploy_function" in app_info:
+            func = app_info["deploy_function"]
+            if hasattr(func, "__doc__") and func.__doc__:
+                app_data["description"] = func.__doc__.strip().split("\n")[0]
             else:
-                app_data["description"] = "No deploy function available"
+                app_data["description"] = "No documentation available"
+        else:
+            app_data["description"] = "No deploy function available"
 
-            apps_data.append(app_data)
+        apps_data.append(app_data)
 
     # Use UniversalOutputFormatter for consistent list rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_list(
-        data=apps_data,
-        resource_name="Applications",
-        empty_message="No applications found."
+        data=apps_data, resource_name="Applications", empty_message="No applications found."
     )

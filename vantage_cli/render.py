@@ -24,69 +24,73 @@ from rich.panel import Panel
 from rich.progress import Progress, ProgressColumn, SpinnerColumn, Task, TextColumn
 from rich.table import Table
 from rich.text import Text
-from textual import events
 from textual.app import App, ComposeResult
-from textual.widgets import DataTable, Header, Footer
-from textual.containers import Container
 from textual.binding import Binding
-import asyncio
-import sys
+from textual.widgets import DataTable, Footer, Header
 
 
 class TableViewerApp(App):
     """Textual app for displaying data tables with auto-layout."""
-    
+
     BINDINGS = [
         Binding("q", "quit", "Quit", priority=True),
         Binding("escape", "quit", "Quit", priority=True),
     ]
-    
+
     def __init__(self, data: List[Dict[str, Any]], title: str = "", **kwargs):
         super().__init__(**kwargs)
         self.data = data
         self.title = title
-    
+
     def compose(self) -> ComposeResult:
         """Create the table widget."""
         if self.title:
             yield Header(show_clock=False)
-        
+
         data_table = DataTable(show_cursor=False, zebra_stripes=True)
         data_table.cursor_type = "none"
         yield data_table
-        
+
         if self.title:
             yield Footer()
-    
+
     def on_mount(self) -> None:
         """Setup the table when the app mounts."""
         if not self.data:
             return
-            
+
         table = self.query_one(DataTable)
-        
+
         # Get all unique keys from all items
         all_keys = set()
         for item in self.data:
             if isinstance(item, dict):
                 all_keys.update(item.keys())
-        
+
         # Sort keys with common fields first
-        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
         sorted_keys = []
-        
+
         for field in common_fields:
             if field in all_keys:
                 sorted_keys.append(field)
                 all_keys.remove(field)
-        
+
         sorted_keys.extend(sorted(all_keys))
-        
+
         # Add columns
         for key in sorted_keys:
             header = self._format_column_header(key)
             table.add_column(header, key=key)
-        
+
         # Add rows
         for item in self.data:
             row_data = []
@@ -95,10 +99,10 @@ class TableViewerApp(App):
                 formatted_value = self._format_cell_value(key, value)
                 row_data.append(formatted_value)
             table.add_row(*row_data)
-        
+
         if self.title:
             self.title = self.title
-    
+
     def _format_column_header(self, key: str) -> str:
         """Format column header nicely."""
         # Handle special cases first
@@ -114,10 +118,10 @@ class TableViewerApp(App):
             "cidr": "CIDR",
             "ip": "IP",
         }
-        
+
         if key.lower() in special_cases:
             return special_cases[key.lower()]
-        
+
         # Split on underscores and capitalize each word
         words = key.split("_")
         formatted_words = []
@@ -126,9 +130,9 @@ class TableViewerApp(App):
                 formatted_words.append(special_cases[word.lower()])
             else:
                 formatted_words.append(word.capitalize())
-        
+
         return " ".join(formatted_words)
-    
+
     def _format_cell_value(self, key: str, value: Any) -> str:
         """Format a cell value for display."""
         if value is None:
@@ -149,6 +153,7 @@ class TableViewerApp(App):
                 # Try to format dates nicely, fallback to original
                 try:
                     from datetime import datetime
+
                     if "T" in value and value.endswith("Z"):
                         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
                         return dt.strftime("%Y-%m-%d")
@@ -161,15 +166,15 @@ class TableViewerApp(App):
                 # Truncate strings based on field-specific limits to prevent wrapping
                 max_length = self._get_field_max_length(key)
                 if len(value) > max_length:
-                    return value[:max_length-3] + "..."
+                    return value[: max_length - 3] + "..."
                 return value
         else:
             return str(value)
-    
+
     def _get_field_max_length(self, key: str) -> int:
         """Get maximum character length for a field value."""
         key_lower = key.lower()
-        
+
         if key_lower == "description":
             return 50
         elif key_lower in ["name", "title"]:
@@ -180,39 +185,51 @@ class TableViewerApp(App):
             return 15
         else:
             return 25
-    
-    def _render_static_table(self, items: List[Dict[str, Any]], title: str, console: Console) -> None:
+
+    def _render_static_table(
+        self, items: List[Dict[str, Any]], title: str, console: Console
+    ) -> None:
         """Render a static table using Rich console (for non-interactive mode)."""
         from rich.table import Table
-        
+
         if not items:
             return
-        
+
         # Create Rich table for static rendering
-        table = Table(title=title if title else None, show_header=True, header_style="bold magenta")
-        
+        table = Table(
+            title=title if title else None, show_header=True, header_style="bold magenta"
+        )
+
         # Get all unique keys from all items
         all_keys = set()
         for item in items:
             if isinstance(item, dict):
                 all_keys.update(item.keys())
-        
+
         # Sort keys with common fields first
-        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
         sorted_keys = []
-        
+
         for field in common_fields:
             if field in all_keys:
                 sorted_keys.append(field)
                 all_keys.remove(field)
-        
+
         sorted_keys.extend(sorted(all_keys))
-        
+
         # Add columns (Textual will auto-size these)
         for key in sorted_keys:
             header = self._format_column_header(key)
             table.add_column(header, no_wrap=True)
-        
+
         # Add rows
         for item in items:
             row_data = []
@@ -221,7 +238,7 @@ class TableViewerApp(App):
                 formatted_value = self._format_cell_value(key, value)
                 row_data.append(formatted_value)
             table.add_row(*row_data)
-        
+
         console.print(table)
 
 
@@ -1289,29 +1306,29 @@ class TerminalOutputManager:
 
 class UniversalOutputFormatter:
     """Universal output formatter for all CLI commands.
-    
+
     This class provides a centralized way to format and display data from all commands,
     supporting both JSON output and rich table formatting. It automatically detects
     data structure and creates appropriate tables.
-    
+
     Usage:
         formatter = UniversalOutputFormatter(console, json_output=ctx.obj.json_output)
         formatter.output(data, title="Job Scripts")
     """
-    
+
     def __init__(self, console: Console, json_output: bool = False):
         """Initialize the output formatter.
-        
+
         Args:
             console: Rich console for output
             json_output: Whether to output JSON instead of formatted tables
         """
         self.console = console
         self.json_output = json_output
-    
+
     def output(self, data: Any, title: str = "", empty_message: str = "No items found.") -> None:
         """Output data either as JSON or formatted table.
-        
+
         Args:
             data: Data to output (dict, list, or simple value)
             title: Title for the table display
@@ -1321,20 +1338,20 @@ class UniversalOutputFormatter:
             self._output_json(data)
         else:
             self._output_table(data, title, empty_message)
-    
+
     def _output_json(self, data: Any) -> None:
         """Output data as formatted JSON."""
         if data is None:
             self.console.print_json("{}")
         else:
             self.console.print_json(json.dumps(data, indent=2))
-    
+
     def _output_table(self, data: Any, title: str, empty_message: str) -> None:
         """Output data as a formatted table."""
         if not data:
             self.console.print(f"📋 {empty_message}", style="yellow")
             return
-        
+
         # Handle different data types
         if isinstance(data, dict):
             if "items" in data and isinstance(data["items"], list):
@@ -1352,85 +1369,94 @@ class UniversalOutputFormatter:
         else:
             # Simple value
             self.console.print(data)
-    
+
     def _render_list_as_table(self, items: List[Dict[str, Any]], title: str) -> None:
         """Render a list of items as a table using Textual's auto-layout principles."""
         if not items:
             return
-        
+
         # For now, use enhanced Rich table with Textual-inspired auto-layout
         # This maintains compatibility while preparing for full Textual integration
         self._render_textual_style_table(items, title)
-    
+
     def _render_textual_style_table(self, items: List[Dict[str, Any]], title: str) -> None:
         """Render table using proper Textual DataTable implementation."""
         if not items:
             return
-        
+
         # Use actual Textual DataTable for proper formatting
         try:
             self._render_with_textual_datatable(items, title)
         except Exception as e:
             # If Textual fails, show a simple error message
             self.console.print(f"[red]Error rendering table: {e}[/red]")
-    
+
     def _render_with_textual_datatable(self, items: List[Dict[str, Any]], title: str) -> None:
         """Render using Rich Table with dynamic width based on terminal size."""
-        from rich.table import Table
         from rich import box
-        
+        from rich.table import Table
+
         if not items:
             return
-        
+
         # Get actual terminal width for dynamic sizing
         import os
+
         try:
             terminal_width = os.get_terminal_size().columns
         except:
             terminal_width = 120  # fallback
-        
+
         # Create Rich table with dynamic width constraint
         table = Table(
-            title=title if title else None, 
-            show_header=True, 
+            title=title if title else None,
+            show_header=True,
             header_style="bold magenta",
             width=min(terminal_width - 4, 200),  # Responsive width with max of 200
             expand=False,  # Don't expand beyond our calculated width
             padding=(0, 1),  # Standard padding
             show_edge=True,
             box=box.ROUNDED,  # Nice rounded borders like Rich tables
-            border_style="blue"
+            border_style="blue",
         )
-        
+
         # Get all unique keys from items
         all_keys = set()
         for item in items:
             all_keys.update(item.keys())
-        
+
         # Sort keys with priority fields first
-        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
         sorted_keys = []
-        
+
         for field in common_fields:
             if field in all_keys:
                 sorted_keys.append(field)
                 all_keys.remove(field)
-        
+
         sorted_keys.extend(sorted(all_keys))
-        
+
         # Add columns with smart ratio-based sizing within 150 chars
         num_columns = len(sorted_keys)
-        
+
         for key in sorted_keys:
             header = self._format_column_header(key)
-            
+
             # Use optimized ratio-based column sizing for best proportional fit
             # Ratios based on typical content length analysis for balanced display
             if key in ["id"]:
                 # IDs are short - minimal space needed
                 ratio = 1
             elif key in ["name", "title"]:
-                # Names are moderate length - medium space  
+                # Names are moderate length - medium space
                 ratio = 3
             elif key in ["description", "summary", "details"]:
                 # Descriptions are longest - need most space
@@ -1444,16 +1470,16 @@ class UniversalOutputFormatter:
             else:
                 # Other fields get balanced medium ratio
                 ratio = 2
-                
+
             table.add_column(
                 header,
                 ratio=ratio,  # Proportional width distribution
                 overflow="ellipsis",  # Truncate with "..." instead of wrapping
                 justify="left",
                 min_width=8,  # Minimum readable width
-                no_wrap=True  # Never wrap text, always truncate
+                no_wrap=True,  # Never wrap text, always truncate
             )
-        
+
         # Add rows
         for item in items:
             row_data = []
@@ -1462,44 +1488,42 @@ class UniversalOutputFormatter:
                 formatted_value = self._format_cell_value(key, value)
                 row_data.append(formatted_value)
             table.add_row(*row_data)
-        
+
         # Print using our console
         self.console.print(table)
-    
 
-    
-
-    
-
-    
-    def _calculate_proportional_widths(self, items: List[Dict[str, Any]], sorted_keys: List[str], total_width: int) -> Dict[str, int]:
+    def _calculate_proportional_widths(
+        self, items: List[Dict[str, Any]], sorted_keys: List[str], total_width: int
+    ) -> Dict[str, int]:
         """Calculate proportional column widths that fill the total table width."""
         if not items or not sorted_keys:
             return {}
-        
+
         # Reserve space for borders and padding (approximately 3 chars per column)
-        available_width = total_width - (len(sorted_keys) * 3) - 4  # Extra margin for table borders
-        
+        available_width = (
+            total_width - (len(sorted_keys) * 3) - 4
+        )  # Extra margin for table borders
+
         # Calculate content-based minimum widths
         min_widths = {}
         for key in sorted_keys:
             # Start with header width as minimum
             header_width = len(self._format_column_header(key))
             content_width = header_width
-            
+
             # Sample content width from first few items
             for item in items[:5]:
                 value = item.get(key, "")
                 formatted_value = self._format_cell_value(key, value)
                 content_width = max(content_width, len(str(formatted_value)))
-            
+
             min_widths[key] = content_width
-        
+
         # Apply column type preferences
         preferred_widths = {}
         for key in sorted_keys:
             base_width = min_widths[key]
-            
+
             if key.lower() == "id":
                 # IDs need minimal space
                 preferred_widths[key] = min(base_width, 8)
@@ -1515,17 +1539,17 @@ class UniversalOutputFormatter:
             else:
                 # Other fields get default space
                 preferred_widths[key] = min(base_width, 20)
-        
+
         # Calculate total preferred width
         total_preferred = sum(preferred_widths.values())
-        
+
         # Scale to fit available width
         final_widths = {}
         if total_preferred <= available_width:
             # Use preferred widths and distribute remaining space
             remaining_space = available_width - total_preferred
             extra_per_column = remaining_space // len(sorted_keys)
-            
+
             for key in sorted_keys:
                 final_widths[key] = preferred_widths[key] + extra_per_column
         else:
@@ -1534,42 +1558,48 @@ class UniversalOutputFormatter:
             for key in sorted_keys:
                 scaled_width = int(preferred_widths[key] * scale_factor)
                 final_widths[key] = max(6, scaled_width)  # Minimum 6 chars per column
-        
-        return final_widths
-    
 
-    
+        return final_widths
+
     def _render_dict_as_table(self, item: Dict[str, Any], title: str) -> None:
         """Render a single dictionary as a details table."""
         table = Table(title=f"📋 {title}", show_header=True, header_style="bold cyan")
         table.add_column("Field", style="cyan", width=20)
         table.add_column("Value", style="white")
-        
+
         # Sort keys with common ones first
-        common_fields = ["id", "name", "title", "description", "status", "created_at", "updated_at"]
+        common_fields = [
+            "id",
+            "name",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
         sorted_keys = []
-        
+
         for field in common_fields:
             if field in item:
                 sorted_keys.append(field)
-        
+
         # Add remaining fields
         remaining = [k for k in sorted(item.keys()) if k not in common_fields]
         sorted_keys.extend(remaining)
-        
+
         for key in sorted_keys:
             header = self._format_column_header(key)
             value = self._format_cell_value(key, item[key])
             table.add_row(header, value)
-        
+
         self.console.print(table)
-    
+
     def _render_pagination_info(self, data: Dict[str, Any]) -> None:
         """Render pagination information if available."""
         if all(key in data for key in ["page", "pages", "total"]):
             page_info = f"Page {data['page']} of {data['pages']} (Total: {data['total']})"
             self.console.print(f"\n{page_info}", style="dim")
-    
+
     def _format_column_header(self, key: str) -> str:
         """Format a column header nicely."""
         # Handle common abbreviations and special cases
@@ -1591,19 +1621,19 @@ class UniversalOutputFormatter:
             "cli": "CLI",
             "db": "DB",
         }
-        
+
         # Split on underscores and capitalize each word
         words = key.lower().split("_")
         formatted_words = []
-        
+
         for word in words:
             if word in special_cases:
                 formatted_words.append(special_cases[word])
             else:
                 formatted_words.append(word.capitalize())
-        
+
         return " ".join(formatted_words)
-    
+
     def _get_column_style(self, key: str) -> str:
         """Get appropriate style for a column based on its key."""
         if key.lower() in ["id"]:
@@ -1618,11 +1648,11 @@ class UniversalOutputFormatter:
             return "white"
         else:
             return "white"
-    
+
     def _get_column_max_width(self, key: str) -> int:
         """Get maximum width for a column based on its key to prevent wrapping."""
         key_lower = key.lower()
-        
+
         # Field-specific width limits
         if key_lower == "id":
             return 15
@@ -1643,31 +1673,31 @@ class UniversalOutputFormatter:
         else:
             # Default max width for unknown fields
             return 20
-    
+
     def _get_field_max_length(self, key: str) -> int:
         """Get maximum character length for a field value to prevent wrapping."""
         # This should match the column max width minus some padding for table borders
         return self._get_column_max_width(key)
-    
+
     def _calculate_proportional_widths(self, keys: List[str]) -> List[int]:
         """Calculate proportional column widths that fill the available terminal width.
-        
+
         Scales to terminal width if less than 200 characters, otherwise uses 200.
-        
+
         Args:
             keys: List of column keys
-            
+
         Returns:
             List of column widths that sum to the available terminal width
         """
         if not keys:
             return []
-        
+
         # Get actual terminal width, but use at least 80 characters and max 200
         # Try to get from environment first, then console, with fallbacks
         import os
         import shutil
-        
+
         # Check if COLUMNS is set and use it, otherwise detect terminal width
         env_columns = os.environ.get("COLUMNS")
         if env_columns and env_columns.isdigit():
@@ -1675,26 +1705,26 @@ class UniversalOutputFormatter:
         else:
             # Use shutil.get_terminal_size() for more accurate detection
             detected_width = shutil.get_terminal_size().columns
-        
+
         terminal_width = min(200, max(80, detected_width))
-        
+
         # Total available width minus table borders and padding
         # Rich table uses: | col1 | col2 | col3 |
         # So we need space for: (num_cols + 1) border chars + (num_cols * 2) padding
         total_available = terminal_width - (len(keys) + 1) - (len(keys) * 2)
-        
+
         # Get relative priority weights for each field type
         field_weights = {}
         for key in keys:
             field_weights[key] = self._get_field_priority_weight(key)
-        
+
         # Calculate total weight
         total_weight = sum(field_weights.values())
-        
+
         # Calculate proportional widths
         widths = []
         remaining_width = total_available
-        
+
         for i, key in enumerate(keys):
             if i == len(keys) - 1:
                 # Last column gets all remaining width
@@ -1706,16 +1736,16 @@ class UniversalOutputFormatter:
                 width = max(8, min(width, 50))  # Between 8 and 50 chars
                 widths.append(width)
                 remaining_width -= width
-        
+
         return widths
-    
+
     def _get_field_priority_weight(self, key: str) -> float:
         """Get priority weight for field type to determine column width allocation.
-        
+
         Higher weight = wider column in proportional distribution.
         """
         key_lower = key.lower()
-        
+
         # High priority fields (get more space)
         if key_lower in ["description", "message", "details"]:
             return 3.0
@@ -1723,57 +1753,57 @@ class UniversalOutputFormatter:
             return 2.0
         elif key_lower in ["email", "url", "endpoint"]:
             return 2.0
-        
-        # Medium priority fields 
+
+        # Medium priority fields
         elif key_lower in ["id"]:
             return 1.5
         elif key_lower.endswith("_at") or "date" in key_lower or "time" in key_lower:
             return 1.5
         elif key_lower in ["region", "zone", "location", "cidr", "ip", "subnet"]:
             return 1.5
-        
+
         # Low priority fields (get less space)
         elif key_lower in ["status", "state"]:
             return 1.0
         elif key_lower in ["is_archived", "archived", "enabled", "active"]:
             return 0.8
-        
+
         # Default weight
         else:
             return 1.2
-    
+
     def _get_adaptive_max_width(self, key: str, num_columns: int) -> int:
         """Get adaptive maximum width for a column based on terminal size and column count.
-        
+
         This allows Rich to auto-size columns while preventing excessive width.
-        
+
         Args:
             key: Column key
             num_columns: Total number of columns in the table
-            
+
         Returns:
             Maximum width for this column
         """
         # Get actual terminal width
         import os
         import shutil
-        
+
         env_columns = os.environ.get("COLUMNS")
         if env_columns and env_columns.isdigit():
             terminal_width = int(env_columns)
         else:
             terminal_width = shutil.get_terminal_size().columns
-        
+
         # Use a reasonable range: min 80, max 200
         terminal_width = min(200, max(80, terminal_width))
-        
+
         # Calculate average column width (accounting for borders and padding)
         available_width = terminal_width - (num_columns + 1) - (num_columns * 2)
         avg_width = available_width // num_columns if num_columns > 0 else 20
-        
+
         # Adjust based on field type and terminal size
         key_lower = key.lower()
-        
+
         if terminal_width >= 160:
             # Wide terminal - be more generous
             if key_lower in ["description", "message", "details"]:
@@ -1784,7 +1814,7 @@ class UniversalOutputFormatter:
                 return min(20, avg_width)
             else:
                 return min(30, avg_width + 5)
-        
+
         elif terminal_width >= 120:
             # Medium terminal - moderate constraints
             if key_lower in ["description", "message", "details"]:
@@ -1797,7 +1827,7 @@ class UniversalOutputFormatter:
                 return min(15, avg_width)
             else:
                 return min(20, avg_width)
-        
+
         else:
             # Narrow terminal - tight constraints
             if key_lower in ["description", "message", "details"]:
@@ -1810,7 +1840,7 @@ class UniversalOutputFormatter:
                 return min(10, avg_width - 2)
             else:
                 return min(15, avg_width)
-    
+
     def _format_cell_value(self, key: str, value: Any) -> str:
         """Format a cell value for display."""
         if value is None:
@@ -1831,6 +1861,7 @@ class UniversalOutputFormatter:
                 # Try to format dates nicely, fallback to original
                 try:
                     from datetime import datetime
+
                     if "T" in value and value.endswith("Z"):
                         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
                         return dt.strftime("%Y-%m-%d")
@@ -1845,34 +1876,36 @@ class UniversalOutputFormatter:
                 return value
         else:
             return str(value)
-    
+
     def success(self, message: str) -> None:
         """Display a success message."""
         if not self.json_output:
             self.console.print(f"✅ {message}", style="green")
-    
+
     def error(self, message: str) -> None:
         """Display an error message."""
         if not self.json_output:
             self.console.print(f"❌ {message}", style="red")
-    
+
     def warning(self, message: str) -> None:
         """Display a warning message."""
         if not self.json_output:
             self.console.print(f"⚠️ {message}", style="yellow")
-    
+
     def info(self, message: str) -> None:
         """Display an info message."""
         if not self.json_output:
             self.console.print(f"ℹ️ {message}", style="blue")
-    
+
     # ============================================================================
     # CRUD Operation Render Functions
     # ============================================================================
-    
-    def render_list(self, data: Any, resource_name: str, empty_message: Optional[str] = None) -> None:
+
+    def render_list(
+        self, data: Any, resource_name: str, empty_message: Optional[str] = None
+    ) -> None:
         """Render a list of resources (for LIST operations).
-        
+
         Args:
             data: Response data containing list of items
             resource_name: Human-readable name for the resource type (e.g., "Job Scripts")
@@ -1880,12 +1913,12 @@ class UniversalOutputFormatter:
         """
         if empty_message is None:
             empty_message = f"No {resource_name.lower()} found."
-        
+
         self.output(data, title=resource_name, empty_message=empty_message)
-    
+
     def render_get(self, data: Any, resource_name: str, resource_id: str = "") -> None:
         """Render a single resource (for GET operations).
-        
+
         Args:
             data: Response data for the single resource
             resource_name: Human-readable name for the resource type
@@ -1897,16 +1930,18 @@ class UniversalOutputFormatter:
             title = f"{resource_name}"
             if resource_id:
                 title += f" (ID: {resource_id})"
-            
+
             if isinstance(data, dict):
                 self._render_dict_as_table(data, title)
             else:
                 self.console.print(f"📄 {title}")
                 self.console.print(data)
-    
-    def render_create(self, data: Any, resource_name: str, success_message: Optional[str] = None) -> None:
+
+    def render_create(
+        self, data: Any, resource_name: str, success_message: Optional[str] = None
+    ) -> None:
         """Render result of resource creation (for CREATE operations).
-        
+
         Args:
             data: Response data from creation
             resource_name: Human-readable name for the resource type
@@ -1920,17 +1955,23 @@ class UniversalOutputFormatter:
                 if isinstance(data, dict) and "id" in data:
                     resource_id = f" (ID: {data['id']})"
                 success_message = f"{resource_name} created successfully{resource_id}"
-            
+
             self.success(success_message)
-            
+
             # Show key details of created resource
             if isinstance(data, dict) and data:
                 self.console.print("\n📋 Created Resource Details:")
                 self._render_dict_as_table(data, "")
-    
-    def render_update(self, data: Any, resource_name: str, resource_id: str = "", success_message: Optional[str] = None) -> None:
+
+    def render_update(
+        self,
+        data: Any,
+        resource_name: str,
+        resource_id: str = "",
+        success_message: Optional[str] = None,
+    ) -> None:
         """Render result of resource update (for UPDATE operations).
-        
+
         Args:
             data: Response data from update
             resource_name: Human-readable name for the resource type
@@ -1943,17 +1984,23 @@ class UniversalOutputFormatter:
             if success_message is None:
                 id_part = f" (ID: {resource_id})" if resource_id else ""
                 success_message = f"{resource_name} updated successfully{id_part}"
-            
+
             self.success(success_message)
-            
+
             # Show updated resource details
             if isinstance(data, dict) and data:
                 self.console.print("\n📋 Updated Resource Details:")
                 self._render_dict_as_table(data, "")
-    
-    def render_delete(self, resource_name: str, resource_id: str = "", success_message: Optional[str] = None, data: Any = None) -> None:
+
+    def render_delete(
+        self,
+        resource_name: str,
+        resource_id: str = "",
+        success_message: Optional[str] = None,
+        data: Any = None,
+    ) -> None:
         """Render result of resource deletion (for DELETE operations).
-        
+
         Args:
             resource_name: Human-readable name for the resource type
             resource_id: ID of the deleted resource
@@ -1966,12 +2013,12 @@ class UniversalOutputFormatter:
             if success_message is None:
                 id_part = f" (ID: {resource_id})" if resource_id else ""
                 success_message = f"{resource_name} deleted successfully{id_part}"
-            
+
             self.success(success_message)
-    
+
     def render_error(self, error_message: str, details: Any = None) -> None:
         """Render error information for any failed operation.
-        
+
         Args:
             error_message: Main error message
             details: Optional additional error details
@@ -1988,10 +2035,12 @@ class UniversalOutputFormatter:
                 self._render_dict_as_table(details, "")
             elif details:
                 self.console.print(f"\nDetails: {details}")
-    
-    def render_confirmation(self, message: str, resource_name: str = "", resource_id: str = "") -> None:
+
+    def render_confirmation(
+        self, message: str, resource_name: str = "", resource_id: str = ""
+    ) -> None:
         """Render confirmation prompts for destructive operations.
-        
+
         Args:
             message: Confirmation message
             resource_name: Human-readable name for the resource type
@@ -2001,10 +2050,12 @@ class UniversalOutputFormatter:
             if resource_name and resource_id:
                 self.console.print(f"🗑️  {resource_name} (ID: {resource_id})")
             self.console.print(f"⚠️  {message}", style="yellow bold")
-    
-    def render_operation_status(self, operation: str, resource_name: str, status: str, details: str = "") -> None:
+
+    def render_operation_status(
+        self, operation: str, resource_name: str, status: str, details: str = ""
+    ) -> None:
         """Render status of long-running operations.
-        
+
         Args:
             operation: Type of operation (e.g., "Deployment", "Migration")
             resource_name: Human-readable name for the resource
@@ -2016,27 +2067,29 @@ class UniversalOutputFormatter:
                 "operation": operation,
                 "resource": resource_name,
                 "status": status,
-                "details": details
+                "details": details,
             }
             self._output_json(status_data)
         else:
             status_style = {
                 "completed": "green",
-                "success": "green", 
+                "success": "green",
                 "in progress": "yellow",
                 "pending": "yellow",
                 "failed": "red",
-                "error": "red"
+                "error": "red",
             }.get(status.lower(), "blue")
-            
+
             self.console.print(f"🔄 {operation} - {resource_name}")
             self.console.print(f"Status: {status}", style=status_style)
             if details:
                 self.console.print(f"Details: {details}")
-    
-    def render_bulk_operation(self, operation: str, results: Dict[str, Any], resource_name: str) -> None:
+
+    def render_bulk_operation(
+        self, operation: str, results: Dict[str, Any], resource_name: str
+    ) -> None:
         """Render results of bulk operations affecting multiple resources.
-        
+
         Args:
             operation: Type of bulk operation (e.g., "Bulk Delete", "Bulk Update")
             results: Dictionary with success/failure counts and details
@@ -2048,14 +2101,14 @@ class UniversalOutputFormatter:
             total = results.get("total", 0)
             success = results.get("success", 0)
             failed = results.get("failed", 0)
-            
+
             self.console.print(f"📊 {operation} - {resource_name}")
             self.console.print(f"Total processed: {total}")
             if success > 0:
                 self.console.print(f"✅ Successful: {success}", style="green")
             if failed > 0:
                 self.console.print(f"❌ Failed: {failed}", style="red")
-            
+
             # Show detailed results if available
             if "details" in results and isinstance(results["details"], list):
                 self.console.print("\n📋 Detailed Results:")
@@ -2065,10 +2118,10 @@ class UniversalOutputFormatter:
                         resource_id = detail.get("id", "Unknown")
                         message = detail.get("message", "")
                         self.console.print(f"{status_icon} ID {resource_id}: {message}")
-    
+
     def render_validation_results(self, validation_results: Dict[str, Any]) -> None:
         """Render validation results for data validation operations.
-        
+
         Args:
             validation_results: Dictionary containing validation results
         """
@@ -2078,17 +2131,17 @@ class UniversalOutputFormatter:
             is_valid = validation_results.get("valid", False)
             errors = validation_results.get("errors", [])
             warnings = validation_results.get("warnings", [])
-            
+
             if is_valid:
                 self.success("Validation successful")
             else:
                 self.error("Validation failed")
-            
+
             if errors:
                 self.console.print("\n❌ Validation Errors:")
                 for error in errors:
                     self.console.print(f"  • {error}", style="red")
-            
+
             if warnings:
                 self.console.print("\n⚠️  Validation Warnings:")
                 for warning in warnings:

@@ -16,9 +16,9 @@ from typing import Annotated
 import typer
 from rich import print_json
 
+from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.job.client import job_rest_client
 
 
 @handle_abort
@@ -31,9 +31,9 @@ async def delete_job_submission(
     """Delete a job submission."""
     # Create REST API client
     client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     submission_name = str(submission_id)
-    
+
     if not yes and not ctx.obj.json_output:
         # Get submission info for confirmation
         try:
@@ -42,21 +42,20 @@ async def delete_job_submission(
             submission_name = submission_data.get("name", str(submission_id))
         except Exception:
             submission_name = str(submission_id)
-        
+
         confirm = typer.confirm(
             f"Are you sure you want to delete job submission '{submission_name}'? This action cannot be undone."
         )
         if not confirm:
             ctx.obj.console.print("❌ Delete operation cancelled.", style="yellow")
             raise typer.Exit(0)
-    
+
     await client.delete(f"/job-submissions/{submission_id}")
-    
+
     # DELETE typically returns empty response on success (204 No Content)
     if ctx.obj.json_output:
         print_json(data={"submission_id": submission_id, "status": "deleted"})
     else:
         ctx.obj.console.print(
-            f"✅ Job submission '{submission_name}' deleted successfully!", 
-            style="green"
+            f"✅ Job submission '{submission_name}' deleted successfully!", style="green"
         )

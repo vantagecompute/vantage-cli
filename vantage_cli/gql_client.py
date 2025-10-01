@@ -655,7 +655,7 @@ def create_async_graphql_client(settings: Settings, profile: str = "default"):
         persona = extract_persona(profile, token_set, settings)
 
         # Construct the GraphQL endpoint URL
-        graphql_url = f"{settings.api_base_url}/cluster/graphql"
+        graphql_url = f"{settings.get_apis_url()}/cluster/graphql"
 
         # Create async client with settings
         client = create_production_client(

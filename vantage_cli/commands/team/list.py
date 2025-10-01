@@ -13,7 +13,6 @@
 
 import typer
 
-
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -27,12 +26,9 @@ async def list_teams(ctx: typer.Context):
         {"team_id": "team-12345", "name": "Development Team", "member_count": 5},
         {"team_id": "team-67890", "name": "QA Team", "member_count": 3},
     ]
-    
+
     # Use UniversalOutputFormatter for consistent list rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_list(
-        data=teams,
-        resource_name="Teams",
-        empty_message="No teams found."
-    )
+    formatter.render_list(data=teams, resource_name="Teams", empty_message="No teams found.")

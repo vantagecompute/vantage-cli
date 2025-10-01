@@ -18,9 +18,9 @@ from typing import Annotated, Optional
 import typer
 from rich import print_json
 
+from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.job.client import job_rest_client
 
 
 @handle_abort
@@ -28,7 +28,9 @@ from vantage_cli.commands.job.client import job_rest_client
 async def update_job_submission(
     ctx: typer.Context,
     submission_id: Annotated[int, typer.Argument(help="ID of the job submission to update")],
-    name: Optional[str] = typer.Option(None, "--name", "-n", help="New name for the job submission"),
+    name: Optional[str] = typer.Option(
+        None, "--name", "-n", help="New name for the job submission"
+    ),
     description: Optional[str] = typer.Option(
         None, "--description", "-d", help="New description for the job submission"
     ),
@@ -45,7 +47,7 @@ async def update_job_submission(
     """Update a job submission."""
     # Create REST API client
     client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     if json_file:
         # Read data from JSON file
         try:
@@ -57,7 +59,7 @@ async def update_job_submission(
     else:
         # Build update data from command options
         update_data = {}
-        
+
         if name is not None:
             update_data["name"] = name
         if description is not None:
@@ -66,22 +68,21 @@ async def update_job_submission(
             update_data["execution_directory"] = execution_directory
         if status is not None:
             update_data["status"] = status
-        
+
         if not update_data:
             ctx.obj.console.print(
                 "❌ No update fields provided. Use --name, --description, --execution-directory, or --status options.",
-                style="red"
+                style="red",
             )
             raise typer.Exit(1)
-    
+
     result = await client.put(f"/job-submissions/{submission_id}", json=update_data)
-    
+
     if ctx.obj.json_output:
         print_json(data=result)
     else:
         ctx.obj.console.print(
-            f"✅ Job submission '{result.get('name')}' updated successfully!", 
-            style="green"
+            f"✅ Job submission '{result.get('name')}' updated successfully!", style="green"
         )
         ctx.obj.console.print(f"📋 Submission ID: {result.get('id')}")
         ctx.obj.console.print(f"📝 Status: {result.get('status')}")

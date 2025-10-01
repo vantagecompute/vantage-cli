@@ -12,8 +12,8 @@
 """Template engine for deployment configurations."""
 
 import io
-from typing import Any, Dict, List
 from textwrap import dedent
+from typing import List
 
 from ruamel.yaml import YAML
 
@@ -157,6 +157,7 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
         """Generate SSSD configuration."""
         return generate_sssd_conf(context)
 
+
 def generate_sssd_conf(context: VantageClusterContext) -> str:
     """Generate SSSD configuration string."""
     sssd_conf = dedent(f"""\
@@ -214,6 +215,5 @@ def generate_sssd_conf(context: VantageClusterContext) -> str:
         
         # ─── Schema type ───────────────────────────────────────────────────────────────
         ldap_schema = rfc2307bis
-        """
-    )
+        """)
     return sssd_conf

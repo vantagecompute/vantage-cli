@@ -93,11 +93,24 @@ class Cluster(BaseModel):
     name: str
     status: str
     client_id: str
+    client_secret: str
     description: str
     owner_email: str
     provider: str
     cloud_account_id: Optional[str] = None
     creation_parameters: Dict[str, Any] = {}
+
+    @computed_field
+    @property
+    def jupyterhub_url(self) -> str:
+        """Return the computed jupyterhub url."""
+        return f"https://{self.client_id}.vantagecompute.ai"
+
+    @computed_field
+    @property
+    def jupyterhub_token(self) -> str:
+        """Return the computed JupyterHub token."""
+        return self.creation_parameters.get("jupyterhubToken", "")
 
     @computed_field
     @property
@@ -114,7 +127,7 @@ class Cluster(BaseModel):
             "aws": "AWS",
             "gcp": "Google Cloud",
             "azure": "Azure",
-            "localhost": "Local"
+            "localhost": "Local",
         }
         return provider_mapping.get(self.provider, self.provider.title())
 
@@ -131,7 +144,7 @@ class Deployment(BaseModel):
     created_at: str
     status: str
     updated_at: Optional[str] = None
-    
+
     # Additional fields that might be present
     deployment_type: Optional[str] = None
     k8s_namespaces: Optional[List[str]] = None
@@ -150,6 +163,7 @@ class Deployment(BaseModel):
         """Get formatted creation timestamp."""
         try:
             from datetime import datetime
+
             dt = datetime.fromisoformat(self.created_at.replace("Z", "+00:00"))
             return dt.strftime("%Y-%m-%d %H:%M")
         except (ValueError, AttributeError):
@@ -160,6 +174,35 @@ class Deployment(BaseModel):
     def compatible_integrations(self) -> list[str]:
         """Get a list of compatible integration types based on the cloud type."""
         return PROVIDER_SUBSTRATE_MAPPINGS.get(self.cloud, [])
+
+
+class Notebook(BaseModel):
+    """Schema for notebook server data."""
+
+    id: str
+    name: str
+    cluster_name: Optional[str] = None
+    partition: Optional[str] = None
+    owner: Optional[str] = None
+    server_url: Optional[str] = None
+    slurm_job_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class SupportTicket(BaseModel):
+    """Schema for support ticket data."""
+
+    id: str
+    subject: str
+    description: Optional[str] = None
+    status: Optional[str] = None  # e.g., "open", "in_progress", "closed"
+    priority: Optional[str] = None  # e.g., "low", "medium", "high", "critical"
+    owner_email: Optional[str] = None
+    assigned_to: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    resolved_at: Optional[str] = None
 
 
 class Profile(BaseModel):

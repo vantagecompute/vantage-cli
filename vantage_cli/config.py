@@ -13,11 +13,10 @@
 
 import inspect
 import json
-import os
 import shutil
 from asyncio.log import logger
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import typer
 from pydantic import BaseModel, ValidationError, computed_field
@@ -58,19 +57,19 @@ class Settings(BaseModel):
 
     def get_ldap_url(self) -> str:
         """Construct the LDAP URL."""
-        return self._get_url_for_profile('ldap')
+        return self._get_url_for_profile("ldap")
 
     def get_auth_url(self) -> str:
         """Construct the auth URL."""
-        return self._get_url_for_profile('auth')
+        return self._get_url_for_profile("auth")
 
     def get_tunnel_url(self) -> str:
         """Construct the tunnel URL."""
-        return self._get_url_for_profile('tunnel')
+        return self._get_url_for_profile("tunnel")
 
     def get_apis_url(self) -> str:
         """Construct the apis URL."""
-        return self._get_url_for_profile('apis')
+        return self._get_url_for_profile("apis")
 
     @computed_field
     @property
@@ -83,6 +82,7 @@ class Settings(BaseModel):
     def oidc_token_url(self) -> str:
         """Construct the OIDC token URL from the base URL."""
         return f"{self.get_auth_url()}/realms/vantage/protocol/openid-connect/token"
+
 
 def init_user_filesystem(profile: str) -> None:
     """Initialize the user filesystem directories for a profile."""

@@ -15,7 +15,6 @@ from typing import Annotated
 
 import typer
 
-
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -34,12 +33,9 @@ async def get_team(
         "member_count": 5,
         "created_at": "2025-01-01T00:00:00Z",
     }
-    
+
     # Use UniversalOutputFormatter for consistent get rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_get(
-        data=team,
-        resource_name="Team",
-        resource_id=team_id
-    )
+    formatter.render_get(data=team, resource_name="Team", resource_id=team_id)

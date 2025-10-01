@@ -15,7 +15,6 @@ from typing import Annotated
 
 import typer
 
-
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -33,13 +32,14 @@ async def update_team(
         "description": description,
         "updated_at": "2025-09-15T14:30:00Z",
     }
-    
+
     # Use UniversalOutputFormatter for consistent update rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_update(
         data=result,
         resource_name="Team",
         resource_id=team_id,
-        success_message=f"Team '{team_id}' updated successfully!"
+        success_message=f"Team '{team_id}' updated successfully!",
     )

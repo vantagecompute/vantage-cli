@@ -11,13 +11,16 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update support ticket command."""
 
-from typing import Annotated
+from typing import Optional
 
 import typer
-from rich import print_json
+from loguru import logger
+from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import handle_abort
+from vantage_cli.exceptions import Abort, handle_abort
+from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
 @handle_abort
@@ -25,9 +28,62 @@ from vantage_cli.exceptions import handle_abort
 async def update_support_ticket(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the support ticket to update")],
+    subject: Annotated[
+        Optional[str], typer.Option("--subject", "-s", help="New ticket subject")
+    ] = None,
+    description: Annotated[
+        Optional[str], typer.Option("--description", "-d", help="New ticket description")
+    ] = None,
+    status: Annotated[
+        Optional[str], typer.Option("--status", help="New status (open, in_progress, closed)")
+    ] = None,
+    priority: Annotated[
+        Optional[str],
+        typer.Option("--priority", help="New priority (low, medium, high, critical)"),
+    ] = None,
 ):
     """Update a support ticket."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(data={"ticket_id": ticket_id, "status": "updated"})
-    else:
-        ctx.obj.console.print(f"🔄 Support ticket {ticket_id} updated successfully!")
+    # Use UniversalOutputFormatter for consistent output
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+
+    try:
+        # Use SDK to update support ticket
+        logger.debug(f"Updating support ticket '{ticket_id}'")
+        ticket = await support_ticket_sdk.update_ticket(
+            ctx,
+            ticket_id=ticket_id,
+            subject=subject,
+            description=description,
+            status=status,
+            priority=priority,
+        )
+
+        # Convert SupportTicket object to dict format for the formatter
+        ticket_data = {
+            "id": ticket.id,
+            "subject": ticket.subject,
+            "description": ticket.description,
+            "status": ticket.status,
+            "priority": ticket.priority,
+            "owner_email": ticket.owner_email,
+            "updated_at": ticket.updated_at,
+        }
+
+        # Use formatter to render the updated ticket
+        formatter.render_get(
+            data=ticket_data, resource_name="Support Ticket", resource_id=ticket_id
+        )
+
+        if not ctx.obj.json_output:
+            ctx.obj.console.print(
+                f"\n✅ Support ticket '{ticket_id}' updated successfully!", style="bold green"
+            )
+
+    except Abort:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error updating support ticket '{ticket_id}': {e}")
+        formatter.render_error(
+            error_message=f"An unexpected error occurred while updating support ticket '{ticket_id}'.",
+            details={"error": str(e)},
+        )

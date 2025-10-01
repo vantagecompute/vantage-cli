@@ -15,9 +15,9 @@ from typing import Annotated
 
 import typer
 
+from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.render import UniversalOutputFormatter
 
 
@@ -30,14 +30,12 @@ async def get_job_submission(
     """Get details of a specific job submission."""
     # Create REST API client
     client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     response = await client.get(f"/job-submissions/{submission_id}")
     submission_data = response
-    
+
     # Use UniversalOutputFormatter for consistent get rendering
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_get(
-        data=submission_data,
-        resource_name="Job Submission",
-        resource_id=str(submission_id)
+        data=submission_data, resource_name="Job Submission", resource_id=str(submission_id)
     )

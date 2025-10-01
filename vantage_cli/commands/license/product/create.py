@@ -15,9 +15,9 @@ from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -37,24 +37,25 @@ async def create_license_product(
 ):
     """Create a new license product."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     # Build the request payload
     payload = {
         "name": name,
         "version": version,
         "license_type": license_type,
     }
-    
+
     if description is not None:
         payload["description"] = description
-    
+
     response = await client.post("/products", json=product_data)
-    
+
     # Use UniversalOutputFormatter for consistent create rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_create(
         data=response,
         resource_name="License Product",
-        success_message=f"License product '{response.get('name')}' created successfully!"
+        success_message=f"License product '{response.get('name')}' created successfully!",
     )

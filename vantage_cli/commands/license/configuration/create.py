@@ -15,9 +15,9 @@ from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -38,25 +38,26 @@ async def create_license_configuration(
 ):
     """Create a new license configuration."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     # Build the request payload
     payload = {
         "name": name,
         "license_type": license_type,
     }
-    
+
     if max_users is not None:
         payload["max_users"] = max_users
     if description is not None:
         payload["description"] = description
-    
+
     response = await client.post("/configurations", json=config_data)
-    
+
     # Use UniversalOutputFormatter for consistent create rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_create(
         data=response,
         resource_name="License Configuration",
-        success_message=f"License configuration '{response.get('name')}' created successfully!"
+        success_message=f"License configuration '{response.get('name')}' created successfully!",
     )

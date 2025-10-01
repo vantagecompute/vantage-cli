@@ -16,8 +16,8 @@ import inspect
 from vantage_cli import AsyncTyper
 from vantage_cli.apps.utils import get_available_apps
 
-from .list import list_deployments
 from .get import get_deployment
+from .list import list_deployments
 
 # Create the deployment command group
 deployment_app = AsyncTyper(

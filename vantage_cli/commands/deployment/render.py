@@ -26,7 +26,7 @@ def _format_datetime(datetime_str: str) -> str:
     """Format datetime string for display."""
     if datetime_str == "unknown" or not datetime_str:
         return "N/A"
-    
+
     try:
         dt = datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -84,7 +84,7 @@ def render_deployments_table(
     # Add columns based on the deployment list command format
     column_mapping = {
         "deployment_name": "Deployment Name",
-        "deployment_id": "Deployment ID", 
+        "deployment_id": "Deployment ID",
         "app_name": "App",
         "cluster_name": "Cluster",
         "cloud": "Cloud",
@@ -149,7 +149,7 @@ def render_deployment_details(deployment: Dict[str, Any]) -> Table:
 
     Args:
         deployment: Deployment data dictionary
-        
+
     Returns:
         Rich Table with deployment details
     """
@@ -157,9 +157,7 @@ def render_deployment_details(deployment: Dict[str, Any]) -> Table:
 
     # Create a table matching the cluster get command style
     table = Table(
-        title=f"Deployment Details: {deployment_name}", 
-        show_header=True, 
-        header_style="bold white"
+        title=f"Deployment Details: {deployment_name}", show_header=True, header_style="bold white"
     )
 
     table.add_column("Property", style="bold cyan")
@@ -173,20 +171,20 @@ def render_deployment_details(deployment: Dict[str, Any]) -> Table:
     table.add_row("Cluster ID", deployment.get("cluster_id", "N/A"))
     table.add_row("Cloud", deployment.get("cloud", "N/A"))
     table.add_row("Cloud Type", deployment.get("cloud_type", "N/A"))
-    
+
     # Format status with color
     status = deployment.get("status", "N/A")
     status_colors = {
         "active": "green",
-        "inactive": "yellow", 
+        "inactive": "yellow",
         "error": "red",
         "init": "blue",
-        "pending": "yellow"
+        "pending": "yellow",
     }
     status_color = status_colors.get(status.lower(), "white")
     status_display = f"[{status_color}]{status}[/{status_color}]"
     table.add_row("Status", status_display)
-    
+
     table.add_row("Created At", _format_datetime(deployment.get("created_at", "N/A")))
     table.add_row("Updated At", _format_datetime(deployment.get("updated_at", "N/A")))
 
@@ -238,7 +236,7 @@ def render_deployment_details(deployment: Dict[str, Any]) -> Table:
             ("cloudAccountId", "Cloud Account ID"),
             ("deployment_name", "Deployment Name"),
         ]
-        
+
         # Add key properties first
         for prop_key, display_name in key_properties:
             if prop_key in cluster_data:
@@ -246,21 +244,27 @@ def render_deployment_details(deployment: Dict[str, Any]) -> Table:
                 if value is not None:
                     display_value = str(value) if value != "" else "N/A"
                     table.add_row(f"  {display_name}", display_value)
-        
+
         # Add creation parameters if available
         creation_params = cluster_data.get("creationParameters", {})
         if creation_params:
             table.add_row("", "")  # Empty row for spacing
             table.add_row("[bold]Creation Parameters[/bold]", "")
-            
+
             for key, value in creation_params.items():
                 if value is not None:
                     display_key = key.replace("_", " ").title()
                     # Mask sensitive data like tokens
                     if "token" in key.lower() and isinstance(value, str):
-                        display_value = f"[dim]{value[:8]}...{value[-8:]}[/dim]" if len(value) > 16 else f"[dim]{value}[/dim]"
+                        display_value = (
+                            f"[dim]{value[:8]}...{value[-8:]}[/dim]"
+                            if len(value) > 16
+                            else f"[dim]{value}[/dim]"
+                        )
                     else:
-                        display_value = str(value) if not isinstance(value, dict) else "Complex Object"
+                        display_value = (
+                            str(value) if not isinstance(value, dict) else "Complex Object"
+                        )
                     table.add_row(f"  {display_key}", display_value)
 
     return table

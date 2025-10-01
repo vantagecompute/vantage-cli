@@ -11,10 +11,11 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Deployment CRUD SDK that matches the deployment command interface."""
 
-import yaml
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 import typer
+import yaml
 from loguru import logger
 
 from vantage_cli.exceptions import Abort
@@ -23,15 +24,15 @@ from vantage_cli.schemas import Deployment
 
 class DeploymentSDK:
     """SDK for deployment CRUD operations that matches the deployment command interface.
-    
+
     This SDK reads from ~/.vantage-cli/deployments.yaml and provides the interface
     expected by the deployment commands.
     """
-    
+
     def __init__(self):
         """Initialize the deployment SDK."""
         pass
-    
+
     def _get_deployments_file_path(self) -> Path:
         """Get the path to the deployments file.
 
@@ -41,7 +42,7 @@ class DeploymentSDK:
         vantage_dir = Path.home() / ".vantage-cli"
         vantage_dir.mkdir(exist_ok=True)
         return vantage_dir / "deployments.yaml"
-    
+
     def _load_deployments_data(self) -> Dict[str, Any]:
         """Load deployment data from ~/.vantage-cli/deployments.yaml.
 
@@ -62,7 +63,7 @@ class DeploymentSDK:
         except Exception as e:
             logger.warning(f"Failed to load deployments file: {e}")
             return {"deployments": {}}
-    
+
     def _save_deployments_data(self, deployments_data: Dict[str, Any]) -> None:
         """Save deployment data to ~/.vantage-cli/deployments.yaml.
 
@@ -79,17 +80,17 @@ class DeploymentSDK:
 
     async def list(self, ctx: typer.Context, **kwargs: Any) -> List[Dict[str, Any]]:
         """List deployments with optional filtering.
-        
+
         This method provides the interface expected by the deployment list command.
-        
+
         Args:
             ctx: Typer context
             **kwargs: Filtering options like cloud, status, etc.
-            
+
         Returns:
             List of deployment dictionaries with keys expected by commands:
             - deployment_id
-            - deployment_name  
+            - deployment_name
             - app_name
             - cluster_name
             - cloud
@@ -98,17 +99,21 @@ class DeploymentSDK:
         """
         deployments_data = self._load_deployments_data()
         all_deployments = deployments_data.get("deployments", {})
-        
+
         # Convert to list format expected by the deployment commands
         deployments: List[Dict[str, Any]] = []
         for deployment_id, deployment_record in all_deployments.items():
             cluster_data = deployment_record.get("cluster_data", {})
-            cluster_name = cluster_data.get("name", deployment_record.get("cluster_name", "unknown"))
-            
+            cluster_name = cluster_data.get(
+                "name", deployment_record.get("cluster_name", "unknown")
+            )
+
             # Handle inconsistent deployment_name field
-            # Priority: deployment_name > name > fallback to "unknown"  
-            deployment_name = deployment_record.get("deployment_name") or deployment_record.get("name", "unknown")
-            
+            # Priority: deployment_name > name > fallback to "unknown"
+            deployment_name = deployment_record.get("deployment_name") or deployment_record.get(
+                "name", "unknown"
+            )
+
             # Map the file structure to the command interface
             deployment: Dict[str, Any] = {
                 "deployment_id": deployment_id,
@@ -130,28 +135,30 @@ class DeploymentSDK:
         # Apply filters exactly as the command expects
         cloud_filter = kwargs.get("cloud")
         if cloud_filter and cloud_filter != "all":
-            deployments = [d for d in deployments if d.get("cloud", "").lower() == cloud_filter.lower()]
-        
-        status_filter = kwargs.get("status") 
+            deployments = [
+                d for d in deployments if d.get("cloud", "").lower() == cloud_filter.lower()
+            ]
+
+        status_filter = kwargs.get("status")
         if status_filter and status_filter != "all":
             deployments = [d for d in deployments if d.get("status") == status_filter]
-        
+
         logger.debug(f"Returning {len(deployments)} deployments after filtering")
         return deployments
 
     async def list_deployments(self, ctx: typer.Context, **kwargs: Any) -> List[Deployment]:
         """List deployments as Deployment objects for the dashboard.
-        
+
         Args:
             ctx: Typer context
             **kwargs: Additional filtering parameters
-            
+
         Returns:
             List of Deployment objects
         """
         # Get raw deployment data from the base list method
         deployments_raw = await self.list(ctx, **kwargs)
-        
+
         deployments: List[Deployment] = []
         for deployment_data in deployments_raw:
             try:
@@ -163,40 +170,44 @@ class DeploymentSDK:
                     cluster_id=deployment_data.get("cluster_id", "unknown"),
                     cloud=deployment_data.get("cloud", "unknown"),
                     created_at=deployment_data.get("created_at", "unknown"),
-                    status=deployment_data.get("status", "unknown")
+                    status=deployment_data.get("status", "unknown"),
                 )
                 deployments.append(deployment)
             except Exception as e:
                 logger.warning(f"Failed to parse deployment data: {e}")
                 continue
-        
+
         return deployments
 
-    async def get_deployment(self, ctx: typer.Context, deployment_id: str, **kwargs: Any) -> Optional[Deployment]:
+    async def get_deployment(
+        self, ctx: typer.Context, deployment_id: str, **kwargs: Any
+    ) -> Optional[Deployment]:
         """Get a specific deployment by ID.
-        
+
         Args:
             ctx: Typer context
             deployment_id: ID of the deployment to retrieve
             **kwargs: Additional parameters
-            
+
         Returns:
             Deployment object or None if not found
         """
         deployments_data = self._load_deployments_data()
         all_deployments = deployments_data.get("deployments", {})
-        
+
         if deployment_id not in all_deployments:
             return None
-        
+
         deployment_record = all_deployments[deployment_id]
         cluster_data = deployment_record.get("cluster_data", {})
         cluster_name = cluster_data.get("name", deployment_record.get("cluster_name", "unknown"))
-        
+
         # Handle inconsistent deployment_name field
         # Priority: deployment_name > name > fallback to "unknown"
-        deployment_name = deployment_record.get("deployment_name") or deployment_record.get("name", "unknown")
-        
+        deployment_name = deployment_record.get("deployment_name") or deployment_record.get(
+            "name", "unknown"
+        )
+
         try:
             deployment = Deployment(
                 deployment_id=deployment_id,
@@ -206,38 +217,42 @@ class DeploymentSDK:
                 cluster_id=deployment_record.get("cluster_id", "unknown"),
                 cloud=deployment_record.get("cloud", "unknown"),
                 created_at=deployment_record.get("created_at", "unknown"),
-                status=deployment_record.get("status", "unknown")
+                status=deployment_record.get("status", "unknown"),
             )
             return deployment
         except Exception as e:
             logger.warning(f"Failed to parse deployment data for {deployment_id}: {e}")
             return None
 
-    async def get_deployment_details(self, ctx: typer.Context, deployment_id: str, **kwargs: Any) -> Optional[Dict[str, Any]]:
+    async def get_deployment_details(
+        self, ctx: typer.Context, deployment_id: str, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]:
         """Get detailed deployment data including all fields from the YAML file.
-        
+
         Args:
             ctx: Typer context
             deployment_id: ID of the deployment to retrieve
             **kwargs: Additional parameters
-            
+
         Returns:
             Complete deployment data dictionary or None if not found
         """
         deployments_data = self._load_deployments_data()
         all_deployments = deployments_data.get("deployments", {})
-        
+
         if deployment_id not in all_deployments:
             return None
-        
+
         deployment_record = all_deployments[deployment_id]
         cluster_data = deployment_record.get("cluster_data", {})
         cluster_name = cluster_data.get("name", deployment_record.get("cluster_name", "unknown"))
-        
+
         # Handle inconsistent deployment_name field
         # Priority: deployment_name > name > fallback to "unknown"
-        deployment_name = deployment_record.get("deployment_name") or deployment_record.get("name", "unknown")
-        
+        deployment_name = deployment_record.get("deployment_name") or deployment_record.get(
+            "name", "unknown"
+        )
+
         # Return complete deployment details
         details: Dict[str, Any] = {
             "deployment_id": deployment_id,
@@ -255,77 +270,75 @@ class DeploymentSDK:
             "cluster_data": cluster_data,
             "client_id": deployment_record.get("client_id", "unknown"),
         }
-        
+
         return details
 
-    async def get(self, ctx: typer.Context, deployment_id: str, **kwargs: Any) -> Optional[Dict[str, Any]]:
+    async def get(
+        self, ctx: typer.Context, deployment_id: str, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]:
         """Get a specific deployment by ID (convenience method).
-        
+
         This is a convenience method that wraps get_deployment_details to provide
         a shorter method name for SDK usage.
-        
+
         Args:
             ctx: Typer context
             deployment_id: ID of the deployment to retrieve
             **kwargs: Additional parameters
-            
+
         Returns:
             Complete deployment data dictionary or None if not found
         """
         return await self.get_deployment_details(ctx, deployment_id, **kwargs)
 
     async def update_deployment_status(
-        self,
-        ctx: typer.Context,
-        deployment_id: str,
-        status: str,
-        **kwargs: Any
+        self, ctx: typer.Context, deployment_id: str, status: str, **kwargs: Any
     ) -> bool:
         """Update the status of a deployment.
-        
+
         Args:
             ctx: Typer context
             deployment_id: ID of the deployment to update
             status: New status value
             **kwargs: Additional parameters
-            
+
         Returns:
             True if successful, False otherwise
         """
         deployments_data = self._load_deployments_data()
         all_deployments = deployments_data.get("deployments", {})
-        
+
         if deployment_id not in all_deployments:
             logger.warning(f"Deployment {deployment_id} not found for status update")
             return False
-        
+
         all_deployments[deployment_id]["status"] = status
         self._save_deployments_data(deployments_data)
-        
+
         logger.info(f"Updated deployment '{deployment_id}' status to '{status}'")
         return True
 
     async def delete(self, ctx: typer.Context, deployment_id: str, **kwargs: Any) -> bool:
         """Delete a deployment.
-        
+
         Args:
             ctx: Typer context
             deployment_id: ID of the deployment to delete
             **kwargs: Additional parameters
-            
+
         Returns:
             True if successful, False otherwise
         """
         deployments_data = self._load_deployments_data()
         all_deployments = deployments_data.get("deployments", {})
-        
+
         if deployment_id not in all_deployments:
             logger.warning(f"Deployment {deployment_id} not found for deletion")
             return False
-        
+
         del all_deployments[deployment_id]
         self._save_deployments_data(deployments_data)
-        
+
         logger.info(f"Deleted deployment '{deployment_id}'")
         return True
 

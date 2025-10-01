@@ -11,24 +11,22 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Create license feature command."""
 
-from typing import Annotated, Optional
 import json
 from pathlib import Path
+from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
 @attach_settings
 async def create_license_feature(
     ctx: typer.Context,
-    name: Annotated[
-        Optional[str], typer.Option("--name", "-n", help="Feature name")
-    ] = None,
+    name: Annotated[Optional[str], typer.Option("--name", "-n", help="Feature name")] = None,
     description: Annotated[
         Optional[str], typer.Option("--description", "-d", help="Feature description")
     ] = None,
@@ -38,12 +36,12 @@ async def create_license_feature(
 ):
     """Create a new license feature."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     if json_file:
         if not json_file.exists():
             ctx.obj.console.print(f"❌ Error: File {json_file} does not exist")
             raise typer.Exit(1)
-        with open(json_file, 'r') as f:
+        with open(json_file, "r") as f:
             payload = json.load(f)
     else:
         if not name:
@@ -52,14 +50,15 @@ async def create_license_feature(
         payload = {"name": name}
         if description:
             payload["description"] = description
-    
+
     response = await client.post("/features", json=feature_data)
-    
+
     # Use UniversalOutputFormatter for consistent create rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_create(
         data=response,
         resource_name="License Feature",
-        success_message=f"License feature '{response.get('name')}' created successfully!"
+        success_message=f"License feature '{response.get('name')}' created successfully!",
     )

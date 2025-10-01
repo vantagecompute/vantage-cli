@@ -11,117 +11,124 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Create notebook command."""
 
-from typing import Any, Dict, Optional, cast
+from typing import Optional
 
 import typer
 from loguru import logger
-from rich import print_json
 from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.gql_client import create_async_graphql_client
+from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.notebook.crud import notebook_sdk
 
 
 @handle_abort
 @attach_settings
 async def create_notebook(
     ctx: typer.Context,
-    name: Annotated[str, typer.Argument(help="Name of the notebook server")],
     cluster_name: Annotated[str, typer.Option("--cluster", "-c", help="Name of the cluster")],
-    partition_name: Annotated[str, typer.Option("--partition", help="Name of the partition")],
-    cpu_cores: Annotated[Optional[int], typer.Option("--cpu", help="Number of CPU cores")] = None,
-    memory: Annotated[Optional[float], typer.Option("--memory", help="Memory in MB")] = None,
-    gpus: Annotated[Optional[int], typer.Option("--gpus", help="Number of GPUs")] = None,
+    username: Annotated[
+        Optional[str], typer.Option("--username", "-u", help="JupyterHub username")
+    ] = None,
+    server_name: Annotated[
+        Optional[str], typer.Option("--name", "-n", help="Named server (optional)")
+    ] = None,
+    partition: Annotated[
+        Optional[str], typer.Option("--partition", help="SLURM partition to use")
+    ] = None,
+    cpu_cores: Annotated[
+        Optional[int], typer.Option("--cpu-cores", help="Number of CPU cores")
+    ] = None,
+    memory: Annotated[Optional[str], typer.Option("--mem", help="Memory (e.g., 4G, 8G)")] = None,
+    gpus: Annotated[Optional[int], typer.Option("--gpu", help="Number of GPUs")] = None,
+    node: Annotated[Optional[str], typer.Option("--node", help="Specific node to use")] = None,
 ):
-    """Create a new Jupyter notebook server."""
-    # GraphQL mutation to create notebook
-    mutation = """
-    mutation CreateNotebookServer($input: CreateNotebookInput!) {
-        createJupyterServer(createNotebookInput: $input) {
-            ... on NotebookServer {
-                id
-                name
-                clusterName
-                partition
-                owner
-                serverUrl
-                slurmJobId
-                createdAt
-                updatedAt
-            }
-            ... on ClusterNotFound {
-                message
-            }
-            ... on NotebookServerAlreadyExists {
-                message
-            }
-            ... on PartitionNotFound {
-                message
-            }
-        }
-    }
+    """Create a new Jupyter notebook server on a cluster.
+    
+    Creates a notebook server using JupyterHub API with resource specifications.
+    If username is not provided, it will use the authenticated user's email.
     """
-
-    # Build input variables
-    variables: Dict[str, Any] = {
-        "input": {
-            "name": name,
-            "clusterName": cluster_name,
-            "partitionName": partition_name,
-        }
-    }
-
-    # Add optional parameters if provided
-    if cpu_cores is not None:
-        variables["input"]["cpuCores"] = cpu_cores
-    if memory is not None:
-        variables["input"]["memory"] = memory
-        variables["input"]["memoryUnit"] = "M"  # Assuming MB
-    if gpus is not None:
-        variables["input"]["gpus"] = gpus
+    # Use UniversalOutputFormatter for consistent output
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
-        # Create async GraphQL client
-        profile = getattr(ctx.obj, "profile", "default")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+        # Get username from token if not provided
+        if not username:
+            # Extract username from the authenticated user's email
+            if hasattr(ctx.obj, "persona") and ctx.obj.persona:
+                username = ctx.obj.persona.identity_data.email
+                if username:
+                    # Use email prefix as username
+                    username = username.split("@")[0]
+                    logger.debug(f"Using username from authenticated user: {username}")
+                else:
+                    raise Abort(
+                        "Could not determine username. Please provide --username option.",
+                        subject="Username Required",
+                        log_message="No username provided and no email in persona",
+                    )
+            else:
+                raise Abort(
+                    "Could not determine username. Please provide --username option.",
+                    subject="Username Required",
+                    log_message="No persona data available",
+                )
 
-        # Execute the mutation
-        logger.debug("Creating notebook server")
-        response_data = await graphql_client.execute_async(mutation, variables)
+        # Build server options from resource specifications
+        server_options = {}
+        
+        if partition:
+            server_options["partition"] = partition
+        if cpu_cores:
+            server_options["cpu_cores"] = cpu_cores
+        if memory:
+            server_options["memory"] = memory
+        if gpus:
+            server_options["gpus"] = gpus
+        if node:
+            server_options["node"] = node
 
-        result = response_data.get("createJupyterServer")
+        # Use SDK to create notebook server
+        logger.debug(
+            f"Creating notebook server for user '{username}' on cluster '{cluster_name}'"
+        )
+        result = await notebook_sdk.create_notebook(
+            ctx=ctx,
+            cluster_name=cluster_name,
+            username=username,
+            server_name=server_name,
+            server_options=server_options if server_options else None,
+        )
 
-        if not result:
-            Abort.require_condition(False, "No response from server")
+        # Format the result for display
+        result_data = {
+            "cluster": result.get("cluster_name"),
+            "username": result.get("username"),
+            "server_name": result.get("server_name"),
+            "status": result.get("status"),
+        }
 
-        # Ensure result is a dictionary
-        if not isinstance(result, dict):
-            Abort.require_condition(False, "Invalid response format from server")
+        # Add resource specs if they were provided
+        if server_options:
+            result_data["resources"] = server_options
 
-        # Type the result as a dictionary to help type checker
-        result_dict = cast(Dict[str, Any], result)
+        # Use formatter to render the created notebook
+        formatter.render_get(
+            data=result_data,
+            resource_name="Notebook Server",
+            resource_id=result.get("server_name", "default"),
+        )
 
-        # Check if it's an error response
-        if "message" in result_dict:
-            Abort.require_condition(False, result_dict["message"])
+        if not ctx.obj.json_output:
+            status_msg = result.get("message", "Server created successfully")
+            ctx.obj.console.print(f"\n✅ {status_msg}", style="bold green")
 
-        # Success case - it's a NotebookServer
-        if getattr(ctx.obj, "json_output", False):
-            print_json(data=result_dict)
-        else:
-            ctx.obj.console.print("📓 Creating notebook server...")
-            ctx.obj.console.print(
-                f"[green]✓[/green] Notebook server '[bold]{result_dict['name']}[/bold]' created successfully!"
-            )
-            ctx.obj.console.print(f"   Cluster: {result_dict['clusterName']}")
-            ctx.obj.console.print(f"   Partition: {result_dict['partition']}")
-            ctx.obj.console.print(f"   Owner: {result_dict['owner']}")
-            if result_dict.get("serverUrl"):
-                ctx.obj.console.print(f"   URL: {result_dict['serverUrl']}")
-            if result_dict.get("slurmJobId"):
-                ctx.obj.console.print(f"   SLURM Job ID: {result_dict['slurmJobId']}")
-
+    except Abort:
+        raise
     except Exception as e:
-        logger.error(f"Failed to create notebook server: {e}")
-        Abort.require_condition(False, f"Failed to create notebook server: {e}")
+        logger.error(f"Unexpected error creating notebook: {e}")
+        formatter.render_error(
+            error_message="An unexpected error occurred while creating the notebook server.",
+            details={"error": str(e)},
+        )

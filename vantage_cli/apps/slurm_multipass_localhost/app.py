@@ -31,7 +31,6 @@ from vantage_cli.apps.common import (
     validate_client_credentials,
     validate_cluster_data,
 )
-
 from vantage_cli.config import attach_settings
 from vantage_cli.constants import (
     CLOUD_LOCALHOST,
@@ -45,8 +44,8 @@ from vantage_cli.render import DeploymentStep, deployment_progress_panel
 from vantage_cli.schemas import VantageClusterContext
 
 from .constants import APP_NAME
-from .utils import check_multipass_available
 from .templates import CloudInitTemplate
+from .utils import check_multipass_available
 
 
 async def _get_client_secret_if_needed(
@@ -55,6 +54,14 @@ async def _get_client_secret_if_needed(
     """Get client secret from API if not already in cluster data."""
     client_secret = cluster_data.get("clientSecret")
     if not client_secret:
+        # For on_prem/localhost providers, client secret is not required for OAuth
+        # as these deployments run locally without cloud authentication
+        provider = cluster_data.get("provider", "").lower()
+        if provider == "on_prem":
+            # Use a placeholder for local deployments that don't require OAuth
+            return "localhost-not-required"
+        
+        # For cloud providers, fetch from API
         try:
             from vantage_cli.commands.cluster import utils as cluster_utils
 
@@ -64,13 +71,15 @@ async def _get_client_secret_if_needed(
         except Exception as e:
             console.print(f"[red]Failed to get client secret: {e}[/red]")
             raise
-    return require_client_secret(client_secret, console)
+        return require_client_secret(client_secret, console)
+    return client_secret
 
 
 def _get_jupyterhub_token(cluster_data: Dict[str, Any], verbose: bool) -> str:
     """Get or generate JupyterHub token from cluster data."""
     jupyterhub_token = None
     if cluster_data and "creationParameters" in cluster_data:
+        # After GraphQL conversion, keys are in snake_case
         if jupyterhub_token_data := cluster_data["creationParameters"].get("jupyterhub_token"):
             jupyterhub_token = jupyterhub_token_data
     if not jupyterhub_token:
@@ -297,9 +306,9 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool
         client_id=client_id,
         client_secret=client_secret,
         oidc_domain=ctx.obj.settings.oidc_domain,
-        oidc_base_url=ctx.obj.settings.oidc_base_url,
-        base_api_url=ctx.obj.settings.api_base_url,
-        tunnel_api_url=ctx.obj.settings.tunnel_api_url,
+        oidc_base_url=ctx.obj.settings.get_auth_url(),
+        base_api_url=ctx.obj.settings.get_apis_url(),
+        tunnel_api_url=ctx.obj.settings.get_tunnel_url(),
         jupyterhub_token=jupyterhub_token,
     )
 

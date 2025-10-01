@@ -138,7 +138,7 @@ async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str
         # Use the SDK to get the cluster
         logger.debug(f"Using SDK to get cluster: {cluster_name}")
         cluster = await get_cluster_sdk(ctx, cluster_name)
-        
+
         if not cluster:
             return None
 

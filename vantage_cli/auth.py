@@ -28,7 +28,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from vantage_cli.cache import load_tokens_from_cache, save_tokens_to_cache
 from vantage_cli.client import make_oauth_request
 from vantage_cli.config import Settings
-from vantage_cli.constants import USER_CONFIG_FILE, OIDC_DEVICE_PATH, OIDC_TOKEN_PATH
+from vantage_cli.constants import OIDC_DEVICE_PATH, OIDC_TOKEN_PATH, USER_CONFIG_FILE
 from vantage_cli.exceptions import Abort
 from vantage_cli.render import terminal_message
 from vantage_cli.schemas import CliContext, DeviceCodeData, IdentityData, Persona, TokenSet
@@ -270,7 +270,7 @@ def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -
     if not token_set.refresh_token:
         return False
 
-    url = f"{settings.oidc_base_url}{OIDC_TOKEN_PATH}"
+    url = f"{settings.get_auth_url()}{OIDC_TOKEN_PATH}"
     logger.debug(f"Requesting refreshed access token from {url}")
 
     try:
@@ -343,7 +343,7 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
         raise RuntimeError("HTTP client not initialized")
     if ctx.settings is None:
         raise RuntimeError("Settings not initialized")
-    
+
     # Use console from context - it should always be available
     console = ctx.console
 
@@ -379,7 +379,7 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
     start_time = datetime.datetime.now()
     timeout_seconds = ctx.settings.oidc_max_poll_time  # This is already in seconds (int)
     attempt = 0
-    
+
     # Create a progress display with just a spinner and elapsed time
     with Progress(
         SpinnerColumn(),
@@ -389,19 +389,22 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
         transient=True,
     ) as progress:
         task = progress.add_task("Waiting for browser authentication...", total=None)
-        
+
         while True:
             attempt += 1
             elapsed = (datetime.datetime.now() - start_time).total_seconds()
-            
+
             # Check timeout
             if elapsed >= timeout_seconds:
                 break
-                
+
             # Update task description with remaining time
             minutes_remaining = max(0, (timeout_seconds - elapsed) / 60)
-            progress.update(task, description=f"Waiting for browser authentication... ({minutes_remaining:.1f}m remaining)")
-            
+            progress.update(
+                task,
+                description=f"Waiting for browser authentication... ({minutes_remaining:.1f}m remaining)",
+            )
+
             # For polling, we need to handle error responses as dict, not TokenSet
             response_data: dict[str, Any] = {}
             try:
@@ -422,7 +425,7 @@ async def fetch_auth_tokens(ctx: CliContext) -> TokenSet:
             except Exception:
                 # If it fails, make a raw request to get the error details
                 response = await ctx.client.post(
-                    f"{ctx.settings.oidc_base_url}{OIDC_TOKEN_PATH}",
+                    f"{ctx.settings.get_auth_url()}{OIDC_TOKEN_PATH}",
                     data={
                         "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
                         "device_code": device_code_data.device_code,

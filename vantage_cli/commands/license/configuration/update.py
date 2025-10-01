@@ -15,9 +15,9 @@ from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -40,7 +40,7 @@ async def update_license_configuration(
 ):
     """Update an existing license configuration."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     # Build the update payload with only provided fields
     payload = {}
     if name is not None:
@@ -51,15 +51,16 @@ async def update_license_configuration(
         payload["max_users"] = max_users
     if description is not None:
         payload["description"] = description
-    
+
     response = await client.put(f"/configurations/{config_id}", json=update_data)
-    
+
     # Use UniversalOutputFormatter for consistent update rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_update(
         data=response,
         resource_name="License Configuration",
         resource_id=str(config_id),
-        success_message=f"License configuration '{response.get('name')}' updated successfully!"
+        success_message=f"License configuration '{response.get('name')}' updated successfully!",
     )

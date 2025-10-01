@@ -13,10 +13,10 @@
 
 import typer
 
-from .list import list_bookings
-from .get import get_booking  
 from .create import create_booking
 from .delete import delete_booking
+from .get import get_booking
+from .list import list_bookings
 
 app = typer.Typer(help="License booking management commands")
 

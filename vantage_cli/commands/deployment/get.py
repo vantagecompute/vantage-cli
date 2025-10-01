@@ -26,10 +26,7 @@ from .render import render_deployment_details
 @handle_abort
 async def get_deployment(
     ctx: typer.Context,
-    deployment_id: Annotated[
-        str,
-        typer.Argument(help="ID or name of the deployment to retrieve")
-    ],
+    deployment_id: Annotated[str, typer.Argument(help="ID or name of the deployment to retrieve")],
 ) -> None:
     """Get detailed information about a specific deployment."""
     # Get JSON flag from context (automatically set by AsyncTyper)
@@ -52,10 +49,10 @@ async def get_deployment(
         with renderer:
             # Step 1: Load deployment data
             renderer.start_step("Fetching deployment details")
-            
+
             # Try to get deployment details (which includes all fields)
             deployment_details = await deployment_sdk.get_deployment_details(ctx, deployment_id)
-            
+
             if deployment_details is None:
                 # Try searching by deployment name in case user provided a name instead of ID
                 deployments = await deployment_sdk.list(ctx)
@@ -65,7 +62,7 @@ async def get_deployment(
                             ctx, dep.get("deployment_id", "")
                         )
                         break
-                
+
                 if deployment_details is None:
                     ctx.obj.console.print(f"[red]Deployment '{deployment_id}' not found.[/red]")
                     ctx.obj.console.print(

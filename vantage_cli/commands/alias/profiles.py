@@ -14,7 +14,6 @@
 import typer
 
 from vantage_cli.commands.profile.crud import list_profiles
-from vantage_cli.sdk.profile.crud import profile_sdk
 from vantage_cli.exceptions import handle_abort
 
 

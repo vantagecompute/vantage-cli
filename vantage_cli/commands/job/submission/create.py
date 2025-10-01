@@ -17,10 +17,9 @@ from typing import List, Optional
 
 import typer
 
+from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.job.client import job_rest_client
-from vantage_cli.render import UniversalOutputFormatter
 
 
 @handle_abort
@@ -51,7 +50,7 @@ async def create_job_submission(
     """Create a new job submission."""
     # Create REST API client
     client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     if json_file:
         # Read data from JSON file
         try:
@@ -66,7 +65,7 @@ async def create_job_submission(
             "name": name,
             "job_script_id": job_script_id,
         }
-        
+
         if description:
             submission_data["description"] = description
         if client_id:
@@ -77,15 +76,14 @@ async def create_job_submission(
             submission_data["slurm_job_id"] = slurm_job_id
         if sbatch_arguments:
             submission_data["sbatch_arguments"] = sbatch_arguments
-    
+
     result = await client.post("/job-submissions", json=submission_data)
-    
+
     if ctx.obj.json_output:
         print_json(data=result)
     else:
         ctx.obj.console.print(
-            f"✅ Job submission '{result.get('name')}' created successfully!", 
-            style="green"
+            f"✅ Job submission '{result.get('name')}' created successfully!", style="green"
         )
         ctx.obj.console.print(f"📋 Submission ID: {result.get('id')}")
         ctx.obj.console.print(f"📝 Status: {result.get('status')}")

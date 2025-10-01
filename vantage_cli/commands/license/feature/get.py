@@ -15,9 +15,9 @@ from typing import Annotated
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -30,12 +30,11 @@ async def get_license_feature(
     """Get a specific license feature."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
     response = await client.get(f"/features/{feature_id}")
-    
+
     # Use UniversalOutputFormatter for consistent get rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_get(
-        data=response,
-        resource_name="License Feature",
-        resource_id=str(feature_id)
+        data=response, resource_name="License Feature", resource_id=str(feature_id)
     )

@@ -15,9 +15,9 @@ from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -39,7 +39,7 @@ async def list_license_servers(
 ):
     """List all license servers."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     params = {}
     if search:
         params["search"] = search
@@ -49,14 +49,13 @@ async def list_license_servers(
         params["limit"] = limit
     if offset:
         params["offset"] = offset
-    
+
     response = await client.get("/servers", params=params)
-    
+
     # Use UniversalOutputFormatter for consistent list rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_list(
-        data=response,
-        resource_name="License Servers",
-        empty_message="No license servers found."
+        data=response, resource_name="License Servers", empty_message="No license servers found."
     )

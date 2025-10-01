@@ -13,7 +13,6 @@
 
 import typer
 
-
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -30,12 +29,11 @@ async def create_team(ctx: typer.Context):
         "member_count": 0,
         "created_at": "2025-09-15T14:30:00Z",
     }
-    
+
     # Use UniversalOutputFormatter for consistent create rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_create(
-        data=result,
-        resource_name="Team",
-        success_message=f"Team '{name}' created successfully!"
+        data=result, resource_name="Team", success_message=f"Team '{name}' created successfully!"
     )

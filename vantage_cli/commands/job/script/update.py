@@ -17,9 +17,9 @@ from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.job.client import job_rest_client
 from vantage_cli.render import UniversalOutputFormatter
 
 
@@ -42,7 +42,7 @@ async def update_job_script(
     """Update a job script."""
     # Create REST API client
     client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     if json_file:
         # Read data from JSON file
         try:
@@ -54,28 +54,28 @@ async def update_job_script(
     else:
         # Build update data from command options
         update_data = {}
-        
+
         if name is not None:
             update_data["name"] = name
         if description is not None:
             update_data["description"] = description
         if is_archived is not None:
             update_data["is_archived"] = is_archived
-        
+
         if not update_data:
             ctx.obj.console.print(
                 "❌ No update fields provided. Use --name, --description, or --archived options.",
-                style="red"
+                style="red",
             )
             raise typer.Exit(1)
-    
+
     result = await client.put(f"/job-scripts/{script_id}", json=update_data)
-    
+
     # Use UniversalOutputFormatter for consistent update rendering
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_update(
         data=result,
         resource_name="Job Script",
         resource_id=str(script_id),
-        success_message=f"Job script '{result.get('name')}' updated successfully!"
+        success_message=f"Job script '{result.get('name')}' updated successfully!",
     )

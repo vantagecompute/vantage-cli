@@ -11,15 +11,15 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update license feature command."""
 
-from typing import Annotated, Optional
 import json
 from pathlib import Path
+from typing import Annotated, Optional
 
 import typer
 
+from vantage_cli.commands.license.client import lm_rest_client
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.commands.license.client import lm_rest_client
 
 
 @handle_abort
@@ -27,9 +27,7 @@ from vantage_cli.commands.license.client import lm_rest_client
 async def update_license_feature(
     ctx: typer.Context,
     feature_id: Annotated[str, typer.Argument(help="ID of the license feature to update")],
-    name: Annotated[
-        Optional[str], typer.Option("--name", "-n", help="New feature name")
-    ] = None,
+    name: Annotated[Optional[str], typer.Option("--name", "-n", help="New feature name")] = None,
     description: Annotated[
         Optional[str], typer.Option("--description", "-d", help="New feature description")
     ] = None,
@@ -39,12 +37,12 @@ async def update_license_feature(
 ):
     """Update an existing license feature."""
     client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    
+
     if json_file:
         if not json_file.exists():
             ctx.obj.console.print(f"❌ Error: File {json_file} does not exist")
             raise typer.Exit(1)
-        with open(json_file, 'r') as f:
+        with open(json_file, "r") as f:
             payload = json.load(f)
     else:
         payload = {}
@@ -55,15 +53,16 @@ async def update_license_feature(
         if not payload:
             ctx.obj.console.print("❌ Error: No update data provided")
             raise typer.Exit(1)
-    
+
     response = await client.put(f"/features/{feature_id}", json=update_data)
-    
+
     # Use UniversalOutputFormatter for consistent update rendering
     from vantage_cli.render import UniversalOutputFormatter
+
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     formatter.render_update(
         data=response,
         resource_name="License Feature",
         resource_id=str(feature_id),
-        success_message=f"License feature '{response.get('name')}' updated successfully!"
+        success_message=f"License feature '{response.get('name')}' updated successfully!",
     )
