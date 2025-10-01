@@ -18,7 +18,7 @@ from loguru import logger
 
 from vantage_cli.exceptions import Abort
 from vantage_cli.gql_client import create_async_graphql_client
-from vantage_cli.schemas import SupportTicket
+from vantage_cli.sdk.support_ticket.schema import SupportTicket
 
 
 class SupportTicketSDK:

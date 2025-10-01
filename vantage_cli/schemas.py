@@ -1,5 +1,5 @@
 # Copyright (C) 2025 Vantage Compute Corporation
-# This program is free software: you can redistribute it and/or modify it under
+# This program is free software: you cantml:parameter name="redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
 # Foundation, version 3.
 #
@@ -9,16 +9,33 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Data models and schemas for the Vantage CLI."""
+"""Base data models and schemas for the Vantage CLI.
 
-from typing import Any, Dict, List, Optional
+This module contains core authentication and CLI context schemas.
+Domain-specific schemas have been moved to their respective SDK modules:
+- Cluster schemas: vantage_cli.sdk.cluster.schema
+- Deployment schemas: vantage_cli.sdk.deployment.schema
+- Notebook schemas: vantage_cli.sdk.notebook.schema
+- Profile schemas: vantage_cli.sdk.profile.schema
+- Support ticket schemas: vantage_cli.sdk.support_ticket.schema
+"""
+
+from typing import Optional
 
 import httpx
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel
 from rich.console import Console
 
 from vantage_cli.config import Settings
-from vantage_cli.constants import PROVIDER_SUBSTRATE_MAPPINGS
+
+__all__ = [
+    # Core/Auth schemas
+    "TokenSet",
+    "IdentityData",
+    "Persona",
+    "DeviceCodeData",
+    "CliContext",
+]
 
 
 class TokenSet(BaseModel):
@@ -61,183 +78,3 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
     settings: Optional[Settings] = None
     console: Optional[Console] = None
     command_start_time: Optional[float] = None
-
-
-class VantageClusterContext(BaseModel):
-    """Vantage cluster context."""
-
-    cluster_name: str
-    client_id: str
-    client_secret: str
-    oidc_domain: str
-    oidc_base_url: str
-    base_api_url: str
-    tunnel_api_url: str
-    jupyterhub_token: str
-
-
-class ClusterDetailSchema(VantageClusterContext):
-    """VantageClusterContext + status, description, owner_email, provider, cloud_account_id, creation_parameters."""
-
-    status: str
-    description: str
-    owner_email: str
-    provider: str
-    cloud_account_id: Optional[str] = None
-    creation_parameters: Dict[str, Any]
-
-
-class Cluster(BaseModel):
-    """Schema for cluster data."""
-
-    name: str
-    status: str
-    client_id: str
-    client_secret: str
-    description: str
-    owner_email: str
-    provider: str
-    cloud_account_id: Optional[str] = None
-    creation_parameters: Dict[str, Any] = {}
-
-    @computed_field
-    @property
-    def jupyterhub_url(self) -> str:
-        """Return the computed jupyterhub url."""
-        return f"https://{self.client_id}.vantagecompute.ai"
-
-    @computed_field
-    @property
-    def jupyterhub_token(self) -> str:
-        """Return the computed JupyterHub token."""
-        return self.creation_parameters.get("jupyterhubToken", "")
-
-    @computed_field
-    @property
-    def is_ready(self) -> bool:
-        """Check if the cluster is ready."""
-        return self.status.lower() == "ready"
-
-    @computed_field
-    @property
-    def cluster_type(self) -> str:
-        """Get cluster type based on provider."""
-        provider_mapping = {
-            "on_prem": "On-Premises",
-            "aws": "AWS",
-            "gcp": "Google Cloud",
-            "azure": "Azure",
-            "localhost": "Local",
-        }
-        return provider_mapping.get(self.provider, self.provider.title())
-
-
-class Deployment(BaseModel):
-    """Schema for deployment data."""
-
-    deployment_id: str
-    deployment_name: str
-    app_name: str
-    cluster_name: str
-    cluster_id: str
-    cloud: str
-    created_at: str
-    status: str
-    updated_at: Optional[str] = None
-
-    # Additional fields that might be present
-    deployment_type: Optional[str] = None
-    k8s_namespaces: Optional[List[str]] = None
-    cluster_data: Optional[VantageClusterContext] = None
-    metadata: Dict[str, Any] = {}
-
-    @computed_field
-    @property
-    def is_active(self) -> bool:
-        """Check if the deployment is active."""
-        return self.status.lower() == "active"
-
-    @computed_field
-    @property
-    def formatted_created_at(self) -> str:
-        """Get formatted creation timestamp."""
-        try:
-            from datetime import datetime
-
-            dt = datetime.fromisoformat(self.created_at.replace("Z", "+00:00"))
-            return dt.strftime("%Y-%m-%d %H:%M")
-        except (ValueError, AttributeError):
-            return self.created_at
-
-    @computed_field
-    @property
-    def compatible_integrations(self) -> list[str]:
-        """Get a list of compatible integration types based on the cloud type."""
-        return PROVIDER_SUBSTRATE_MAPPINGS.get(self.cloud, [])
-
-
-class Notebook(BaseModel):
-    """Schema for notebook server data."""
-
-    id: str
-    name: str
-    cluster_name: Optional[str] = None
-    partition: Optional[str] = None
-    owner: Optional[str] = None
-    server_url: Optional[str] = None
-    slurm_job_id: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-
-
-class SupportTicket(BaseModel):
-    """Schema for support ticket data."""
-
-    id: str
-    subject: str
-    description: Optional[str] = None
-    status: Optional[str] = None  # e.g., "open", "in_progress", "closed"
-    priority: Optional[str] = None  # e.g., "low", "medium", "high", "critical"
-    owner_email: Optional[str] = None
-    assigned_to: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    resolved_at: Optional[str] = None
-
-
-class Profile(BaseModel):
-    """Schema for profile data."""
-
-    name: str
-    settings: Settings
-    is_active: bool = False
-
-    @computed_field
-    @property
-    def api_base_url(self) -> str:
-        """Get the API base URL from settings."""
-        return self.settings.get_apis_url()
-
-    @computed_field
-    @property
-    def tunnel_url(self) -> str:
-        """Get the Tunnel URL from settings."""
-        return self.settings.get_tunnel_url()
-
-    @computed_field
-    @property
-    def ldap_url(self) -> str:
-        """Get the ldap URL from settings."""
-        return self.settings.get_ldap_url()
-
-    @computed_field
-    @property
-    def oidc_base_url(self) -> str:
-        """Get the OIDC base URL from settings."""
-        return self.settings.get_auth_url()
-
-    @computed_field
-    @property
-    def oidc_client_id(self) -> str:
-        """Get the OIDC client ID from settings."""
-        return self.settings.get_oidc_client_id()

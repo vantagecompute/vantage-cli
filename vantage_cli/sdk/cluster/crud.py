@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional
 
 import typer
 
-from vantage_cli.schemas import Cluster
 from vantage_cli.sdk.base import BaseGraphQLResourceSDK
+from vantage_cli.sdk.cluster.schema import Cluster
 
 
 class ClusterSDK(BaseGraphQLResourceSDK):

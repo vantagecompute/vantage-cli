@@ -41,7 +41,7 @@ from vantage_cli.constants import (
 )
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.render import DeploymentStep, deployment_progress_panel
-from vantage_cli.schemas import VantageClusterContext
+from vantage_cli.sdk.cluster.schema import VantageClusterContext
 
 from .constants import APP_NAME
 from .templates import CloudInitTemplate

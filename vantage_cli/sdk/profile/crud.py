@@ -27,7 +27,7 @@ from vantage_cli.config import (
 )
 from vantage_cli.constants import USER_CONFIG_FILE, USER_TOKEN_CACHE_DIR
 from vantage_cli.exceptions import Abort
-from vantage_cli.schemas import Profile
+from vantage_cli.sdk.profile.schema import Profile
 from vantage_cli.sdk.base import BaseLocalResourceSDK
 
 

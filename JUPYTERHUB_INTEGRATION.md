@@ -75,6 +75,7 @@ vantage notebook create --cluster CLUSTER [OPTIONS]
 ```
 
 **Options:**
+
 - `--cluster, -c`: Target cluster (required)
 - `--username, -u`: JupyterHub username (defaults to authenticated user)
 - `--name, -n`: Named server (optional, creates default if not provided)
@@ -85,6 +86,7 @@ vantage notebook create --cluster CLUSTER [OPTIONS]
 - `--node`: Specific node to use
 
 **Features:**
+
 - Automatic username extraction from authenticated user's email
 - UniversalOutputFormatter for consistent output (table/JSON)
 - Resource specifications passed to JupyterHub as server options

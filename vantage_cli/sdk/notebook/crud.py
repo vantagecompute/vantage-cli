@@ -19,7 +19,7 @@ from loguru import logger
 from vantage_cli.exceptions import Abort
 from vantage_cli.gql_client import create_async_graphql_client
 from vantage_cli.jupyterhub_sdk import jupyterhub_sdk
-from vantage_cli.schemas import Notebook
+from vantage_cli.sdk.notebook.schema import Notebook
 
 
 class NotebookSDK:

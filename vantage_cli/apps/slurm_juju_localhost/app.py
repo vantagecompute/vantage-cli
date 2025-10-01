@@ -47,7 +47,7 @@ from vantage_cli.constants import (
 )
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.render import DeploymentStep, deployment_progress_panel
-from vantage_cli.schemas import VantageClusterContext
+from vantage_cli.sdk.cluster.schema import VantageClusterContext
 
 from .bundle_yaml import VANTAGE_JUPYTERHUB_YAML
 
@@ -202,113 +202,141 @@ async def _configure_jobbergate_influxdb(model) -> None:
 
 
 async def deploy_juju_localhost(
-    vantage_ctx: Any, deployment_name: str, console: Any
+    vantage_ctx: Any, deployment_name: str, console: Any, verbose: bool = False
 ) -> None | typer.Exit:
     """Deploy Vantage JupyterHub Charmed HPC cluster using Juju on localhost (refactored)."""
-    console.print("[debug]DEBUG: deploy_juju_localhost started")
+    if verbose:
+        console.print("[debug]DEBUG: deploy_juju_localhost started")
     controller = Controller()
     model_name = deployment_name  # Use deployment_name as model_name
     secret_name = JUJU_SECRET_NAME
-    console.print(f"[debug]DEBUG: model_name={model_name}, secret_name={secret_name}")
+    if verbose:
+        console.print(f"[debug]DEBUG: model_name={model_name}, secret_name={secret_name}")
     try:
-        console.print("[debug]DEBUG: Connecting to controller")
+        if verbose:
+            console.print("[debug]DEBUG: Connecting to controller")
         with SuppressOutput():
             await controller.connect()
-        console.print("[debug]DEBUG: Controller connected, adding model")
+        if verbose:
+            console.print("[debug]DEBUG: Controller connected, adding model")
         with SuppressOutput():
             model = await controller.add_model(model_name, cloud_name="localhost")
-        console.print("[debug]DEBUG: Model added successfully")
+        if verbose:
+            console.print("[debug]DEBUG: Model added successfully")
         try:
-            console.print("[debug]DEBUG: Building secret args")
+            if verbose:
+                console.print("[debug]DEBUG: Building secret args")
             with SuppressOutput():
                 secret = await model.add_secret(secret_name, _build_secret_args(vantage_ctx))
-            console.print("[debug]DEBUG: Secret added, preparing bundle")
+            if verbose:
+                console.print("[debug]DEBUG: Secret added, preparing bundle")
             with SuppressOutput():
                 bundle_yaml = _prepare_bundle(vantage_ctx, model_name, secret)
-            console.print("[debug]DEBUG: Bundle prepared, writing and deploying")
+            if verbose:
+                console.print("[debug]DEBUG: Bundle prepared, writing and deploying")
             with SuppressOutput():
                 await _write_and_deploy_model_bundle(model, bundle_yaml)
-            console.print("[debug]DEBUG: Bundle deployed, granting secret")
+            if verbose:
+                console.print("[debug]DEBUG: Bundle deployed, granting secret")
             with SuppressOutput():
                 await model.grant_secret(secret_name, JUJU_APPLICATION_NAME)
-            console.print("[debug]DEBUG: Secret granted, waiting for idle")
+            if verbose:
+                console.print("[debug]DEBUG: Secret granted, waiting for idle")
             try:
                 with SuppressOutput():
                     await model.wait_for_idle()
-                console.print("[debug]DEBUG: Model is idle")
+                if verbose:
+                    console.print("[debug]DEBUG: Model is idle")
             except JujuError as e:
-                console.print(f"[debug]DEBUG: JujuError during wait_for_idle: {str(e)}")
+                if verbose:
+                    console.print(f"[debug]DEBUG: JujuError during wait_for_idle: {str(e)}")
                 return typer.Exit(code=1)
-            console.print("[debug]DEBUG: Running slurmd configuration")
+            if verbose:
+                console.print("[debug]DEBUG: Running slurmd configuration")
             with SuppressOutput():
                 await _run_slurmd_node_configured(model)
-            console.print("[debug]DEBUG: Configuring jobbergate influxdb")
+            if verbose:
+                console.print("[debug]DEBUG: Configuring jobbergate influxdb")
             with SuppressOutput():
                 await _configure_jobbergate_influxdb(model)
-            console.print("[debug]DEBUG: All configurations completed")
+            if verbose:
+                console.print("[debug]DEBUG: All configurations completed")
         finally:
-            console.print("[debug]DEBUG: Disconnecting from model")
+            if verbose:
+                console.print("[debug]DEBUG: Disconnecting from model")
             with SuppressOutput():
                 await model.disconnect()
     finally:
-        console.print("[debug]DEBUG: Disconnecting from controller")
+        if verbose:
+            console.print("[debug]DEBUG: Disconnecting from controller")
         with SuppressOutput():
             await controller.disconnect()
-    console.print("[debug]DEBUG: deploy_juju_localhost completed successfully")
+    if verbose:
+        console.print("[debug]DEBUG: deploy_juju_localhost completed successfully")
 
 
 async def deploy(
-    ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool = False, dev_run: bool = False
+    ctx: typer.Context, cluster_data: Dict[str, Any], dev_run: bool = False
 ) -> None:
     """Deploy Juju localhost Charmed HPC cluster using cluster data.
 
     Args:
         ctx: Typer context containing CLI configuration
         cluster_data: Optional cluster configuration dictionary with client credentials
-        verbose: Whether to show verbose output
         dev_run: Whether this is a development run with dummy data
 
     Raises:
         typer.Exit: If deployment fails due to missing or invalid cluster data
     """
     console = ctx.obj.console
-    console.print(f"[debug]DEBUG: deploy() called with dev_run={dev_run}")
-    console.print(
-        f"[debug]DEBUG: cluster_data keys: {list(cluster_data.keys()) if cluster_data else 'None'}"
-    )
+    verbose = getattr(ctx.obj, "verbose", False)
+    if verbose:
+        console.print(f"[debug]DEBUG: deploy() called with dev_run={dev_run}")
+        console.print(
+            f"[debug]DEBUG: cluster_data keys: {list(cluster_data.keys()) if cluster_data else 'None'}"
+        )
 
     # Validate cluster data and extract credentials early
-    console.print("[debug]DEBUG: Validating cluster data")
+    if verbose:
+        console.print("[debug]DEBUG: Validating cluster data")
     cluster_data = validate_cluster_data(cluster_data, console)
-    console.print("[debug]DEBUG: Validating client credentials")
+    if verbose:
+        console.print("[debug]DEBUG: Validating client credentials")
     client_id, client_secret = validate_client_credentials(cluster_data, console)
-    console.print(f"[debug]DEBUG: client_id={client_id}, has_client_secret={bool(client_secret)}")
+    if verbose:
+        console.print(f"[debug]DEBUG: client_id={client_id}, has_client_secret={bool(client_secret)}")
 
     # Get client secret from API if not in cluster data (but skip for dev runs)
     if not client_secret and not dev_run:
-        console.print("[debug]DEBUG: Getting client secret from API (not dev run)")
+        if verbose:
+            console.print("[debug]DEBUG: Getting client secret from API (not dev run)")
         from vantage_cli.commands.cluster import utils as cluster_utils
 
         client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
-        console.print(f"[debug]DEBUG: Got client secret from API: {bool(client_secret)}")
+        if verbose:
+            console.print(f"[debug]DEBUG: Got client secret from API: {bool(client_secret)}")
         
         # For on_prem/localhost providers, client secret is not required
         if not client_secret:
             provider = cluster_data.get("provider", "").lower()
             if provider == "on_prem":
-                console.print("[debug]DEBUG: Using placeholder client secret for on_prem deployment")
+                if verbose:
+                    console.print("[debug]DEBUG: Using placeholder client secret for on_prem deployment")
                 client_secret = "localhost-not-required"
     elif not client_secret and dev_run:
-        console.print("[debug]DEBUG: Skipping client secret API call (dev run mode)")
+        if verbose:
+            console.print("[debug]DEBUG: Skipping client secret API call (dev run mode)")
         client_secret = "dev-mode-placeholder"
     else:
-        console.print("[debug]DEBUG: Already have client secret, no API call needed")
+        if verbose:
+            console.print("[debug]DEBUG: Already have client secret, no API call needed")
 
     # Generate deployment ID and create deployment with init status
     app_name = "slurm-juju-localhost"
     cluster_name = cluster_data.get("name", "unknown")
     deployment_id = generate_default_deployment_name(app_name, cluster_name)
-    console.print(f"[debug]DEBUG: deployment_id={deployment_id}, cluster_name={cluster_name}")
+    if verbose:
+        console.print(f"[debug]DEBUG: deployment_id={deployment_id}, cluster_name={cluster_name}")
 
     create_deployment_with_init_status(
         deployment_id=deployment_id,
@@ -385,74 +413,93 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
             panel_title="🚀 Charmed HPC Deployment Progress",
             final_message=final_success_message,
         ) as advance_step:
-            console.print("[debug]DEBUG: Starting deployment with dev_run =", dev_run)
+            if verbose:
+                console.print("[debug]DEBUG: Starting deployment with dev_run =", dev_run)
             advance_step("Initialize deployment", "starting")
-            console.print("[debug]DEBUG: Initialize deployment step started")
+            if verbose:
+                console.print("[debug]DEBUG: Initialize deployment step started")
             advance_step("Initialize deployment", "completed")
-            console.print("[debug]DEBUG: Initialize deployment step completed")
+            if verbose:
+                console.print("[debug]DEBUG: Initialize deployment step completed")
 
             advance_step("Check Juju availability", "starting")
-            console.print("[debug]DEBUG: About to check Juju availability")
+            if verbose:
+                console.print("[debug]DEBUG: About to check Juju availability")
             # Check for Juju early before doing any other work
             check_juju_available()
-            console.print("[debug]DEBUG: Juju availability check completed")
+            if verbose:
+                console.print("[debug]DEBUG: Juju availability check completed")
             advance_step("Check Juju availability", "completed")
 
             advance_step("Validate cluster credentials", "starting")
-            console.print("[debug]DEBUG: Starting credential validation")
+            if verbose:
+                console.print("[debug]DEBUG: Starting credential validation")
             # Client credentials already validated at start of function
             
             # Validate we have client secret
             if not client_secret:
-                console.print("[debug]DEBUG: No client secret available")
+                if verbose:
+                    console.print("[debug]DEBUG: No client secret available")
                 advance_step("Validate cluster credentials", "failed")
                 raise RuntimeError("No client secret found in cluster data or API.")
             
-            console.print("[debug]DEBUG: Client secret check - has secret:", bool(client_secret))
+            if verbose:
+                console.print("[debug]DEBUG: Client secret check - has secret:", bool(client_secret))
 
             # Get jupyterhub_token from cluster data if available
             jupyterhub_token = None
-            console.print(
-                "[debug]DEBUG: Checking cluster_data for jupyterhub_token:", bool(cluster_data)
-            )
-            if cluster_data and "creationParameters" in cluster_data:
+            if verbose:
                 console.print(
-                    f"[debug]DEBUG: creationParameters keys: {list(cluster_data['creationParameters'].keys())}"
+                    "[debug]DEBUG: Checking cluster_data for jupyterhub_token:", bool(cluster_data)
                 )
+            if cluster_data and "creationParameters" in cluster_data:
+                if verbose:
+                    console.print(
+                        f"[debug]DEBUG: creationParameters keys: {list(cluster_data['creationParameters'].keys())}"
+                    )
                 # After GraphQL conversion, keys are in snake_case
                 jupyterhub_token = cluster_data["creationParameters"].get("jupyterhub_token")
-                if jupyterhub_token:
+                if jupyterhub_token and verbose:
                     console.print("[debug]DEBUG: Found jupyterhub_token in cluster data")
             else:
-                console.print("[debug]DEBUG: No creationParameters in cluster_data")
+                if verbose:
+                    console.print("[debug]DEBUG: No creationParameters in cluster_data")
 
-            console.print(
-                "[debug]DEBUG: Jupyterhub token check - has token:", bool(jupyterhub_token)
-            )
+            if verbose:
+                console.print(
+                    "[debug]DEBUG: Jupyterhub token check - has token:", bool(jupyterhub_token)
+                )
             if jupyterhub_token is None:
-                console.print("[debug]DEBUG: No jupyterhub_token found")
+                if verbose:
+                    console.print("[debug]DEBUG: No jupyterhub_token found")
                 advance_step("Validate cluster credentials", "failed")
                 raise RuntimeError("No jupyterhub_token found in cluster data.")
 
-            console.print("[debug]DEBUG: Credential validation completed successfully")
+            if verbose:
+                console.print("[debug]DEBUG: Credential validation completed successfully")
             advance_step("Validate cluster credentials", "completed")
 
             advance_step("Connect to Juju controller", "starting")
-            console.print("[debug]DEBUG: Starting Juju controller connection")
+            if verbose:
+                console.print("[debug]DEBUG: Starting Juju controller connection")
             # Extract deployment name from cluster_data
             deployment_name = cluster_data.get("deployment_name", client_id)
-            console.print("[debug]DEBUG: Deployment name:", deployment_name)
+            if verbose:
+                console.print("[debug]DEBUG: Deployment name:", deployment_name)
 
             # Get settings from the active profile (attached by @attach_settings decorator)
             settings = getattr(ctx.obj, "settings", None)
-            console.print("[debug]DEBUG: Settings found:", bool(settings))
+            if verbose:
+                console.print("[debug]DEBUG: Settings found:", bool(settings))
             if not settings:
-                console.print("[debug]DEBUG: No settings found")
+                if verbose:
+                    console.print("[debug]DEBUG: No settings found")
                 advance_step("Connect to Juju controller", "failed")
                 raise RuntimeError("No settings found. Please configure your profile first.")
 
             # Create VantageClusterContext with the validated credentials and URLs from settings
-            console.print("[debug]DEBUG: Creating VantageClusterContext")
+            if verbose:
+                console.print("[debug]DEBUG: Creating VantageClusterContext")
             vantage_cluster_context = VantageClusterContext(
                 cluster_name=cluster_name,
                 client_id=client_id,
@@ -463,24 +510,31 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
                 tunnel_api_url=settings.get_tunnel_url(),
                 jupyterhub_token=jupyterhub_token,
             )
-            console.print("[debug]DEBUG: VantageClusterContext created successfully")
+            if verbose:
+                console.print("[debug]DEBUG: VantageClusterContext created successfully")
             advance_step("Connect to Juju controller", "completed")
 
             advance_step("Deploy bundle", "starting")
-            console.print("[debug]DEBUG: Starting deploy bundle step")
+            if verbose:
+                console.print("[debug]DEBUG: Starting deploy bundle step")
             advance_step("Configure cluster", "starting")
-            console.print("[debug]DEBUG: Starting configure cluster step")
+            if verbose:
+                console.print("[debug]DEBUG: Starting configure cluster step")
 
             # Call the actual deployment function
             try:
-                console.print("[debug]DEBUG: About to call deploy_juju_localhost")
-                await deploy_juju_localhost(vantage_cluster_context, deployment_name, console)
-                console.print("[debug]DEBUG: deploy_juju_localhost completed successfully")
+                if verbose:
+                    console.print("[debug]DEBUG: About to call deploy_juju_localhost")
+                await deploy_juju_localhost(vantage_cluster_context, deployment_name, console, verbose)
+                if verbose:
+                    console.print("[debug]DEBUG: deploy_juju_localhost completed successfully")
                 advance_step("Deploy bundle", "completed")
                 advance_step("Configure cluster", "completed")
-                console.print("[debug]DEBUG: Deploy and configure steps marked as completed")
+                if verbose:
+                    console.print("[debug]DEBUG: Deploy and configure steps marked as completed")
             except Exception as e:
-                console.print(f"[debug]DEBUG: Exception in deploy_juju_localhost: {str(e)}")
+                if verbose:
+                    console.print(f"[debug]DEBUG: Exception in deploy_juju_localhost: {str(e)}")
                 advance_step("Deploy bundle", "failed")
                 advance_step("Configure cluster", "failed")
                 raise RuntimeError(f"Deployment failed: {str(e)}")
@@ -544,7 +598,7 @@ async def deploy_command(
         if cluster_data is None:
             raise ValueError(f"Cluster '{cluster_name}' not found")
 
-    await deploy(ctx=ctx, cluster_data=cluster_data, verbose=ctx.obj.verbose, dev_run=dev_run)
+    await deploy(ctx=ctx, cluster_data=cluster_data, dev_run=dev_run)
 
 
 async def cleanup_juju_localhost(

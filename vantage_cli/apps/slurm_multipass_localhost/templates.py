@@ -18,7 +18,7 @@ from typing import List
 from ruamel.yaml import YAML
 
 from vantage_cli.exceptions import ConfigurationError
-from vantage_cli.schemas import VantageClusterContext
+from vantage_cli.sdk.cluster.schema import VantageClusterContext
 
 
 class CloudInitTemplate:

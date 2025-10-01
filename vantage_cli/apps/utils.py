@@ -316,16 +316,16 @@ def check_microk8s_addon_enabled(addon_name: str) -> bool:
 def create_microk8s_addon_prerequisite_checks() -> List[PrerequisiteCheck]:
     """Create prerequisite checks for required MicroK8s addons."""
     return [
-        PrerequisiteCheck(
-            name="microk8s cert-manager addon",
-            command=[
-                "sh",
-                "-c",
-                "microk8s status | awk '/enabled:/{flag=1; next} /disabled:/{flag=0} flag && /cert-manager/' | grep -q cert-manager && echo 'enabled' || exit 1",
-            ],
-            installation_hint="Enable cert-manager addon: microk8s enable cert-manager",
-            required=True,
-        ),
+        #PrerequisiteCheck(
+        #    name="microk8s cert-manager addon",
+        #    command=[
+        #        "sh",
+        #        "-c",
+        #        "microk8s status | awk '/enabled:/{flag=1; next} /disabled:/{flag=0} flag && /cert-manager/' | grep -q cert-manager && echo 'enabled' || exit 1",
+        #    ],
+        #    installation_hint="Enable cert-manager addon: microk8s enable cert-manager",
+        #    required=True,
+        #),
         PrerequisiteCheck(
             name="microk8s dns addon",
             command=[

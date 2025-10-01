@@ -19,7 +19,7 @@ import yaml
 from loguru import logger
 
 from vantage_cli.exceptions import Abort
-from vantage_cli.schemas import Deployment
+from vantage_cli.sdk.deployment.schema import Deployment
 
 
 class DeploymentSDK:
