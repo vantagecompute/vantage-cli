@@ -26,6 +26,9 @@ class VantageClusterContext(BaseModel):
     oidc_base_url: str
     base_api_url: str
     tunnel_api_url: str
+    ldap_url: str
+    sssd_binder_password: str
+    org_id: str
     jupyterhub_token: str
 
 
@@ -46,7 +49,7 @@ class Cluster(BaseModel):
     name: str
     status: str
     client_id: str
-    client_secret: str
+    client_secret: Optional[str] = None
     description: str
     owner_email: str
     provider: str

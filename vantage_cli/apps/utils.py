@@ -1339,14 +1339,14 @@ def _process_app(app_path: Path, is_builtin: bool, apps: Dict[str, Dict[str, Any
         logger.warning(f"Error loading app '{app_name}': {e}")
         return
 
-    # Check if deploy function exists
+    # Check if create function exists
     try:
-        if hasattr(app_module, "deploy"):
-            deploy_function = getattr(app_module, "deploy")
+        if hasattr(app_module, "create"):
+            create_function = getattr(app_module, "create")
             # Use command_name (with hyphens) as key so CLI can find it
             apps[command_name] = {
                 "module": app_module,
-                "deploy_function": deploy_function,
+                "create_function": create_function,
             }
     except Exception as e:
         logger.error(f"Unexpected error processing app '{app_name}': {e}")
@@ -1374,3 +1374,21 @@ def get_available_apps() -> Dict[str, Dict[str, Any]]:
         _process_app(app_path, is_builtin, apps)
 
     return apps
+
+
+def get_jupyterhub_token(cluster_data: Dict[str, Any]) -> Optional[str]:
+    """Return Jupyterhub Token if exists in cluster_data or None."""
+    jupyterhub_token = None
+    if "creationParameters" in cluster_data:
+        if jupyterhub_token_data := cluster_data["creationParameters"].get("jupyterhub_token"):
+            jupyterhub_token = jupyterhub_token_data
+    return jupyterhub_token
+
+
+def get_sssd_binder_password(cluster_data: Dict[str, Any]) -> Optional[str]:
+    """Return SSSD Binder Password if exists in cluster_data or None."""
+    sssd_binder_password = None
+    if cluster_data and "creationParameters" in cluster_data:
+        if sssd_binder_password_data := cluster_data["creationParameters"].get("sssd_binder_password"):
+            sssd_binder_password = sssd_binder_password_data
+    return sssd_binder_password

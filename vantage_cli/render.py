@@ -672,10 +672,6 @@ class Step:
         self.action = action
 
 
-# Keep DeploymentStep for backward compatibility
-DeploymentStep = Step
-
-
 @contextmanager
 def progress_with_steps(
     steps: List[Step],
@@ -876,11 +872,6 @@ def progress_with_panel(
                 live.update(_create_panel(steps, step_statuses, panel_title))
 
         yield advance_step
-
-
-# Keep old function names for backward compatibility
-deployment_progress = progress_with_steps
-deployment_progress_panel = progress_with_panel
 
 
 @contextmanager
@@ -1340,11 +1331,15 @@ class UniversalOutputFormatter:
             self._output_table(data, title, empty_message)
 
     def _output_json(self, data: Any) -> None:
-        """Output data as formatted JSON."""
+        """Output data as formatted JSON without syntax highlighting.
+        
+        We disable highlighting to ensure clean JSON output that can be piped
+        to tools like jq without ANSI color codes interfering.
+        """
         if data is None:
-            self.console.print_json("{}")
+            self.console.print_json("{}", highlight=False)
         else:
-            self.console.print_json(json.dumps(data, indent=2))
+            self.console.print_json(json.dumps(data, indent=2), highlight=False)
 
     def _output_table(self, data: Any, title: str, empty_message: str) -> None:
         """Output data as a formatted table."""

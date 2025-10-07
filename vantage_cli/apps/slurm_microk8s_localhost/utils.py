@@ -11,10 +11,12 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Utility functions for SLURM on MicroK8s localhost deployments."""
 
+import json
 import shutil
 import subprocess
+from shutil import which
 from textwrap import dedent
-from typing import Any
+from typing import Any, Dict
 
 import snick
 import yaml
@@ -42,7 +44,6 @@ def check_microk8s_available() -> None:
               sudo microk8s.enable dns
               sudo microk8s.enable metallb:10.64.140.43-10.64.140.49
 
-            • Note: Adjust the MetalLB IP range (10.64.140.43-10.64.140.49) to match your network.
             """
         ).strip()
 
@@ -311,6 +312,83 @@ SSSD_CONF = dedent("""\
     # ─── Schema type ───────────────────────────────────────────────────────────────
     ldap_schema = rfc2307bis
     """)
+
+
+def is_ready(cluster_data: Dict[str, Any]) -> bool:
+    """Check if the MicroK8s localhost cluster is ready and reachable.
+    
+    This function checks if:
+    1. kubectl is available
+    2. The namespace exists
+    3. Key pods are running (slurm-operator, slurmctld, slurmd)
+    
+    Args:
+        cluster_data: Dictionary containing cluster information including deployment_name
+        
+    Returns:
+        True if cluster is ready and reachable, False otherwise
+    """
+    # Get the namespace from deployment_name
+    namespace = cluster_data.get("deployment_name")
+    if not namespace:
+        # Try to derive from cluster name
+        cluster_name = cluster_data.get("name")
+        if cluster_name:
+            namespace = f"slurm-{cluster_name}"
+        else:
+            return False
+    
+    # Check if kubectl is available
+    kubectl = which("kubectl")
+    if not kubectl:
+        return False
+    
+    try:
+        # Check if namespace exists
+        result = subprocess.run(
+            ["kubectl", "get", "namespace", namespace, "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        
+        if result.returncode != 0:
+            return False
+        
+        # Check if key pods are running
+        result = subprocess.run(
+            ["kubectl", "get", "pods", "-n", namespace, "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        
+        if result.returncode != 0:
+            return False
+        
+        pods_data = json.loads(result.stdout)
+        pods = pods_data.get("items", [])
+        
+        if not pods:
+            return False
+        
+        # Check for critical pods (slurm-operator, slurmctld, slurmd)
+        required_pod_prefixes = ["slurm-operator", "slurmctld", "slurmd"]
+        found_pods = {prefix: False for prefix in required_pod_prefixes}
+        
+        for pod in pods:
+            pod_name = pod.get("metadata", {}).get("name", "")
+            pod_status = pod.get("status", {}).get("phase", "")
+            
+            for prefix in required_pod_prefixes:
+                if pod_name.startswith(prefix) and pod_status == "Running":
+                    found_pods[prefix] = True
+        
+        # All required pods must be found and running
+        return all(found_pods.values())
+        
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, json.JSONDecodeError, Exception):
+        return False
 
 
 def get_chart_values_slurm_operator() -> dict[str, Any]:

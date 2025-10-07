@@ -55,10 +55,6 @@ MULTIPASS_CLOUD_IMAGE_LOCAL = (
     Path.home() / "multipass-singlenode" / "build" / "multipass-singlenode.img"
 )
 
-# Juju-specific constants
-JUJU_SECRET_NAME = "vantage-jupyterhub-config"
-JUJU_APPLICATION_NAME = "vantage-jupyterhub"
-
 # Environment variable names
 ENV_CLIENT_SECRET = "VANTAGE_CLIENT_SECRET"
 ENV_OIDC_DOMAIN = "VANTAGE_OIDC_DOMAIN"

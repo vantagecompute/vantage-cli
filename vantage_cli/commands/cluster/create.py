@@ -246,9 +246,9 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
         app_info = available_apps[app_name]
 
         # Check if this is a function-based app or class-based app
-        if "deploy_function" in app_info:
+        if "create_function" in app_info:
             # Function-based app
-            deploy_function = app_info["deploy_function"]
+            create_function = app_info["create_function"]
 
             # Generate a unique deployment ID and deployment name
             deployment_id = str(uuid.uuid4())
@@ -257,7 +257,7 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
             # Add deployment_name to cluster_data so apps can use it
             cluster_data["deployment_name"] = deployment_name
 
-            await deploy_function(ctx, cluster_data)
+            await create_function(ctx, cluster_data)
 
             track_deployment(
                 deployment_id=deployment_id,
@@ -289,8 +289,8 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
                 # Add deployment_name to cluster_data so apps can use it
                 cluster_data["deployment_name"] = deployment_name
 
-                # Call the app's deploy method
-                await app_instance.deploy(ctx)
+                # Call the app's create method
+                await app_instance.create(ctx)
 
                 track_deployment(
                     deployment_id=deployment_id,

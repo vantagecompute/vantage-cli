@@ -56,7 +56,7 @@ async def get_cluster_client_secret(ctx: typer.Context, client_id: str) -> Optio
         access_token = persona.token_set.access_token
 
         # Use vantage-api admin/management/clients endpoint
-        api_url = f"{ctx.obj.settings.api_base_url}/admin/management/clients"
+        api_url = f"{ctx.obj.settings.get_apis_url()}/admin/management/clients"
 
         headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
 
@@ -113,7 +113,7 @@ async def get_cluster_client_secret(ctx: typer.Context, client_id: str) -> Optio
 
     except Exception as e:
         logger.error(f"Error retrieving client secret for {client_id}: {e}")
-        typer.Exit(code=1)
+        return None
 
 
 async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str, Any] | None:

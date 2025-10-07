@@ -40,7 +40,8 @@ def validate_cluster_data(
         typer.Exit: If validation fails
     """
     if not cluster_data:
-        # Error handled by deployment progress renderer
+        console.print("[bold red]✗ Missing cluster data[/bold red]")
+        console.print("[dim]Cluster information is required for deployment[/dim]")
         raise typer.Exit(code=1)
     return cluster_data
 
@@ -62,30 +63,12 @@ def validate_client_credentials(
     """
     client_id = cluster_data.get("clientId", None)
     if not client_id:
-        # Error handled by deployment progress renderer
+        console.print("[bold red]✗ Missing client ID in cluster data[/bold red]")
+        console.print("[dim]Client ID (clientId) is required for deployment[/dim]")
         raise typer.Exit(code=1)
 
     client_secret = cluster_data.get("clientSecret", None)
     return client_id, client_secret
-
-
-def require_client_secret(client_secret: Optional[str], console: Console) -> str:
-    """Validate that client secret exists.
-
-    Args:
-        client_secret: Optional client secret string
-        console: Rich console for error output
-
-    Returns:
-        Validated client secret string
-
-    Raises:
-        typer.Exit: If client secret is missing
-    """
-    if not client_secret:
-        # Error handled by deployment progress renderer
-        raise typer.Exit(code=1)
-    return client_secret
 
 
 def render_user_help(

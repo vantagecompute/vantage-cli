@@ -14,22 +14,22 @@ This document provides a comprehensive reference for all available CLI commands 
 │ --help          Show this message and exit.                                                                                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ version      Show version and exit.                                                                                                                                                                  │
-│ login        Authenticate against the Vantage CLI by obtaining an authentication token.                                                                                                              │
-│ logout       Log out of the vantage-cli and clear saved user credentials.                                                                                                                            │
-│ whoami       Display information about the currently authenticated user.                                                                                                                             │
-│ app          Manage applications                                                                                                                                                                     │
-│ cloud        Manage cloud provider configurations and integrations for your Vantage infrastructure.                                                                                                  │
-│ cluster      Manage Vantage compute clusters for high-performance computing workloads.                                                                                                               │
-│ config       Manage Vantage CLI configuration and settings.                                                                                                                                          │
-│ deployment   Create and manage application deployments on Vantage compute clusters.                                                                                                                  │
-│ job          Manage computational jobs, scripts, submissions, and job templates for HPC workloads.                                                                                                   │
-│ license      Manage software licenses, license servers, and licensing configurations.                                                                                                                │
-│ network      Manage virtual networks, subnets, and network configurations for cloud infrastructure.                                                                                                  │
-│ notebook     Manage Jupyter notebooks and computational notebooks for data science and research.                                                                                                     │
-│ profile      Manage Vantage CLI profiles to work with different environments and configurations.                                                                                                     │
-│ storage      Manage storage volumes, disks, and storage configurations for cloud infrastructure.                                                                                                     │
-│ cli-dash     Vantage CLI Dashboard - Interactive terminal dashboard                                                                                                                                  │
+│ version          Show version and exit.                                                                                                                                                              │
+│ login            Authenticate against the Vantage CLI by obtaining an authentication token.                                                                                                          │
+│ logout           Log out of the vantage-cli and clear saved user credentials.                                                                                                                        │
+│ whoami           Display information about the currently authenticated user.                                                                                                                         │
+│ cli-dash         Vantage CLI Dashboard - Interactive terminal dashboard.                                                                                                                             │
+│ app              Manage applications                                                                                                                                                                 │
+│ cloud            Manage cloud provider configurations and integrations for your Vantage infrastructure.                                                                                              │
+│ cluster          Manage Vantage compute clusters for high-performance computing workloads.                                                                                                           │
+│ config           Manage Vantage CLI configuration and settings.                                                                                                                                      │
+│ job              Manage computational jobs, scripts, submissions, and job templates for HPC workloads.                                                                                               │
+│ license          Manage software licenses, license servers, and licensing configurations.                                                                                                            │
+│ network          Manage virtual networks, subnets, and network configurations for cloud infrastructure.                                                                                              │
+│ notebook         Manage Jupyter notebooks and computational notebooks for data science and research.                                                                                                 │
+│ profile          Manage Vantage CLI profiles to work with different environments and configurations.                                                                                                 │
+│ storage          Manage storage volumes, disks, and storage configurations for cloud infrastructure.                                                                                                 │
+│ support-ticket   Manage support tickets                                                                                                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -124,7 +124,8 @@ This document provides a comprehensive reference for all available CLI commands 
 │ --help          Show this message and exit.                                                                                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ list   List available applications                                                                                                                                                                   │
+│ list         List available applications                                                                                                                                                             │
+│ deployment   Create and manage application deployments on Vantage compute clusters.                                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -144,6 +145,30 @@ This document provides a comprehensive reference for all available CLI commands 
 │ --verbose  -v            Enable verbose terminal output                                                                                                                                              │
 │ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                      │
 │ --help                   Show this message and exit.                                                                                                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+```
+
+
+</TabItem>
+<TabItem value="deployment" label="deployment">
+
+```text
+
+ Usage: vantage app deployment [OPTIONS] COMMAND [ARGS]...
+
+ Create and manage application deployments on Vantage compute clusters.
+
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                                                                                                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ list                        List all active deployments from ~/.vantage-cli/deployments.yaml.                                                                                                        │
+│ get                         Get detailed information about a specific deployment.                                                                                                                    │
+│ slurm-lxd-localhost         Commands for slurm-lxd-localhost.                                                                                                                                        │
+│ slurm-microk8s-localhost    Commands for slurm-microk8s-localhost.                                                                                                                                   │
+│ slurm-multipass-localhost   Commands for slurm-multipass-localhost.                                                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -351,14 +376,13 @@ This document provides a comprehensive reference for all available CLI commands 
 │ *    cluster_name      TEXT  Name of the cluster to create [required]                                                                                                                                │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *  --cloud        -c      [maas|localhost|aws|gcp|azure|on-premises|k8s]                                       Cloud to use for deployment. [required]                                               │
-│    --config-file          FILE                                                                                 Path to configuration file for cluster creation.                                      │
-│    --app                  [slurm-juju-localhost|jupyterhub-microk8s-localhost|slurm-microk8s-localhost|slurm-  Deploy an application after cluster creation.                                         │
-│                           multipass-localhost|keycloak-microk8s-localhost|full-microk8s-localhost]                                                                                                   │
-│    --json         -j                                                                                           Output in JSON format                                                                 │
-│    --verbose      -v                                                                                           Enable verbose terminal output                                                        │
-│    --profile      -p      TEXT                                                                                 Profile name to use [default: default]                                                │
-│    --help                                                                                                      Show this message and exit.                                                           │
+│ *  --cloud        -c      [maas|localhost|aws|gcp|azure|on-premises|k8s]                            Cloud to use for deployment. [required]                                                          │
+│    --config-file          FILE                                                                      Path to configuration file for cluster creation.                                                 │
+│    --app                  [slurm-lxd-localhost|slurm-microk8s-localhost|slurm-multipass-localhost]  Deploy an application after cluster creation.                                                    │
+│    --json         -j                                                                                Output in JSON format                                                                            │
+│    --verbose      -v                                                                                Enable verbose terminal output                                                                   │
+│    --profile      -p      TEXT                                                                      Profile name to use [default: default]                                                           │
+│    --help                                                                                           Show this message and exit.                                                                      │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -452,56 +476,6 @@ This document provides a comprehensive reference for all available CLI commands 
 │ get      Get details of a specific Vantage federation.                                                                                                                                               │
 │ list     List all Vantage federations.                                                                                                                                                               │
 │ update   Update a Vantage federation.                                                                                                                                                                │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
-
-```
-
-
-</TabItem>
-</Tabs>
-
-## Deployment Management
-
-<Tabs>
-<TabItem value="deployment" label="🔹 deployment">
-
-```text
-
- Usage: vantage deployment [OPTIONS] COMMAND [ARGS]...
-
- Create and manage application deployments on Vantage compute clusters.
-
-╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                                                                                                                                          │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ list                            List all active deployments from ~/.vantage-cli/deployments.yaml.                                                                                                    │
-│ slurm-juju-localhost            Commands for slurm-juju-localhost.                                                                                                                                   │
-│ jupyterhub-microk8s-localhost   Commands for jupyterhub-microk8s-localhost.                                                                                                                          │
-│ slurm-microk8s-localhost        Commands for slurm-microk8s-localhost.                                                                                                                               │
-│ slurm-multipass-localhost       Commands for slurm-multipass-localhost.                                                                                                                              │
-│ keycloak-microk8s-localhost     Commands for keycloak-microk8s-localhost.                                                                                                                            │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
-
-```
-
-</TabItem>
-<TabItem value="list" label="list">
-
-```text
-
- Usage: vantage deployment list [OPTIONS]
-
- List all active deployments from ~/.vantage-cli/deployments.yaml.
-
-╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --cloud            TEXT  Filter deployments by cloud type (e.g., localhost, aws, gcp)                                                                                                                │
-│ --json     -j            Output in JSON format                                                                                                                                                       │
-│ --verbose  -v            Enable verbose terminal output                                                                                                                                              │
-│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                      │
-│ --help                   Show this message and exit.                                                                                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -1004,7 +978,7 @@ This document provides a comprehensive reference for all available CLI commands 
 │ --help          Show this message and exit.                                                                                                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ create   Create a new Jupyter notebook server.                                                                                                                                                       │
+│ create   Create a new Jupyter notebook server on a cluster.                                                                                                                                          │
 │ delete   Delete notebook server.                                                                                                                                                                     │
 │ get      Get notebook server details.                                                                                                                                                                │
 │ list     List notebook servers.                                                                                                                                                                      │
@@ -1019,19 +993,21 @@ This document provides a comprehensive reference for all available CLI commands 
 
 ```text
 
- Usage: vantage notebook create [OPTIONS] NAME
+ Usage: vantage notebook create [OPTIONS]
 
- Create a new Jupyter notebook server.
+ Create a new Jupyter notebook server on a cluster.
 
-╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    name      TEXT  Name of the notebook server [required]                                                                                                                                          │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ Creates a notebook server using JupyterHub API with resource specifications. If username is not provided, it will use the authenticated user's email.
+
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ *  --cluster    -c      TEXT     Name of the cluster [required]                                                                                                                                      │
-│ *  --partition          TEXT     Name of the partition [required]                                                                                                                                    │
-│    --cpu                INTEGER  Number of CPU cores                                                                                                                                                 │
-│    --memory             FLOAT    Memory in MB                                                                                                                                                        │
-│    --gpus               INTEGER  Number of GPUs                                                                                                                                                      │
+│    --username   -u      TEXT     JupyterHub username                                                                                                                                                 │
+│    --name       -n      TEXT     Named server (optional)                                                                                                                                             │
+│    --partition          TEXT     SLURM partition to use                                                                                                                                              │
+│    --cpu-cores          INTEGER  Number of CPU cores                                                                                                                                                 │
+│    --mem                TEXT     Memory (e.g., 4G, 8G)                                                                                                                                               │
+│    --gpu                INTEGER  Number of GPUs                                                                                                                                                      │
+│    --node               TEXT     Specific node to use                                                                                                                                                │
 │    --json       -j               Output in JSON format                                                                                                                                               │
 │    --verbose    -v               Enable verbose terminal output                                                                                                                                      │
 │    --profile    -p      TEXT     Profile name to use [default: default]                                                                                                                              │
@@ -1173,25 +1149,22 @@ This document provides a comprehensive reference for all available CLI commands 
 
 ```text
 
- Usage: vantage profile create [OPTIONS] COMMAND_START_TIME
-                                                  PROFILE_NAME
+ Usage: vantage profile create [OPTIONS] PROFILE_NAME
 
  Create a new Vantage CLI profile.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    command_start_time      FLOAT  [required]                                                                                                                                                       │
-│ *    profile_name            TEXT   Name of the profile to create [required]                                                                                                                         │
+│ *    profile_name      TEXT  Name of the profile to create [required]                                                                                                                                │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --api-url                TEXT     API base URL [default: https://apis.vantagecompute.ai]                                                                                                             │
-│ --tunnel-url             TEXT     Tunnel API URL [default: https://tunnel.vantagecompute.ai]                                                                                                         │
-│ --oidc-url               TEXT     OIDC base URL [default: https://auth.vantagecompute.ai]                                                                                                            │
+│ --vantage-url            TEXT     Vantage Platform URL [default: https://app.vantagecompute.ai]                                                                                                      │
 │ --client-id              TEXT     OIDC client ID [default: default]                                                                                                                                  │
 │ --max-poll-time          INTEGER  OIDC max poll time in seconds [default: 300]                                                                                                                       │
 │ --force          -f               Overwrite existing profile                                                                                                                                         │
 │ --activate                        Activate this profile after creation                                                                                                                               │
 │ --json           -j               Output in JSON format                                                                                                                                              │
 │ --verbose        -v               Enable verbose terminal output                                                                                                                                     │
+│ --profile        -p      TEXT     Profile name to use [default: default]                                                                                                                             │
 │ --help                            Show this message and exit.                                                                                                                                        │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
@@ -1212,10 +1185,11 @@ This document provides a comprehensive reference for all available CLI commands 
 │ *    profile_name      TEXT  Name of the profile to delete [required]                                                                                                                                │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --force    -f        Skip confirmation prompt                                                                                                                                                        │
-│ --json     -j        Output in JSON format                                                                                                                                                           │
-│ --verbose  -v        Enable verbose terminal output                                                                                                                                                  │
-│ --help               Show this message and exit.                                                                                                                                                     │
+│ --force    -f            Skip confirmation prompt                                                                                                                                                    │
+│ --json     -j            Output in JSON format                                                                                                                                                       │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                              │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                      │
+│ --help                   Show this message and exit.                                                                                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -1232,12 +1206,13 @@ This document provides a comprehensive reference for all available CLI commands 
  Get details of a specific Vantage CLI profile.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    profile_name      TEXT  Name of the profile to get details for [required]                                                                                                                       │
+│ *    profile_name      TEXT  Name of the profile to get [required]                                                                                                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     -j        Output in JSON format                                                                                                                                                           │
-│ --verbose  -v        Enable verbose terminal output                                                                                                                                                  │
-│ --help               Show this message and exit.                                                                                                                                                     │
+│ --json     -j            Output in JSON format                                                                                                                                                       │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                              │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                      │
+│ --help                   Show this message and exit.                                                                                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -1254,9 +1229,10 @@ This document provides a comprehensive reference for all available CLI commands 
  List all Vantage CLI profiles.
 
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     -j        Output in JSON format                                                                                                                                                           │
-│ --verbose  -v        Enable verbose terminal output                                                                                                                                                  │
-│ --help               Show this message and exit.                                                                                                                                                     │
+│ --json     -j            Output in JSON format                                                                                                                                                       │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                              │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                      │
+│ --help                   Show this message and exit.                                                                                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -1276,9 +1252,10 @@ This document provides a comprehensive reference for all available CLI commands 
 │ *    profile_name      TEXT  Name of the profile to activate [required]                                                                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --json     -j        Output in JSON format                                                                                                                                                           │
-│ --verbose  -v        Enable verbose terminal output                                                                                                                                                  │
-│ --help               Show this message and exit.                                                                                                                                                     │
+│ --json     -j            Output in JSON format                                                                                                                                                       │
+│ --verbose  -v            Enable verbose terminal output                                                                                                                                              │
+│ --profile  -p      TEXT  Profile name to use [default: default]                                                                                                                                      │
+│ --help                   Show this message and exit.                                                                                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 

@@ -94,6 +94,7 @@ class ClusterSDK(BaseGraphQLResourceSDK):
                     name=cluster_data.get("name", ""),
                     status=cluster_data.get("status", "unknown"),
                     client_id=cluster_data.get("clientId", ""),
+                    client_secret=cluster_data.get("clientSecret"),  # May be None for list operations
                     description=cluster_data.get("description", ""),
                     owner_email=cluster_data.get("ownerEmail", ""),
                     provider=cluster_data.get("provider", "unknown"),
@@ -133,6 +134,7 @@ class ClusterSDK(BaseGraphQLResourceSDK):
                 name=cluster_data.get("name", ""),
                 status=cluster_data.get("status", "unknown"),
                 client_id=cluster_data.get("clientId", ""),
+                client_secret=cluster_data.get("clientSecret"),  # May be None
                 description=cluster_data.get("description", ""),
                 owner_email=cluster_data.get("ownerEmail", ""),
                 provider=cluster_data.get("provider", "unknown"),

@@ -9,9 +9,6 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""JupyterHub MicroK8s localhost deployment app."""
-
-# The deployment discovery system imports functions directly from app.py
-# No app object is exported from this module
+"""Rendering functions for SLURM Juju localhost deployments."""
 
 __all__ = []

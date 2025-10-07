@@ -26,10 +26,15 @@ from vantage_cli.apps.common import (
     create_deployment_with_init_status,
     generate_default_deployment_name,
     generate_dev_cluster_data,
-    require_client_secret,
     update_deployment_status,
-    validate_client_credentials,
     validate_cluster_data,
+    validate_client_credentials,
+)
+from vantage_cli.apps.constants import DEV_CLIENT_SECRET, DEV_SSSD_BINDER_PASSWORD, DEV_ORG_ID, DEV_JUPYTERHUB_TOKEN
+from vantage_cli.commands.cluster import utils as cluster_utils
+from vantage_cli.apps.utils import (
+    get_jupyterhub_token,
+    get_sssd_binder_password,
 )
 from vantage_cli.config import attach_settings
 from vantage_cli.constants import (
@@ -40,106 +45,15 @@ from vantage_cli.constants import (
     MULTIPASS_CLOUD_IMAGE_URL,
 )
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import DeploymentStep, deployment_progress_panel
 from vantage_cli.sdk.cluster.schema import VantageClusterContext
 
 from .constants import APP_NAME
 from .templates import CloudInitTemplate
-from .utils import check_multipass_available
+from .utils import check_multipass_available, is_ready
+from .render import show_deployment_error
+from vantage_cli.render import RenderStepOutput
+from vantage_cli.commands.cluster.utils import get_cluster_client_secret
 
-
-async def _get_client_secret_if_needed(
-    ctx: typer.Context, client_id: str, cluster_data: Dict[str, Any], console: Console
-) -> str:
-    """Get client secret from API if not already in cluster data."""
-    client_secret = cluster_data.get("clientSecret")
-    if not client_secret:
-        # For on_prem/localhost providers, client secret is not required for OAuth
-        # as these deployments run locally without cloud authentication
-        provider = cluster_data.get("provider", "").lower()
-        if provider == "on_prem":
-            # Use a placeholder for local deployments that don't require OAuth
-            return "localhost-not-required"
-        
-        # For cloud providers, fetch from API
-        try:
-            from vantage_cli.commands.cluster import utils as cluster_utils
-
-            client_secret = await cluster_utils.get_cluster_client_secret(
-                ctx=ctx, client_id=client_id
-            )
-        except Exception as e:
-            console.print(f"[red]Failed to get client secret: {e}[/red]")
-            raise
-        return require_client_secret(client_secret, console)
-    return client_secret
-
-
-def _get_jupyterhub_token(cluster_data: Dict[str, Any], verbose: bool) -> str:
-    """Get or generate JupyterHub token from cluster data."""
-    jupyterhub_token = None
-    if cluster_data and "creationParameters" in cluster_data:
-        # After GraphQL conversion, keys are in snake_case
-        if jupyterhub_token_data := cluster_data["creationParameters"].get("jupyterhub_token"):
-            jupyterhub_token = jupyterhub_token_data
-    if not jupyterhub_token:
-        jupyterhub_token = "default-token-for-testing"
-
-    if verbose:
-        logger.debug(f"Using JupyterHub token: {jupyterhub_token[:10]}...")
-
-    return jupyterhub_token
-
-
-def _create_final_success_message(client_id: str, instance_name: str, deployment_id: str) -> str:
-    """Create the final success message for deployment completion."""
-    return f"""🎉 [bold green]SLURM Multipass deployment completed successfully![/bold green]
-
-Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compute/clusters/{client_id}[/cyan]
-
-[bold]Deployment Summary:[/bold]
-• VM instance name: [cyan]{instance_name}[/cyan]
-• Shared directory: [cyan]~/multipass-singlenode/shared[/cyan]
-• Cloud image: [cyan]Ubuntu 24.04 LTS[/cyan]
-• Deployment ID: [cyan]{deployment_id}[/cyan]
-
-[bold]Connect to SLURM Cluster:[/bold]
-• Access VM shell: [cyan]multipass shell {instance_name}[/cyan]
-• SSH into VM: [cyan]multipass exec {instance_name} -- bash[/cyan]
-• Get VM IP address: [cyan]multipass info {instance_name} | grep IPv4[/cyan]
-• SSH with external access: [cyan]ssh ubuntu@$(multipass info {instance_name} --format json | jq -r '.info."{instance_name}".ipv4[0]')[/cyan]
-
-[bold]SLURM Job Management:[/bold]
-• Check SLURM status: [cyan]multipass exec {instance_name} -- systemctl status slurmd[/cyan]
-• Submit test job: [cyan]multipass exec {instance_name} -- sinfo[/cyan]
-• Check job queue: [cyan]multipass exec {instance_name} -- squeue[/cyan]
-• Node information: [cyan]multipass exec {instance_name} -- scontrol show nodes[/cyan]
-• Run interactive job: [cyan]multipass exec {instance_name} -- srun --pty bash[/cyan]
-
-[bold]File Management:[/bold]
-• Copy files to VM: [cyan]multipass transfer <local-file> {instance_name}:<vm-path>[/cyan]
-• Copy files from VM: [cyan]multipass transfer {instance_name}:<vm-path> <local-file>[/cyan]
-• Mount directories: [cyan]multipass mount <local-path> {instance_name}:<vm-path>[/cyan]
-• Unmount directories: [cyan]multipass umount {instance_name}:<vm-path>[/cyan]
-
-[bold]VM Management:[/bold]
-• Check VM status: [cyan]multipass list[/cyan]
-• View VM details: [cyan]multipass info {instance_name}[/cyan]
-• VM resource usage: [cyan]multipass info {instance_name} --format json[/cyan]
-• Stop VM: [cyan]multipass stop {instance_name}[/cyan]
-• Start VM: [cyan]multipass start {instance_name}[/cyan]
-• Restart VM: [cyan]multipass restart {instance_name}[/cyan]
-
-[bold]Monitoring & Logs:[/bold]
-• Check cloud-init status: [cyan]multipass exec {instance_name} -- cloud-init status[/cyan]
-• View cloud-init logs: [cyan]multipass exec {instance_name} -- cat /var/log/cloud-init-output.log[/cyan]
-• System logs: [cyan]multipass exec {instance_name} -- journalctl -u slurmd[/cyan]
-
-[bold]Other Commands:[/bold]
-• Check cluster status: [cyan]vantage deployment slurm-multipass-localhost status[/cyan]
-• Remove deployment: [cyan]vantage deployment slurm-multipass-localhost remove[/cyan]
-
-[yellow]Note:[/yellow] It may take a few minutes for all services to start inside the VM. Check cloud-init status for progress."""
 
 
 def _prepare_shared_directory(verbose: bool, console: Console) -> Path:
@@ -247,60 +161,40 @@ def _launch_vm_instance(
         raise RuntimeError(f"Error launching multipass instance: {e}")
 
 
-def _show_deployment_error(console: Console, cluster_name: str, error: Exception) -> None:
-    """Show deployment error message and troubleshooting steps."""
-    console.print()
-    console.print("❌ [bold red]SLURM Multipass deployment failed![/bold red]")
-    console.print(f"[red]Error: {str(error)}[/red]")
-    console.print()
-    console.print("[bold]Troubleshooting Steps:[/bold]")
-    console.print("• Check Multipass status: [cyan]multipass version[/cyan]")
-    console.print("• List existing VMs: [cyan]multipass list[/cyan]")
-    console.print("• Check VM logs: [cyan]multipass info <vm-name> --format yaml[/cyan]")
-    console.print("• Delete failed VM: [cyan]multipass delete <vm-name> --purge[/cyan]")
-    console.print(
-        f"• Retry with verbose output: [cyan]vantage deployment slurm-multipass-localhost deploy {cluster_name} --verbose[/cyan]"
-    )
-    console.print(
-        "• Remove failed deployment: [cyan]vantage deployment slurm-multipass-localhost remove[/cyan]"
-    )
-    console.print()
-
-
-async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool = False) -> None:
-    """Deploy a single-node SLURM cluster using Multipass.
+async def _create_deployment(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+    """Internal function to create a single-node SLURM cluster using Multipass.
 
     Args:
         ctx: Typer context containing settings and configuration
         cluster_data: Dictionary containing cluster configuration including client credentials
-        verbose: Whether to show verbose output
 
     Raises:
         typer.Exit: If deployment fails due to missing dependencies or invalid configuration
     """
     console = ctx.obj.console
+    verbose = ctx.obj.verbose
+    json_output = ctx.obj.json_output
+    dev_run = ctx.obj.dev_run
+    command_start_time = ctx.obj.command_start_time
 
-    # Validate cluster data and extract credentials
     cluster_data = validate_cluster_data(cluster_data, console)
+    cluster_name = cluster_data["name"]
+
     client_id, client_secret = validate_client_credentials(cluster_data, console)
 
-    # Get client secret from API if not in cluster data
-    if not client_secret:
-        client_secret = await _get_client_secret_if_needed(ctx, client_id, cluster_data, console)
+    if not client_secret and not dev_run:
+        client_secret = await get_cluster_client_secret(
+            ctx=ctx, client_id=client_id
+        )
 
-    # Extract cluster name from cluster data
-    cluster_name = cluster_data.get("name", "unknown-cluster")
-
-    # Generate deployment ID
     deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
+    deployment_name = cluster_data.get("deployment_name", f"multipass-singlenode-{client_id.split('-')[0]}")
 
-    if verbose:
-        logger.debug("Client secret obtained (or placeholder used).")
+    org_id = DEV_ORG_ID if dev_run else ctx.obj.profile.identity_data.org_id
+    jupyterhub_token = DEV_JUPYTERHUB_TOKEN if dev_run else get_jupyterhub_token(cluster_data)
+    sssd_binder_password = DEV_SSSD_BINDER_PASSWORD if dev_run else get_sssd_binder_password(cluster_data)
+    client_secret = client_secret or DEV_CLIENT_SECRET
 
-    # Get JupyterHub token from cluster data or use default
-    jupyterhub_token = _get_jupyterhub_token(cluster_data, verbose)
-
-    # Create deployment context for template engine
     deployment_context = VantageClusterContext(
         cluster_name=cluster_name,
         client_id=client_id,
@@ -309,16 +203,14 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool
         oidc_base_url=ctx.obj.settings.get_auth_url(),
         base_api_url=ctx.obj.settings.get_apis_url(),
         tunnel_api_url=ctx.obj.settings.get_tunnel_url(),
+        ldap_url=ctx.obj.settings.get_ldap_url(),
+        sssd_binder_password=sssd_binder_password,
+        org_id=org_id,
         jupyterhub_token=jupyterhub_token,
     )
 
-    # Use deployment_name as instance name for easier cleanup
-    deployment_name = cluster_data.get(
-        "deployment_name", f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
-    )
     instance_name = deployment_name
 
-    # Create deployment with init status - only once
     create_deployment_with_init_status(
         deployment_id=deployment_id,
         app_name=APP_NAME,
@@ -329,128 +221,151 @@ async def deploy(ctx: typer.Context, cluster_data: Dict[str, Any], verbose: bool
         verbose=verbose,
         cloud=CLOUD_LOCALHOST,
         cloud_type=CLOUD_TYPE_VM,
-        k8s_namespaces=[],  # Will be populated as namespaces are created
+        k8s_namespaces=[],
     )
 
-    # Define deployment steps
-    steps = [
-        DeploymentStep("Check Multipass availability"),
-        DeploymentStep("Prepare shared directory"),
-        DeploymentStep("Generate cloud-init configuration"),
-        DeploymentStep("Launch VM instance"),
-        DeploymentStep("Finalize deployment"),
-    ]
-
-    deployment_success = False
-
-    # Create final success message for the panel
-    final_success_message = _create_final_success_message(client_id, instance_name, deployment_id)
+    renderer = RenderStepOutput(
+        console=console,
+        operation_name=f"Creating SLURM Multipass deployment '{cluster_name}'",
+        step_names=[
+            "Check Multipass availability",
+            "Prepare shared directory",
+            "Generate cloud-init configuration",
+            "Launch VM instance",
+            "Update deployment status",
+        ],
+        verbose=verbose,
+        command_start_time=command_start_time,
+        json_output=json_output,
+    )
 
     try:
-        with deployment_progress_panel(
-            steps=steps,
-            console=console,
-            verbose=verbose,
-            title="Deploying SLURM Multipass",
-            panel_title="🚀 SLURM Multipass Deployment Progress",
-            final_message=final_success_message,
-        ) as advance_step:
-            advance_step("Check Multipass availability", "starting")
+        with renderer:
+            renderer.start_step("Check Multipass availability")
             # Ensure multipass is installed
             check_multipass_available()
-            advance_step("Check Multipass availability", "completed")
+            renderer.complete_step("Check Multipass availability")
 
-            advance_step("Prepare shared directory", "starting")
+            renderer.start_step("Prepare shared directory")
             shared_dir = _prepare_shared_directory(verbose, console)
-            advance_step("Prepare shared directory", "completed")
+            renderer.complete_step("Prepare shared_directory")
 
-            advance_step("Generate cloud-init configuration", "starting")
+            renderer.start_step("Generate cloud-init configuration")
             cloud_init_config, image_origin = _generate_cloud_init_configuration(
                 deployment_context, verbose, console
             )
-            advance_step("Generate cloud-init configuration", "completed")
+            renderer.complete_step("Generate cloud-init configuration")
 
-            advance_step("Launch VM instance", "starting")
+            renderer.start_step("Launch VM instance")
             _launch_vm_instance(
                 instance_name, shared_dir, cloud_init_config, image_origin, verbose, console
             )
-            advance_step("Launch VM instance", "completed")
+            renderer.complete_step("Launch VM instance")
 
-            advance_step("Finalize deployment", "starting")
-
-            # Small pause to show the "starting" state
-            import time
-
-            time.sleep(1)
-
-            advance_step("Finalize deployment", "completed", show_final=True)
-
-            # Extended pause to allow users to read the final message in the panel
-            time.sleep(10)  # 10 seconds to read the success message
-
-            deployment_success = True
-
-        # Update deployment status after the Live panel is done
-        if deployment_success:
+            renderer.start_step("Update deployment status")
             update_deployment_status(deployment_id, "active", console, verbose=verbose)
-        else:
-            update_deployment_status(deployment_id, "failed", console, verbose=verbose)
-            raise typer.Exit(1)
+            renderer.complete_step("Update deployment status")
+
+            if json_output:
+                renderer.json_bypass({
+                    "deployment_id": deployment_id,
+                    "cluster_name": cluster_name,
+                    "instance_name": instance_name,
+                    "client_id": client_id,
+                    "status": "active"
+                })
 
     except Exception as e:
         # Update deployment status to failed on error
         update_deployment_status(deployment_id, "failed", console, verbose=verbose)
 
-        # Show error message and troubleshooting steps
-        _show_deployment_error(console, cluster_name, e)
+        # Log the exception for debugging
+        logger.error(f"Deployment failed with exception: {type(e).__name__}: {e}")
+        if verbose:
+            logger.exception("Full traceback:")
+
+        # Show error message and troubleshooting steps if not JSON mode
+        if not json_output:
+            show_deployment_error(console, cluster_name, e)
 
         raise typer.Exit(1)
+
+
+# Core implementation functions
+async def create(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+    """Create a single-node SLURM cluster using Multipass.
+
+    Args:
+        ctx: Typer context containing settings and configuration
+        cluster_data: Dictionary containing cluster configuration including client credentials
+
+    Raises:
+        typer.Exit: If deployment fails due to missing dependencies or invalid configuration
+    """
+    await _create_deployment(ctx=ctx, cluster_data=cluster_data)
 
 
 # Command functions that the deployment system will discover
 @handle_abort
 @attach_settings
-async def deploy_command(
+async def create_command(
     ctx: typer.Context,
     cluster_name: Annotated[
-        Optional[str],
-        typer.Argument(help="Name of the cluster to deploy"),
-    ] = None,
+        str,
+        typer.Argument(help="Name of the cluster to create"),
+    ],
     dev_run: Annotated[
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
 ) -> None:
-    """Deploy a Vantage Multipass Singlenode SLURM cluster."""
-    # Check for Multipass early before doing any other work
+    """Create a Vantage Multipass Singlenode SLURM cluster."""
     check_multipass_available()
 
-    if cluster_name is None:
-        cluster_name = "unknown"
-
-    cluster_data = generate_dev_cluster_data(cluster_name)
-    if not dev_run:
-        from vantage_cli.commands.cluster import utils as cluster_utils
-
-        cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
-        if cluster_data is None:
-            raise ValueError(f"Cluster '{cluster_name}' not found")
+    if dev_run:
+        cluster_data = generate_dev_cluster_data(cluster_name)
+        await create(ctx=ctx, cluster_data=cluster_data)
     else:
-        ctx.obj.console.print(
-            f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
-        )
-
-    await deploy(ctx=ctx, cluster_data=cluster_data)
+        cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+        await create(ctx=ctx, cluster_data=cluster_data)
 
 
-async def cleanup_multipass_localhost(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
-    """Clean up a Multipass SLURM deployment by deleting the instance.
+async def remove(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+    """Remove a Multipass SLURM deployment by deleting the instance.
 
     Args:
         ctx: The typer context object for console access.
         cluster_data: Dictionary containing deployment information including deployment_name
 
     Raises:
-        Exception: If cleanup fails (non-critical, logged and continued)
+        Exception: If removal fails (non-critical, logged and continued)
+    """
+    await _remove_deployment(ctx=ctx, cluster_data=cluster_data)
+
+
+@handle_abort
+@attach_settings
+async def remove_command(
+    ctx: typer.Context,
+    deployment_name: Annotated[
+        str,
+        typer.Argument(help="Name of the deployment to remove"),
+    ],
+) -> None:
+    """Remove a Vantage Multipass Singlenode SLURM cluster."""
+    # Load deployment data
+    cluster_data = {"deployment_name": deployment_name}
+    await remove(ctx=ctx, cluster_data=cluster_data)
+
+
+async def _remove_deployment(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+    """Internal function to remove a Multipass SLURM deployment.
+
+    Args:
+        ctx: The typer context object for console access.
+        cluster_data: Dictionary containing deployment information including deployment_name
+
+    Raises:
+        Exception: If removal fails (non-critical, logged and continued)
     """
     console = ctx.obj.console
     verbose = getattr(ctx.obj, "verbose", False)
@@ -472,55 +387,50 @@ async def cleanup_multipass_localhost(ctx: typer.Context, cluster_data: Dict[str
                 )
             return
 
-    # Use deployment_name as instance name (matches deploy function)
+    # Use deployment_name as instance name (matches create function)
     instance_name = deployment_name
 
     # Get deployment ID for final message
     deployment_id = cluster_data.get("deployment_id", "N/A")
 
-    # Define cleanup steps
-    steps = [
-        DeploymentStep("Check Multipass availability"),
-        DeploymentStep("Delete Multipass instance"),
-        DeploymentStep("Cleanup complete"),
-    ]
+    # Get JSON output flag
+    json_output = getattr(ctx.obj, "json_output", False)
+    command_start_time = getattr(ctx.obj, "command_start_time", None)
 
-    # Create final success message for the panel
-    final_success_message = f"""✅ [bold green]SLURM Multipass cleanup completed successfully![/bold green]
-
-[bold]Cleanup Summary:[/bold]
-• Deployment ID: [cyan]{deployment_id}[/cyan]
-• Instance '{instance_name}' deleted
-• Storage purged
-• Resources freed
-
-[bold]Next Steps:[/bold]
-• List instances: [cyan]multipass list[/cyan]
-• Deploy new cluster: [cyan]vantage deployment slurm-multipass-localhost deploy <cluster-name>[/cyan]"""
+    # Create RenderStepOutput for clean progress tracking
+    renderer = RenderStepOutput(
+        console=console,
+        operation_name=f"Removing SLURM Multipass deployment '{instance_name}'",
+        step_names=[
+            "Check Multipass availability",
+            "Delete Multipass instance",
+        ],
+        verbose=verbose,
+        command_start_time=command_start_time,
+        json_output=json_output,
+    )
 
     try:
-        with deployment_progress_panel(
-            steps=steps,
-            console=console,
-            verbose=False,  # Always use panel mode for clean display
-            title="Cleaning up SLURM Multipass",
-            panel_title="🧹 SLURM Multipass Cleanup Progress",
-            final_message=final_success_message,
-        ) as advance_step:
-            advance_step("Check Multipass availability", "starting")
+        with renderer:
+            renderer.start_step("Check Multipass availability")
 
             # Check if multipass is available
             multipass = which("multipass")
             if not multipass:
-                advance_step("Check Multipass availability", "warning")
-                console.print(
-                    "[yellow]Warning: multipass command not found, skipping cleanup[/yellow]"
-                )
+                logger.warning("multipass command not found, skipping cleanup")
+                renderer.complete_step("Check Multipass availability")
+                if json_output:
+                    renderer.json_bypass({
+                        "deployment_id": deployment_id,
+                        "instance_name": instance_name,
+                        "status": "skipped",
+                        "message": "multipass command not found"
+                    })
                 return
 
-            advance_step("Check Multipass availability", "completed")
+            renderer.complete_step("Check Multipass availability")
 
-            advance_step("Delete Multipass instance", "starting")
+            renderer.start_step("Delete Multipass instance")
 
             try:
                 # Delete the instance with purge flag (-p) to completely remove it
@@ -532,32 +442,46 @@ async def cleanup_multipass_localhost(ctx: typer.Context, cluster_data: Dict[str
                 )
 
                 if result.returncode == 0:
-                    advance_step("Delete Multipass instance", "completed")
+                    renderer.complete_step("Delete Multipass instance")
+                    if json_output:
+                        renderer.json_bypass({
+                            "deployment_id": deployment_id,
+                            "instance_name": instance_name,
+                            "status": "deleted"
+                        })
                 else:
                     # Instance might not exist or already deleted - not a critical error
-                    advance_step("Delete Multipass instance", "warning")
                     logger.warning(
                         f"Multipass delete returned code {result.returncode}: {result.stderr.strip()}"
                     )
+                    renderer.complete_step("Delete Multipass instance")
+                    if json_output:
+                        renderer.json_bypass({
+                            "deployment_id": deployment_id,
+                            "instance_name": instance_name,
+                            "status": "warning",
+                            "message": result.stderr.strip()
+                        })
 
             except subprocess.TimeoutExpired:
-                advance_step("Delete Multipass instance", "warning")
                 logger.warning("Multipass delete operation timed out")
+                renderer.complete_step("Delete Multipass instance")
+                if json_output:
+                    renderer.json_bypass({
+                        "deployment_id": deployment_id,
+                        "instance_name": instance_name,
+                        "status": "timeout"
+                    })
             except Exception as e:
-                advance_step("Delete Multipass instance", "warning")
                 logger.warning(f"Error during Multipass cleanup: {e}")
-
-            advance_step("Cleanup complete", "starting")
-
-            # Small pause to show the "starting" state
-            import time
-
-            time.sleep(1)
-
-            advance_step("Cleanup complete", "completed", show_final=True)
-
-            # Extended pause to allow users to read the final message in the panel
-            time.sleep(8)  # 8 seconds to read the success message
+                renderer.complete_step("Delete Multipass instance")
+                if json_output:
+                    renderer.json_bypass({
+                        "deployment_id": deployment_id,
+                        "instance_name": instance_name,
+                        "status": "error",
+                        "message": str(e)
+                    })
 
     except Exception as e:
         logger.warning(f"Multipass cleanup failed: {e}")

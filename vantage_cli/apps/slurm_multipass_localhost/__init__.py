@@ -11,6 +11,6 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Multipass single-node deployment app package."""
 
-from .app import deploy
+from .app import create
 
-__all__ = ["deploy"]
+__all__ = ["create"]

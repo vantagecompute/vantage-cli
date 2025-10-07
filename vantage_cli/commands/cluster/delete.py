@@ -25,8 +25,6 @@ from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
 from vantage_cli.render import RenderStepOutput
 
-from .render import render_cluster_deletion_table
-
 
 @handle_abort
 @attach_settings
@@ -48,18 +46,6 @@ async def delete_cluster(
     verbose = getattr(ctx.obj, "verbose", False)
     command_start_time = getattr(ctx.obj, "command_start_time", None)
 
-    renderer = RenderStepOutput(
-        console=ctx.obj.console,
-        operation_name=f"Deleting cluster '{cluster_name}'",
-        step_names=[
-            "Deleting cluster",
-            "Complete",
-        ],
-        verbose=verbose,
-        command_start_time=command_start_time,
-        json_output=json_output,
-    )
-
     # Confirmation prompt unless force is used
     if not force and not json_output:
         from rich.prompt import Confirm
@@ -72,6 +58,19 @@ async def delete_cluster(
         if not Confirm.ask("Are you sure you want to proceed?"):
             ctx.obj.console.print("[dim]Deletion cancelled.[/dim]")
             return
+
+    step_names = ["Query cluster details", "Delete cluster"]
+    if app:
+        step_names.append(f"Cleanup {app} deployments")
+
+    renderer = RenderStepOutput(
+        console=ctx.obj.console,
+        operation_name=f"Deleting cluster '{cluster_name}'",
+        step_names=step_names,
+        verbose=verbose,
+        command_start_time=command_start_time,
+        json_output=json_output,
+    )
 
     # GraphQL mutation for deleting a cluster
     delete_mutation = """
@@ -101,7 +100,7 @@ async def delete_cluster(
             # Prepare deletion variables
             delete_variables = {"clusterName": cluster_name}
 
-            renderer.start_step("Querying backend for cluster details")
+            renderer.start_step("Query cluster details")
 
             cluster = await get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
             if not cluster:
@@ -111,34 +110,43 @@ async def delete_cluster(
                     log_message=f"Cluster '{cluster_name}' not found",
                 )
 
-            renderer.complete_step(f"Found cluster: {cluster_name}")
-            renderer.start_step(f"Requesting cluster deletion for: {cluster_name}")
+            renderer.complete_step("Query cluster details")
+            renderer.start_step("Delete cluster")
 
             # Execute the deletion mutation
             logger.debug(f"Deleting cluster: {cluster_name}")
             delete_response = await graphql_client.execute_async(delete_mutation, delete_variables)
             deletion_data = delete_response.get("deleteCluster", {})
             logger.debug(f"Delete response: {deletion_data}")
-            renderer.complete_step(f"Cluster: {cluster_name} successfully deleted")
-
+            
             success = bool(deletion_data)
-            if success and app:
-                renderer.start_step(f"Performing application cleanup for: {app}")
-                await _cleanup_app_deployments(
+            if not success:
+                raise Abort(
+                    f"Failed to delete cluster '{cluster_name}'.",
+                    subject="Deletion Failed",
+                    log_message=f"Cluster deletion failed: {deletion_data}",
+                )
+            
+            renderer.complete_step("Delete cluster")
+
+            cleanup_result = None
+            if app:
+                renderer.start_step(f"Cleanup {app} deployments")
+                cleanup_result = await _cleanup_app_deployments(
                     ctx, cluster_name, app, json_output, ctx.obj.console
                 )
-                renderer.complete_step(f"Successfully cleanup up application: {app}")
+                renderer.complete_step(f"Cleanup {app} deployments")
 
             if json_output:
-                renderer.json_bypass(deletion_data)
+                output_data = {
+                    "cluster_name": cluster_name,
+                    "success": success,
+                    "deletion_data": deletion_data,
+                }
+                if app and cleanup_result is not None:
+                    output_data["app_cleanup"] = cleanup_result
+                renderer.json_bypass(output_data)
                 return
-
-            deletion_table = render_cluster_deletion_table(
-                cluster_name=cluster_name, success=success
-            )
-            renderer.start_step(f"Deleting cluster: {cluster_name}")
-            renderer.table_step(deletion_table)
-            renderer.complete_step("Complete")
 
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages
@@ -157,15 +165,13 @@ async def _call_app_cleanup_function(
 ) -> None:
     """Call the appropriate cleanup function based on app type."""
     if app == "slurm-juju-localhost":
-        from vantage_cli.apps.slurm_juju_localhost.app import cleanup_juju_localhost
+        from vantage_cli.apps.slurm_lxd_localhost.app import cleanup_juju_localhost
 
         await cleanup_juju_localhost(ctx, cluster_data)
     elif app == "slurm-multipass-localhost":
-        from vantage_cli.apps.slurm_multipass_localhost.app import (
-            cleanup_multipass_localhost,
-        )
+        from vantage_cli.apps.slurm_multipass_localhost.app import remove
 
-        await cleanup_multipass_localhost(ctx, cluster_data)
+        await remove(ctx, cluster_data)
     elif app == "slurm-microk8s-localhost":
         from vantage_cli.apps.slurm_microk8s_localhost.app import (
             cleanup_microk8s_localhost,
@@ -186,9 +192,6 @@ async def _cleanup_single_deployment(
 ) -> bool:
     """Clean up a single deployment and return True if successful."""
     try:
-        if not json_output:
-            console.print(f"[blue]Cleaning up deployment: {deployment_id}[/blue]")
-
         # Get cluster data for cleanup functions
         cluster_data = deployment.get("cluster_data", {})
 
@@ -196,35 +199,25 @@ async def _cleanup_single_deployment(
         try:
             await _call_app_cleanup_function(ctx, app, cluster_data)
         except ValueError:
-            if not json_output:
-                console.print(
-                    f"[yellow]Warning: Unknown app type '{app}', skipping cleanup[/yellow]"
-                )
+            logger.warning(f"Unknown app type '{app}', skipping cleanup")
             return False
 
         # Remove deployment entry from tracking file
         if remove_deployment(deployment_id, console):
-            if not json_output:
-                console.print(f"[green]✓ Cleaned up deployment '{deployment_id}'[/green]")
+            logger.debug(f"Cleaned up deployment '{deployment_id}'")
             return True
         else:
-            if not json_output:
-                console.print(
-                    f"[yellow]Warning: Could not remove deployment '{deployment_id}' from tracking[/yellow]"
-                )
+            logger.warning(f"Could not remove deployment '{deployment_id}' from tracking")
             return False
 
     except Exception as e:
-        if not json_output:
-            console.print(
-                f"[yellow]Warning: Cleanup of deployment '{deployment_id}' failed: {e}[/yellow]"
-            )
+        logger.warning(f"Cleanup of deployment '{deployment_id}' failed: {e}")
         return False
 
 
 async def _cleanup_app_deployments(
     ctx: typer.Context, cluster_name: str, app: str, json_output: bool, console: Console
-) -> None:
+) -> dict[str, Any]:
     """Clean up all deployments of a specific app type for a cluster.
 
     Args:
@@ -233,12 +226,10 @@ async def _cleanup_app_deployments(
         app: Type of app to clean up
         json_output: Whether to output JSON or rich console messages
         console: Console instance for output
+        
+    Returns:
+        Dictionary with cleanup results
     """
-    if not json_output:
-        console.print(
-            f"\n[blue]Cleaning up '{app}' deployments for cluster '{cluster_name}'...[/blue]"
-        )
-
     # Find deployments for this cluster
     cluster_deployments = list_deployments_by_cluster(cluster_name, console)
 
@@ -250,23 +241,25 @@ async def _cleanup_app_deployments(
     }
 
     if not app_deployments:
-        if not json_output:
-            console.print(
-                f"[yellow]No '{app}' deployments found for cluster '{cluster_name}'[/yellow]"
-            )
-        return
+        return {
+            "deployments_found": 0,
+            "deployments_cleaned": 0,
+            "message": f"No '{app}' deployments found"
+        }
 
     cleanup_count = 0
+    failed_deployments = []
     for deployment_id, deployment in app_deployments.items():
         if await _cleanup_single_deployment(
             ctx, deployment_id, deployment, app, json_output, console
         ):
             cleanup_count += 1
-
-    if not json_output:
-        if cleanup_count > 0:
-            console.print(
-                f"[green]✓ Successfully cleaned up {cleanup_count} '{app}' deployment(s)[/green]"
-            )
         else:
-            console.print(f"[yellow]No '{app}' deployments were cleaned up[/yellow]")
+            failed_deployments.append(deployment_id)
+
+    return {
+        "deployments_found": len(app_deployments),
+        "deployments_cleaned": cleanup_count,
+        "failed_deployments": failed_deployments,
+        "message": f"Cleaned up {cleanup_count}/{len(app_deployments)} deployments"
+    }

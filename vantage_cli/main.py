@@ -12,10 +12,9 @@
 """Main typer app for vantage-cli."""
 
 # Disable HTTP library logging before any imports that might use httpx
-import datetime
 import logging
 
-# Set terminal width for Rich error messages to match our console width
+import datetime
 import shutil
 import subprocess
 import sys
@@ -37,7 +36,6 @@ from vantage_cli.commands.alias import (
     apps_command,
     clouds_command,
     clusters_command,
-    deployments_command,
     federations_command,
     networks_command,
     notebooks_command,
@@ -45,11 +43,10 @@ from vantage_cli.commands.alias import (
     teams_command,
 )
 from vantage_cli.commands.app import app_app
-from vantage_cli.commands.cli_dash import cli_dash
 from vantage_cli.commands.cloud import cloud_app
+from vantage_cli.commands.cli_dash import cli_dash
 from vantage_cli.commands.cluster import cluster_app
 from vantage_cli.commands.config import config_app
-from vantage_cli.commands.deployment import deployment_app
 from vantage_cli.commands.job import job_app
 from vantage_cli.commands.license import license_app
 from vantage_cli.commands.network import network_app
@@ -62,13 +59,16 @@ from vantage_cli.config import (
     ensure_default_profile_exists,
     get_active_profile,
 )
-
 from .constants import VANTAGE_CLI_DEV_APPS_DIR
 from .exceptions import handle_abort
 from .schemas import CliContext, Persona, TokenSet
 from .utils import get_dev_apps_gh_url
 
-# os.environ["COLUMNS"] = "200"
+# Set terminal width for Rich error messages to match our console width
+import os
+
+
+os.environ["COLUMNS"] = "200"
 
 logging.getLogger("httpx").disabled = True
 logging.getLogger("httpcore").disabled = True
@@ -80,7 +80,6 @@ app = AsyncTyper(
     no_args_is_help=True,
     invoke_without_command=True,
 )
-
 
 @app.command()
 @handle_abort
@@ -98,7 +97,6 @@ app.add_typer(app_app, name="app")
 app.add_typer(cloud_app, name="cloud")
 app.add_typer(cluster_app, name="cluster")
 app.add_typer(config_app, name="config")
-app.add_typer(deployment_app, name="deployment")
 app.add_typer(job_app, name="job")
 app.add_typer(license_app, name="license")
 app.add_typer(network_app, name="network")
@@ -111,7 +109,7 @@ app.add_typer(support_ticket_app, name="support-ticket")
 def setup_logging(verbose: bool = False):
     """Configure logging based on verbosity level."""
     import logging
-
+    
     logger.remove()
 
     if verbose:
@@ -127,17 +125,17 @@ def setup_logging(verbose: bool = False):
         # Disable rich tracebacks in normal mode
         # Reset exception handler to default
         sys.excepthook = sys.__excepthook__
-
+        
         # Completely suppress HTTP logs by setting them to CRITICAL level
         # This prevents HTTP request/response logs from cluttering the user interface
-        # logging.getLogger("httpx").setLevel(logging.CRITICAL)
-        # logging.getLogger("httpcore").setLevel(logging.CRITICAL)
-        # logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-        # ogging.getLogger("requests").setLevel(logging.CRITICAL)
-
+        #logging.getLogger("httpx").setLevel(logging.CRITICAL)
+        #logging.getLogger("httpcore").setLevel(logging.CRITICAL)
+        #logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+        #ogging.getLogger("requests").setLevel(logging.CRITICAL)
+        
         # Also suppress any potential root logger or httpx._client logs
-        # logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
-        # logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
+        #logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
+        #logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
 
     logger.debug("Logging initialized")
 
@@ -169,9 +167,7 @@ def main(ctx: typer.Context):
     # console = Console(width=200)
     console = Console(color_system="auto", force_terminal=True)
 
-    cli_ctx = CliContext(
-        profile=active_profile, json_output=json_output, verbose=verbose, console=console
-    )
+    cli_ctx = CliContext(profile=active_profile, json_output=json_output, verbose=verbose, console=console)
     ctx.obj = cli_ctx
 
 
@@ -428,13 +424,11 @@ async def whoami(ctx: typer.Context):
             )
             console.print()
 
-
 # CLI Dashboard command
 app.command("cli-dash")(cli_dash)
 
 # Register alias commands
 app.command("apps", hidden=True)(apps_command)
-app.command("deployments", hidden=True)(deployments_command)
 app.command("clouds", hidden=True)(clouds_command)
 app.command("clusters", hidden=True)(clusters_command)
 app.command("federations", hidden=True)(federations_command)

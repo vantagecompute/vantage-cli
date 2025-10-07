@@ -1,9 +1,9 @@
 ---
-title: Multipass Singlenode Deployment
-description: Deploy single-node SLURM cluster using Multipass virtual machines
+title: Multipass Single-node Slurm Cluster
+description: Deploy a single-node SLURM cluster using a Multipass virtual machine
 ---
 
-Deploy a complete single-node SLURM cluster using Multipass virtual machines for isolated HPC development and testing.
+Deploy a complete single-node SLURM cluster using a Multipass virtual machine for isolated HPC development and testing.
 
 ## Overview
 

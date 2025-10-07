@@ -40,14 +40,14 @@ async def list_apps(
         }
 
         # Try to get description from docstring if available
-        if "deploy_function" in app_info:
-            func = app_info["deploy_function"]
+        if "create_function" in app_info:
+            func = app_info["create_function"]
             if hasattr(func, "__doc__") and func.__doc__:
                 app_data["description"] = func.__doc__.strip().split("\n")[0]
             else:
                 app_data["description"] = "No documentation available"
         else:
-            app_data["description"] = "No deploy function available"
+            app_data["description"] = "No create function available"
 
         apps_data.append(app_data)
 

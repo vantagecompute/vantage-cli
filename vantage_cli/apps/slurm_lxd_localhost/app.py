@@ -17,9 +17,7 @@
 import asyncio
 import copy
 import os
-import sys
 import tempfile
-from io import StringIO
 from pathlib import Path
 from typing import Any, Dict
 
@@ -37,74 +35,31 @@ from vantage_cli.apps.common import (
     validate_client_credentials,
     validate_cluster_data,
 )
-from vantage_cli.apps.slurm_juju_localhost.utils import check_juju_available
+from vantage_cli.apps.slurm_lxd_localhost.utils import (
+    SuppressOutput,
+    check_juju_available,
+    is_ready,
+)
+from vantage_cli.commands.cluster import utils as cluster_utils
 from vantage_cli.config import attach_settings
 from vantage_cli.constants import (
-    CLOUD_LOCALHOST,
     CLOUD_TYPE_CONTAINER,
-    JUJU_APPLICATION_NAME,
-    JUJU_SECRET_NAME,
 )
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import DeploymentStep, deployment_progress_panel
 from vantage_cli.sdk.cluster.schema import VantageClusterContext
 
 from .bundle_yaml import VANTAGE_JUPYTERHUB_YAML
+from .constants import (
+    APP_NAME,
+    CLOUD as CLOUD_LOCALHOST,
+    JUPYTERHUB_APPLICATION_NAME,
+    JUPYTERHUB_SECRET_NAME,
+    SSSD_APPLICATION_NAME,
+    SSSD_SECRET_NAME,
+)
+from vantage_cli.render import RenderStepOutput
 
-
-# Context manager to suppress stdout and stderr
-class SuppressOutput:
-    """Context manager to suppress stdout and stderr output during operations."""
-
-    def __enter__(self):
-        """Enter the context and redirect output streams."""
-        self._original_stdout = sys.stdout
-        self._original_stderr = sys.stderr
-        # Also suppress any file descriptor output
-        self._original_stdout_fd = None
-        self._original_stderr_fd = None
-
-        # Redirect stdout and stderr
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-
-        # Also try to suppress file descriptor output
-        try:
-            self._original_stdout_fd = os.dup(1)
-            self._original_stderr_fd = os.dup(2)
-            # Redirect file descriptors to /dev/null
-            devnull = os.open(os.devnull, os.O_WRONLY)
-            os.dup2(devnull, 1)
-            os.dup2(devnull, 2)
-            os.close(devnull)
-        except (OSError, AttributeError):
-            # If file descriptor redirection fails, just continue with stdout/stderr redirection
-            pass
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit the context and restore original output streams."""
-        # Restore stdout and stderr
-        sys.stdout = self._original_stdout
-        sys.stderr = self._original_stderr
-
-        # Restore file descriptors if they were redirected
-        if self._original_stdout_fd is not None:
-            try:
-                os.dup2(self._original_stdout_fd, 1)
-                os.close(self._original_stdout_fd)
-            except OSError:
-                pass
-        if self._original_stderr_fd is not None:
-            try:
-                os.dup2(self._original_stderr_fd, 2)
-                os.close(self._original_stderr_fd)
-            except OSError:
-                pass
-
-
-def _build_secret_args(ctx: Any) -> list[str]:
+def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
     return [
         f"oidc-client-id={ctx.client_id}",
         f"oidc-client-secret={ctx.client_secret}",
@@ -115,26 +70,34 @@ def _build_secret_args(ctx: Any) -> list[str]:
         f"jupyterhub-token={ctx.jupyterhub_token}",
     ]
 
+def _build_vantage_sssd_secret_args(ctx: Any) -> list[str]:
+    return [
+        f"sssd-binder-password={ctx.sssd_binder_password}",
+        f"org-id={ctx.org_id}",
+        f"ldap-url={ctx.ldap_url}",
+    ]
 
-def _prepare_bundle(ctx: Any, model_name: str, secret_id: str) -> dict[str, Any]:
+def _prepare_bundle(ctx: Any, model_name: str, vantage_jupyterhub_secret_id: str, vantage_sssd_secret_id: str) -> dict[str, Any]:
     bundle_yaml = copy.deepcopy(VANTAGE_JUPYTERHUB_YAML)
     bundle_yaml["applications"]["slurmctld"]["options"]["cluster-name"] = model_name
     va_opts = bundle_yaml["applications"]["vantage-agent"]["options"]
     jb_opts = bundle_yaml["applications"]["jobbergate-agent"]["options"]
     hub_opts = bundle_yaml["applications"]["vantage-jupyterhub"]["options"]
+    sssd_opts = bundle_yaml["applications"]["vantage-sssd"]["options"]
 
-    va_opts["vantage-agent-base-api-url"] = ctx.base_api_url
+    va_opts["vantage-agent-base-api-url"] = ctx.api_url
     va_opts["vantage-agent-oidc-client-id"] = ctx.client_id
     va_opts["vantage-agent-oidc-domain"] = ctx.oidc_domain
     va_opts["vantage-agent-oidc-client-secret"] = ctx.client_secret
     va_opts["vantage-agent-cluster-name"] = model_name
 
-    jb_opts["jobbergate-agent-base-api-url"] = ctx.base_api_url
+    jb_opts["jobbergate-agent-base-api-url"] = ctx.api_url
     jb_opts["jobbergate-agent-oidc-domain"] = ctx.oidc_domain
     jb_opts["jobbergate-agent-oidc-client-id"] = ctx.client_id
     jb_opts["jobbergate-agent-oidc-client-secret"] = ctx.client_secret
 
-    hub_opts["vantage-jupyterhub-config-secret-id"] = secret_id
+    hub_opts["vantage-jupyterhub-config-secret-id"] = vantage_jupyterhub_secret_id
+    sssd_opts["vantage-sssd-config-secret-id"] = vantage_sssd_secret_id
     return bundle_yaml
 
 
@@ -201,84 +164,56 @@ async def _configure_jobbergate_influxdb(model) -> None:
     await jobbergate_agent.set_config({"jobbergate-agent-influx-dsn": influxdb_uri})
 
 
-async def deploy_juju_localhost(
-    vantage_ctx: Any, deployment_name: str, console: Any, verbose: bool = False
-) -> None | typer.Exit:
+async def deploy_juju_localhost(vantage_ctx: Any, deployment_name: str) -> None | typer.Exit:
     """Deploy Vantage JupyterHub Charmed HPC cluster using Juju on localhost (refactored)."""
-    if verbose:
-        console.print("[debug]DEBUG: deploy_juju_localhost started")
+
     controller = Controller()
     model_name = deployment_name  # Use deployment_name as model_name
-    secret_name = JUJU_SECRET_NAME
-    if verbose:
-        console.print(f"[debug]DEBUG: model_name={model_name}, secret_name={secret_name}")
+
     try:
-        if verbose:
-            console.print("[debug]DEBUG: Connecting to controller")
-        with SuppressOutput():
-            await controller.connect()
-        if verbose:
-            console.print("[debug]DEBUG: Controller connected, adding model")
-        with SuppressOutput():
-            model = await controller.add_model(model_name, cloud_name="localhost")
-        if verbose:
-            console.print("[debug]DEBUG: Model added successfully")
-        try:
-            if verbose:
-                console.print("[debug]DEBUG: Building secret args")
-            with SuppressOutput():
-                secret = await model.add_secret(secret_name, _build_secret_args(vantage_ctx))
-            if verbose:
-                console.print("[debug]DEBUG: Secret added, preparing bundle")
-            with SuppressOutput():
-                bundle_yaml = _prepare_bundle(vantage_ctx, model_name, secret)
-            if verbose:
-                console.print("[debug]DEBUG: Bundle prepared, writing and deploying")
-            with SuppressOutput():
-                await _write_and_deploy_model_bundle(model, bundle_yaml)
-            if verbose:
-                console.print("[debug]DEBUG: Bundle deployed, granting secret")
-            with SuppressOutput():
-                await model.grant_secret(secret_name, JUJU_APPLICATION_NAME)
-            if verbose:
-                console.print("[debug]DEBUG: Secret granted, waiting for idle")
-            try:
-                with SuppressOutput():
-                    await model.wait_for_idle()
-                if verbose:
-                    console.print("[debug]DEBUG: Model is idle")
-            except JujuError as e:
-                if verbose:
-                    console.print(f"[debug]DEBUG: JujuError during wait_for_idle: {str(e)}")
-                return typer.Exit(code=1)
-            if verbose:
-                console.print("[debug]DEBUG: Running slurmd configuration")
-            with SuppressOutput():
-                await _run_slurmd_node_configured(model)
-            if verbose:
-                console.print("[debug]DEBUG: Configuring jobbergate influxdb")
-            with SuppressOutput():
-                await _configure_jobbergate_influxdb(model)
-            if verbose:
-                console.print("[debug]DEBUG: All configurations completed")
-        finally:
-            if verbose:
-                console.print("[debug]DEBUG: Disconnecting from model")
-            with SuppressOutput():
-                await model.disconnect()
-    finally:
-        if verbose:
-            console.print("[debug]DEBUG: Disconnecting from controller")
-        with SuppressOutput():
-            await controller.disconnect()
-    if verbose:
-        console.print("[debug]DEBUG: deploy_juju_localhost completed successfully")
+        await controller.connect()
+
+        model = await controller.add_model(model_name, cloud_name="localhost")
+
+        vantage_jupyterhub_secret_id = await model.add_secret(
+            JUPYTERHUB_SECRET_NAME,
+            _build_vantage_jupyterhub_secret_args(vantage_ctx)
+        )
+
+        vantage_sssd_secret_id = await model.add_secret(
+        SSSD_SECRET_NAME,
+            _build_vantage_sssd_secret_args(vantage_ctx)
+        )
+
+        bundle_yaml = _prepare_bundle(
+            vantage_ctx,
+            model_name=model_name,
+            vantage_jupyterhub_secret_id=vantage_jupyterhub_secret_id,
+            vantage_sssd_secret_id=vantage_sssd_secret_id,
+        )
+
+        await _write_and_deploy_model_bundle(model, bundle_yaml)
+
+        await model.grant_secret(vantage_jupyterhub_secret_id, JUPYTERHUB_APPLICATION_NAME)
+        await model.grant_secret(vantage_sssd_secret_id, SSSD_APPLICATION_NAME)
+
+        await model.wait_for_idle()
+
+        await _run_slurmd_node_configured(model)
+
+        await _configure_jobbergate_influxdb(model)
+
+        await model.disconnect()
+        await controller.disconnect()
+
+    except JujuError as e:
+        return typer.Exit(code=1)
 
 
-async def deploy(
+async def create(
     ctx: typer.Context, cluster_data: Dict[str, Any], dev_run: bool = False
 ) -> None:
-    """Deploy Juju localhost Charmed HPC cluster using cluster data.
+    """Create Juju localhost Charmed HPC cluster using cluster data.
 
     Args:
         ctx: Typer context containing CLI configuration
@@ -290,19 +225,10 @@ async def deploy(
     """
     console = ctx.obj.console
     verbose = getattr(ctx.obj, "verbose", False)
-    if verbose:
-        console.print(f"[debug]DEBUG: deploy() called with dev_run={dev_run}")
-        console.print(
-            f"[debug]DEBUG: cluster_data keys: {list(cluster_data.keys()) if cluster_data else 'None'}"
-        )
-
-    # Validate cluster data and extract credentials early
-    if verbose:
-        console.print("[debug]DEBUG: Validating cluster data")
     cluster_data = validate_cluster_data(cluster_data, console)
-    if verbose:
-        console.print("[debug]DEBUG: Validating client credentials")
+
     client_id, client_secret = validate_client_credentials(cluster_data, console)
+
     if verbose:
         console.print(f"[debug]DEBUG: client_id={client_id}, has_client_secret={bool(client_secret)}")
 
@@ -310,19 +236,11 @@ async def deploy(
     if not client_secret and not dev_run:
         if verbose:
             console.print("[debug]DEBUG: Getting client secret from API (not dev run)")
-        from vantage_cli.commands.cluster import utils as cluster_utils
 
         client_secret = await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)
         if verbose:
             console.print(f"[debug]DEBUG: Got client secret from API: {bool(client_secret)}")
-        
-        # For on_prem/localhost providers, client secret is not required
-        if not client_secret:
-            provider = cluster_data.get("provider", "").lower()
-            if provider == "on_prem":
-                if verbose:
-                    console.print("[debug]DEBUG: Using placeholder client secret for on_prem deployment")
-                client_secret = "localhost-not-required"
+
     elif not client_secret and dev_run:
         if verbose:
             console.print("[debug]DEBUG: Skipping client secret API call (dev run mode)")
@@ -332,15 +250,14 @@ async def deploy(
             console.print("[debug]DEBUG: Already have client secret, no API call needed")
 
     # Generate deployment ID and create deployment with init status
-    app_name = "slurm-juju-localhost"
     cluster_name = cluster_data.get("name", "unknown")
-    deployment_id = generate_default_deployment_name(app_name, cluster_name)
+    deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
     if verbose:
         console.print(f"[debug]DEBUG: deployment_id={deployment_id}, cluster_name={cluster_name}")
 
     create_deployment_with_init_status(
         deployment_id=deployment_id,
-        app_name=app_name,
+        app_name=APP_NAME,
         cluster_name=cluster_name,
         cluster_data=cluster_data,
         console=console,
@@ -500,6 +417,12 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
             # Create VantageClusterContext with the validated credentials and URLs from settings
             if verbose:
                 console.print("[debug]DEBUG: Creating VantageClusterContext")
+
+            # Get org_id from profile, with fallback for dev mode
+            org_id = "dev-org-id"
+            if hasattr(ctx.obj, 'profile') and hasattr(ctx.obj.profile, 'identity_data'):
+                org_id = ctx.obj.profile.identity_data.org_id
+
             vantage_cluster_context = VantageClusterContext(
                 cluster_name=cluster_name,
                 client_id=client_id,
@@ -509,6 +432,9 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
                 oidc_domain=settings.oidc_domain,
                 tunnel_api_url=settings.get_tunnel_url(),
                 jupyterhub_token=jupyterhub_token,
+                sssd_binder_password="ratsrats",
+                ldap_url=settings.get_ldap_url(),
+                org_id=org_id,
             )
             if verbose:
                 console.print("[debug]DEBUG: VantageClusterContext created successfully")
@@ -525,7 +451,7 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
             try:
                 if verbose:
                     console.print("[debug]DEBUG: About to call deploy_juju_localhost")
-                await deploy_juju_localhost(vantage_cluster_context, deployment_name, console, verbose)
+                await deploy_juju_localhost(vantage_cluster_context, deployment_name)
                 if verbose:
                     console.print("[debug]DEBUG: deploy_juju_localhost completed successfully")
                 advance_step("Deploy bundle", "completed")
@@ -576,7 +502,7 @@ Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compu
 # Typer CLI commands
 @handle_abort
 @attach_settings
-async def deploy_command(
+async def create_command(
     ctx: typer.Context,
     cluster_name: Annotated[
         str,
@@ -586,7 +512,7 @@ async def deploy_command(
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
 ) -> None:
-    """Deploy a Vantage JupyterHub Charmed HPC cluster using Juju localhost."""
+    """Create a Charmed HPC SLURM cluster using Juju on localhost and register it with Vantage."""
     # Check for Juju early before doing any other work
     check_juju_available()
 
@@ -598,13 +524,13 @@ async def deploy_command(
         if cluster_data is None:
             raise ValueError(f"Cluster '{cluster_name}' not found")
 
-    await deploy(ctx=ctx, cluster_data=cluster_data, dev_run=dev_run)
+    await create(ctx=ctx, cluster_data=cluster_data, dev_run=dev_run)
 
 
-async def cleanup_juju_localhost(
+async def remove_juju_localhost(
     ctx: typer.Context, deployment_data: Dict[str, Any], verbose: bool = False
 ) -> None:
-    """Clean up a Juju localhost deployment by destroying the model.
+    """Remove a Juju localhost deployment by destroying the model.
 
     Args:
         ctx: Typer context containing console object

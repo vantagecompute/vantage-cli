@@ -49,7 +49,8 @@ class IdentityData(BaseModel):
     """User identity information extracted from tokens."""
 
     client_id: str
-    email: Optional[str] = None
+    email: str
+    org_id: str
 
 
 class Persona(BaseModel):

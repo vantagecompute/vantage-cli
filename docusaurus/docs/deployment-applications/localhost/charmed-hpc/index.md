@@ -1,6 +1,6 @@
 ---
-title: Charmed HPC Localhost Deployment
-description: Deploy Charmed HPC clusters on localhost using LXD and Juju
+title: Charmed HPC
+description: Deploy a Charmed HPC clusters on localhost using LXD and Juju
 ---
 
 Deploy production-like HPC clusters on your localhost using Charmed HPC, LXD containers, and Juju orchestration.

@@ -109,9 +109,21 @@ def validate_token_and_extract_identity(token_set: TokenSet) -> IdentityData:
             "log_message": "Token data could not be extracted to identity",
         },
     ):
+        if "organization" not in token_data or not token_data["organization"]:
+            raise Abort(
+                """
+                The access token is missing organization information.
+
+                Please ensure your user account is associated with an organization
+                and try logging in again.
+                """,
+                subject="Missing organization info",
+                log_message="Access token missing organization information",
+            )
         identity = IdentityData(
             email=token_data.get("email"),
             client_id=token_data.get("azp") or "unknown",
+            org_id=token_data.get(next(iter(token_data.get("organization", {}))), {}).get("id", ""),
         )
 
     return identity

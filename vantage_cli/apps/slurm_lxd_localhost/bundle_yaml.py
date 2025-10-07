@@ -17,6 +17,13 @@ from typing import Any, Dict
 
 VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
     "applications": {
+        "apptainer": {
+            "charm": "apptainer",
+            "base": "ubuntu@24.04/stable",
+            "channel": "latest/stable",
+            "num_units": 0,
+            "options": {},
+        },
         "jobbergate-agent": {
             "charm": "jobbergate-agent",
             "base": "ubuntu@24.04/stable",
@@ -145,6 +152,10 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
         },
     },
     "relations": [
+        ["apptainer:oci-runtime", "slurmctld:oci-runtime"],
+        ["apptainer:juju-info", "slurmctld:juju-info"],
+        ["apptainer:juju-info", "sackd:juju-info"],
+        ["apptainer:juju-info", "slurmd:juju-info"],
         ["slurmdbd:database", "mysql:database"],
         ["slurmctld:influxdb", "influxdb:query"],
         ["slurmdbd:slurmctld", "slurmctld:slurmdbd"],

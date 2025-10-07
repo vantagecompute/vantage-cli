@@ -9,8 +9,16 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Juju localhost deployment app package."""
+"""Constants for SLURM LXD localhost deployment."""
 
-from .app import deploy
+APP_NAME = "slurm-lxd-localhost"
 
-__all__ = ["deploy"]
+CLOUD = "localhost"
+
+DEFAULT_MODEL_PREFIX = "vantage"
+
+JUPYTERHUB_SECRET_NAME = "vantage-jupyterhub-config"
+JUPYTERHUB_APPLICATION_NAME = "vantage-jupyterhub"
+
+SSSD_SECRET_NAME = "vantage-sssd-config"
+SSSD_APPLICATION_NAME = "vantage-sssd"

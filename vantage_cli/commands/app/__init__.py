@@ -14,6 +14,8 @@
 from vantage_cli import AsyncTyper
 
 from .list import list_apps
+from .deployment import deployment_app
+from .deployment.list import list_deployments
 
 app_app = AsyncTyper(
     name="apps",
@@ -23,5 +25,11 @@ app_app = AsyncTyper(
 
 # Add the list command
 app_app.command("list", help="List available applications")(list_apps)
+
+# Add deployment as a subcommand
+app_app.add_typer(deployment_app, name="deployment")
+
+# Add deployments as an alias for "deployment list"
+app_app.command("deployments", hidden=True)(list_deployments)
 
 __all__ = ["app_app"]

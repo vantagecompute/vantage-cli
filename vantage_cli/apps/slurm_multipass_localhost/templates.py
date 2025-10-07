@@ -63,7 +63,11 @@ class CloudInitTemplate:
                 'sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf',
                 "sed -i \"s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{print $1}')|g\" /etc/slurm/slurm.conf",
                 'sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf',
-                f'sed -i "s|@CLUSTER_NAME@|{context.cluster_name}|g" /etc/slurm/slurm.conf',
+                # Replace both placeholder and hardcoded cluster name to ensure it works with any base image
+                f'sed -i "s|^ClusterName=.*|ClusterName={context.cluster_name}|g" /etc/slurm/slurm.conf',
+                f'sed -i "s|@ORG_ID@|{context.org_id}|g" /etc/sssd/sssd.conf',
+                f'sed -i "s|@SSSD_BINDER_PASSWORD@|{context.sssd_binder_password}|g" /etc/sssd/sssd.conf',
+                f'sed -i "s|@LDAP_URI@|{context.ldap_url}|g" /etc/sssd/sssd.conf',
             ]
         )
 

@@ -52,6 +52,7 @@ from vantage_cli.apps.slurm_microk8s_localhost.render import (
 )
 from vantage_cli.apps.slurm_microk8s_localhost.utils import (
     get_chart_values_slurm_cluster,
+    is_ready,
 )
 from vantage_cli.apps.utils import (
     PrerequisiteStatus,
@@ -176,14 +177,14 @@ def _install_slurm_cluster() -> None:
         )
 
 
-async def deploy(
+async def create(
     ctx: typer.Context,
     cluster_data: Dict[str, Any],
     verbose: bool = False,
     force: bool = False,
     renderer: Optional[RenderStepOutput] = None,
 ) -> None:
-    """Deploy SLURM cluster on MicroK8s using Helm.
+    """Create SLURM cluster on MicroK8s using Helm.
 
     This function is called by the Vantage cluster management system
     when creating a new cluster with this app.
@@ -402,7 +403,7 @@ async def deploy_command(
             f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
         )
 
-    await deploy(ctx=ctx, cluster_data=cluster_data)
+    await create(ctx=ctx, cluster_data=cluster_data)
 
 
 @handle_abort

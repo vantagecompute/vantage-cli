@@ -1,9 +1,9 @@
 ---
-title: MicroK8s Localhost Deployment
-description: Deploy applications on MicroK8s Kubernetes cluster for localhost development
+title: Slurm on MicroK8S 
+description: Deploy slurm on MicroK8s Kubernetes cluster for localhost development
 ---
 
-Deploy production-like applications on your localhost using MicroK8s, a lightweight Kubernetes distribution perfect for development and testing.
+Deploy a production-like slurm cluster in K8S on localhost using MicroK8S, a lightweight Kubernetes distribution perfect for development and testing.
 
 ## Overview
 

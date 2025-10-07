@@ -11,7 +11,11 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Utility functions for SLURM on Multipass localhost deployments."""
 
+import json
+import subprocess
 import shutil
+from shutil import which
+from typing import Any, Dict
 
 import snick
 
@@ -41,3 +45,81 @@ def check_multipass_available() -> None:
             subject="Multipass Required",
             log_message="Multipass binary not found",
         )
+
+
+def is_ready(cluster_data: Dict[str, Any]) -> bool:
+    """Check if the Multipass localhost cluster is ready and reachable.
+    
+    This function checks if:
+    1. Multipass CLI is available
+    2. The VM instance exists
+    3. The VM is running
+    4. SLURM services are accessible in the VM
+    
+    Args:
+        cluster_data: Dictionary containing cluster information including deployment_name
+        
+    Returns:
+        True if cluster is ready and reachable, False otherwise
+    """
+    # Get the instance name from deployment_name
+    instance_name = cluster_data.get("deployment_name")
+    if not instance_name:
+        # Try fallback to old pattern
+        client_id = cluster_data.get("client_id")
+        if client_id:
+            instance_name = f"vantage-multipass-singlenode-{client_id.split('-')[0]}"
+        else:
+            return False
+    
+    # Check if multipass is available
+    multipass = which("multipass")
+    if not multipass:
+        return False
+    
+    try:
+        # Check if instance exists and get its state
+        result = subprocess.run(
+            ["multipass", "list", "--format", "json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        
+        if result.returncode != 0:
+            return False
+        
+        instances_data = json.loads(result.stdout)
+        instances = instances_data.get("list", [])
+        
+        # Find our instance
+        instance = None
+        for inst in instances:
+            if inst.get("name") == instance_name:
+                instance = inst
+                break
+        
+        if not instance:
+            return False
+        
+        # Check if instance is running
+        state = instance.get("state", "").lower()
+        if state != "running":
+            return False
+        
+        # Check if SLURM services are accessible by running a simple slurm command
+        result = subprocess.run(
+            ["multipass", "exec", instance_name, "--", "systemctl", "is-active", "slurmd"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        
+        # If slurmd service is active, consider cluster ready
+        if result.returncode == 0 and result.stdout.strip() == "active":
+            return True
+        
+        return False
+        
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, json.JSONDecodeError, Exception):
+        return False
