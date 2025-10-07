@@ -24,7 +24,6 @@ from vantage_cli.apps.common import (
     generate_default_deployment_name,
     generate_dev_cluster_data,
     update_deployment_status,
-    validate_cluster_data,
 )
 from vantage_cli.apps.slurm_microk8s_localhost.constants import (
     APP_NAME,
@@ -201,9 +200,6 @@ async def create(
     """
     console = ctx.obj.console if hasattr(ctx.obj, "console") else Console()
     json_mode = cluster_data.get("json_mode", False)
-
-    # Validate cluster data and credentials
-    cluster_data = validate_cluster_data(cluster_data, console)
 
     # Generate deployment ID and create deployment with init status
     cluster_name = cluster_data.get("name", "unknown")

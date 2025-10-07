@@ -22,6 +22,7 @@ from typing_extensions import Annotated
 
 from vantage_cli.apps.common import track_deployment
 from vantage_cli.apps.utils import get_available_apps
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.gql_client import create_async_graphql_client
@@ -32,6 +33,7 @@ from .utils import get_app_choices, get_cloud_choices
 
 @handle_abort
 @attach_settings
+@attach_persona
 async def create_cluster(
     ctx: typer.Context,
     cluster_name: Annotated[str, typer.Argument(help="Name of the cluster to create")],

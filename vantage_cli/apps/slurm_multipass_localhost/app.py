@@ -26,16 +26,12 @@ from vantage_cli.apps.common import (
     create_deployment_with_init_status,
     generate_default_deployment_name,
     generate_dev_cluster_data,
-    update_deployment_status,
-    validate_cluster_data,
-    validate_client_credentials,
-)
-from vantage_cli.apps.constants import DEV_CLIENT_SECRET, DEV_SSSD_BINDER_PASSWORD, DEV_ORG_ID, DEV_JUPYTERHUB_TOKEN
-from vantage_cli.commands.cluster import utils as cluster_utils
-from vantage_cli.apps.utils import (
     get_jupyterhub_token,
     get_sssd_binder_password,
+    update_deployment_status,
+    validate_client_credentials,
 )
+from vantage_cli.apps.constants import DEV_CLIENT_SECRET, DEV_SSSD_BINDER_PASSWORD, DEV_JUPYTERHUB_TOKEN
 from vantage_cli.config import attach_settings
 from vantage_cli.constants import (
     CLOUD_LOCALHOST,
@@ -52,7 +48,6 @@ from .templates import CloudInitTemplate
 from .utils import check_multipass_available, is_ready
 from .render import show_deployment_error
 from vantage_cli.render import RenderStepOutput
-from vantage_cli.commands.cluster.utils import get_cluster_client_secret
 
 
 
@@ -174,39 +169,36 @@ async def _create_deployment(ctx: typer.Context, cluster_data: Dict[str, Any]) -
     console = ctx.obj.console
     verbose = ctx.obj.verbose
     json_output = ctx.obj.json_output
-    dev_run = ctx.obj.dev_run
+    #dev_run = ctx.obj.dev_run
     command_start_time = ctx.obj.command_start_time
 
-    cluster_data = validate_cluster_data(cluster_data, console)
     cluster_name = cluster_data["name"]
 
     client_id, client_secret = validate_client_credentials(cluster_data, console)
-
-    if not client_secret and not dev_run:
-        client_secret = await get_cluster_client_secret(
-            ctx=ctx, client_id=client_id
-        )
+    
+    # Import locally to avoid circular import
+    from vantage_cli.commands.cluster.utils import get_cluster_client_secret
+    client_secret = await get_cluster_client_secret(ctx=ctx, client_id=client_id)
 
     deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
     deployment_name = cluster_data.get("deployment_name", f"multipass-singlenode-{client_id.split('-')[0]}")
 
-    org_id = DEV_ORG_ID if dev_run else ctx.obj.profile.identity_data.org_id
-    jupyterhub_token = DEV_JUPYTERHUB_TOKEN if dev_run else get_jupyterhub_token(cluster_data)
-    sssd_binder_password = DEV_SSSD_BINDER_PASSWORD if dev_run else get_sssd_binder_password(cluster_data)
-    client_secret = client_secret or DEV_CLIENT_SECRET
+    org_id = ctx.obj.persona.identity_data.org_id
+    jupyterhub_token = get_jupyterhub_token(cluster_data)
+    sssd_binder_password = get_sssd_binder_password(cluster_data)
 
     deployment_context = VantageClusterContext(
         cluster_name=cluster_name,
         client_id=client_id,
-        client_secret=client_secret,
+        client_secret=client_secret or DEV_CLIENT_SECRET,
         oidc_domain=ctx.obj.settings.oidc_domain,
         oidc_base_url=ctx.obj.settings.get_auth_url(),
         base_api_url=ctx.obj.settings.get_apis_url(),
         tunnel_api_url=ctx.obj.settings.get_tunnel_url(),
         ldap_url=ctx.obj.settings.get_ldap_url(),
-        sssd_binder_password=sssd_binder_password,
+        sssd_binder_password=sssd_binder_password or DEV_SSSD_BINDER_PASSWORD,
         org_id=org_id,
-        jupyterhub_token=jupyterhub_token,
+        jupyterhub_token=jupyterhub_token or DEV_JUPYTERHUB_TOKEN,
     )
 
     instance_name = deployment_name
@@ -320,6 +312,9 @@ async def create_command(
 ) -> None:
     """Create a Vantage Multipass Singlenode SLURM cluster."""
     check_multipass_available()
+
+    # Import cluster_utils locally to avoid circular import
+    from vantage_cli.commands.cluster import utils as cluster_utils
 
     if dev_run:
         cluster_data = generate_dev_cluster_data(cluster_name)

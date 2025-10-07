@@ -24,28 +24,6 @@ from rich.panel import Panel
 from vantage_cli.exceptions import Abort
 
 
-def validate_cluster_data(
-    cluster_data: Optional[Dict[str, Any]], console: Console
-) -> Dict[str, Any]:
-    """Validate that cluster data exists and contains required fields.
-
-    Args:
-        cluster_data: Optional cluster configuration dictionary
-        console: Rich console for error output
-
-    Returns:
-        Validated cluster data dictionary
-
-    Raises:
-        typer.Exit: If validation fails
-    """
-    if not cluster_data:
-        console.print("[bold red]✗ Missing cluster data[/bold red]")
-        console.print("[dim]Cluster information is required for deployment[/dim]")
-        raise typer.Exit(code=1)
-    return cluster_data
-
-
 def validate_client_credentials(
     cluster_data: Dict[str, Any], console: Console
 ) -> tuple[str, Optional[str]]:
@@ -171,7 +149,7 @@ def generate_dev_cluster_data(cluster_name: Optional[str] = None) -> Dict[str, A
         "name": f"dev-cluster{cluster_name or ''}",
         "clientId": "dev-client-12345-abcde-fghij-klmno",
         "clientSecret": "dev-secret-67890-pqrst-uvwxy-zabcd",
-        "creationParameters": {"jupyterhub_token": "dev-jupyter-token-98765"},
+        "creationParameters": {"jupyterhub_token": "dev-jupyter-token-98765", "sssd_binder_password": "dev-sssd-password"},
         # Additional dummy metadata
         "id": f"dev-cluster{cluster_name or ''}",
         "status": "dev",
@@ -596,3 +574,21 @@ def get_k8s_namespaces_for_deployment(deployment_id: str, console: Console) -> L
         deployment = deployments_data["deployments"][deployment_id]
         return deployment.get("k8s_namespaces", [])
     return []
+
+
+def get_jupyterhub_token(cluster_data: Dict[str, Any]) -> Optional[str]:
+    """Return Jupyterhub Token if exists in cluster_data or None."""
+    jupyterhub_token = None
+    if "creationParameters" in cluster_data:
+        if jupyterhub_token_data := cluster_data["creationParameters"].get("jupyterhub_token"):
+            jupyterhub_token = jupyterhub_token_data
+    return jupyterhub_token
+
+
+def get_sssd_binder_password(cluster_data: Dict[str, Any]) -> Optional[str]:
+    """Return SSSD Binder Password if exists in cluster_data or None."""
+    sssd_binder_password = None
+    if cluster_data and "creationParameters" in cluster_data:
+        if sssd_binder_password_data := cluster_data["creationParameters"].get("sssd_binder_password"):
+            sssd_binder_password = sssd_binder_password_data
+    return sssd_binder_password

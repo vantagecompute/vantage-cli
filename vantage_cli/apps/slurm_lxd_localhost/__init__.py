@@ -13,4 +13,4 @@
 
 from .app import create
 
-__all__ = ["create", "remove"]
+__all__ = ["create"]

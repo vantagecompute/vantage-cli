@@ -1316,6 +1316,8 @@ def _process_app(app_path: Path, is_builtin: bool, apps: Dict[str, Dict[str, Any
     app_name = app_path.name
     command_name = app_name.replace("_", "-")
 
+    logger.debug(f"Processing app: {app_name} (is_builtin={is_builtin})")
+    
     try:
         if is_builtin:
             # Import built-in app
@@ -1334,20 +1336,27 @@ def _process_app(app_path: Path, is_builtin: bool, apps: Dict[str, Dict[str, Any
                 return
     except ImportError as e:
         logger.warning(f"Failed to import app '{app_name}': {e}")
+        logger.debug(f"Import error details for {app_name}", exc_info=True)
         return
     except Exception as e:
         logger.warning(f"Error loading app '{app_name}': {e}")
+        logger.debug(f"Error details for {app_name}", exc_info=True)
         return
 
     # Check if create function exists
     try:
-        if hasattr(app_module, "create"):
+        has_create = hasattr(app_module, "create")
+        logger.debug(f"App {app_name} has create function: {has_create}")
+        if has_create:
             create_function = getattr(app_module, "create")
             # Use command_name (with hyphens) as key so CLI can find it
             apps[command_name] = {
                 "module": app_module,
                 "create_function": create_function,
             }
+            logger.debug(f"Successfully registered app: {command_name}")
+        else:
+            logger.warning(f"App {app_name} does not have a 'create' function")
     except Exception as e:
         logger.error(f"Unexpected error processing app '{app_name}': {e}")
         logger.debug(f"Full traceback for {app_name}", exc_info=True)

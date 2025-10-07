@@ -13,8 +13,10 @@
 
 import asyncio
 import datetime
+import inspect
 import json
-from typing import Any, Union
+from functools import wraps
+from typing import Any, Callable, Union
 
 import httpx
 import snick
@@ -120,11 +122,22 @@ def validate_token_and_extract_identity(token_set: TokenSet) -> IdentityData:
                 subject="Missing organization info",
                 log_message="Access token missing organization information",
             )
+        
+        # Extract org_id from organization structure
+        # Organization is typically: {"org-uuid": {"id": "org-uuid", ...}}
+        organization = token_data.get("organization", {})
+        logger.debug(f"Organization data extracted from token: {organization}")
+        org_key = next(iter(organization), None)
+        logger.debug(f"Organization key identified: {org_key}")
+        org_id = organization.get(org_key, {}).get("id", "") if org_key else ""
+        logger.debug(f"Extracted org_id: {org_id}")
+        
         identity = IdentityData(
             email=token_data.get("email"),
             client_id=token_data.get("azp") or "unknown",
-            org_id=token_data.get(next(iter(token_data.get("organization", {}))), {}).get("id", ""),
+            org_id=org_id,
         )
+        logger.debug(f"Extracted identity data: {identity}")
 
     return identity
 
@@ -271,6 +284,30 @@ def init_persona(ctx: typer.Context, token_set: TokenSet | None = None):
         token_set=token_set,
         identity_data=identity_data,
     )
+
+
+def attach_persona(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Attach persona to the CLI context."""
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_wrapper(ctx: typer.Context, *args, **kwargs):
+            logger.debug("Extracting persona from cached tokens")
+            ctx.obj.persona = extract_persona(ctx.obj.profile)
+            logger.debug(f"Persona attached with identity: {ctx.obj.persona.identity_data.email}")
+            return await func(ctx, *args, **kwargs)
+
+        return async_wrapper
+    else:
+
+        @wraps(func)
+        def wrapper(ctx: typer.Context, *args, **kwargs):
+            logger.debug("Extracting persona from cached tokens")
+            ctx.obj.persona = extract_persona(ctx.obj.profile)
+            logger.debug(f"Persona attached with identity: {ctx.obj.persona.identity_data.email}")
+            return func(ctx, *args, **kwargs)
+
+        return wrapper
 
 
 def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -> bool:

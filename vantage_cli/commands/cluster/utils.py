@@ -34,7 +34,9 @@ def get_app_choices() -> list[str]:
     """Get the list of available deployment apps."""
     try:
         apps = get_available_apps()
-        return list(apps.keys())
+        choices = list(apps.keys())
+        logger.debug(f"App choices: {choices}")
+        return choices
     except Exception as e:
         logger.warning(f"Failed to get available apps: {e}")
         return []

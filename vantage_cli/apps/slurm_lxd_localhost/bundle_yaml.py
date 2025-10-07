@@ -96,6 +96,15 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "to": ["3"],
             "constraints": "arch=amd64 cores=2 mem=2048 virt-type=virtual-machine",
         },
+        "vantage-sssd": {
+            "charm": "vantage-sssd",
+            "base": "ubuntu@24.04/stable",
+            "channel": "edge",
+            "num_units": 0,
+            "options": {
+                "vantage-sssd-config-secret-id": "",
+            },
+        },
         "sackd": {
             "charm": "sackd",
             "base": "ubuntu@24.04/stable",
@@ -165,5 +174,8 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
         ["vantage-jupyterhub:filesystem", "vantage-jupyterhub-nfs-client:filesystem"],
         ["sackd:juju-info", "vantage-agent:juju-info"],
         ["sackd:juju-info", "jobbergate-agent:juju-info"],
+        ["sackd:juju-info", "vantage-sssd:juju-info"],
+        ["slurmctld:juju-info", "vantage-sssd:juju-info"],
+        ["slurmd:juju-info", "vantage-sssd:juju-info"],
     ],
 }
