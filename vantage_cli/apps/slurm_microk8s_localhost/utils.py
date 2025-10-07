@@ -250,68 +250,67 @@ EXTRA_SSHD_CONF = dedent(
 )
 
 
-SSSD_CONF = dedent("""\
-    [sssd]
-    # Core configuration
-    config_file_version = 2
-    services = nss, pam, ssh, autofs
-    domains  = vantagecompute.ai
-    
-    # Debugging (for NSS)
-    [nss]
-    debug_level = 7
-    
-    # -----------------------------------------------------------------------------
-    # Domain-specific settings for example.com
-    # -----------------------------------------------------------------------------
-    [domain/vantagecompute.ai]
-    # ─── Identity and Authentication ─────────────────────────────────────────────
-    id_provider      = ldap
-    auth_provider    = ldap
-    chpass_provider  = ldap
-    access_provider  = ldap
-    
-    # LDAP servers and search bases
-    ldap_uri               = ldap://192.168.7.120
-    ldap_search_base       = dc=vantagecompute,dc=ai
-    ldap_user_search_base  = ou=People,dc=vantagecompute,dc=ai
-    ldap_group_search_base = ou=Groups,dc=vantagecompute,dc=ai
-    
-    # Credentials for binding to LDAP
-    ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou=<keycloak-org-id>,ou=organizations,dc=vantagecompute,dc=ai
-    ldap_default_authtok      = OKrGUle0JqsOw8Nhfptgh0_DCClrSI2QiW9xG6T70mo
-    ldap_default_authtok_type = password
-    
-    # ─── Access control ───────────────────────────────────────────────────────────
-    # Only allow slurm-users to log in
-    ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,dc=vantagecompute,dc=ai
-    
-    # ─── SSH public key lookup ────────────────────────────────────────────────────
-    ldap_user_ssh_public_key = sshPublicKey
-    
-    # ─── Group mapping ─────────────────────────────────────────────────────────────
-    ldap_group_object_class = groupOfNames
-    ldap_group_member       = member
-    ldap_group_name         = cn
-    ldap_group_gid_number   = gidNumber
-    
-    # ─── Autofs integration ───────────────────────────────────────────────────────
-    autofs_provider               = ldap
-    ldap_autofs_search_base       = ou=auto.master,dc=vantagecompute,dc=ai
-    ldap_autofs_map_object_class  = automountMap
-    ldap_autofs_entry_object_class= automount
-    ldap_autofs_map_name          = automountMapName
-    ldap_autofs_entry_key         = automountKey
-    ldap_autofs_entry_value       = automountInformation
-    
-    # ─── Caching and performance ──────────────────────────────────────────────────
-    cache_credentials   = true
-    entry_cache_timeout = 600
-    enumerate           = false
-    
-    # ─── Schema type ───────────────────────────────────────────────────────────────
-    ldap_schema = rfc2307bis
-    """)
+def render_sssd_conf(ldap_url: str, org_id: str, sssd_binder_password: str) -> str:
+    """Render the SSSD configuration for LDAP integration.
+
+    Returns:
+        The SSSD configuration as a string
+    """
+    return dedent(
+        f"""\
+        [sssd]
+        # Core configuration
+        config_file_version = 2
+        services = nss, pam, ssh
+        domains  = vantagecompute.ai
+        
+        # Debugging (for NSS)
+        [nss]
+        debug_level = 7
+        
+        # -----------------------------------------------------------------------------
+        # Domain-specific settings for vantagecompute.ai
+        # -----------------------------------------------------------------------------
+        [domain/vantagecompute.ai]
+        # ─── Identity and Authentication ─────────────────────────────────────────────
+        id_provider      = ldap
+        auth_provider    = ldap
+        chpass_provider  = ldap
+        access_provider  = ldap
+        
+        # LDAP servers and search bases
+        ldap_uri               = {ldap_url}
+        ldap_search_base       = dc=vantagecompute,dc=ai
+        ldap_user_search_base  = ou=People,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
+        ldap_group_search_base = ou=Groups,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
+        
+        # Credentials for binding to LDAP
+        ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
+        ldap_default_authtok      = {sssd_binder_password}
+        ldap_default_authtok_type = password
+        
+        # ─── Access control ───────────────────────────────────────────────────────────
+        # Only allow slurm-users to log in
+        ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
+        
+        # ─── SSH public key lookup ────────────────────────────────────────────────────
+        ldap_user_ssh_public_key = sshPublicKey
+        
+        # ─── Group mapping ─────────────────────────────────────────────────────────────
+        ldap_group_object_class = groupOfNames
+        ldap_group_member       = member
+        ldap_group_name         = cn
+        ldap_group_gid_number   = gidNumber
+        
+        # ─── Caching and performance ──────────────────────────────────────────────────
+        cache_credentials   = true
+        entry_cache_timeout = 600
+        enumerate           = false
+        
+        # ─── Schema type ───────────────────────────────────────────────────────────────
+        ldap_schema = rfc2307bis
+        """
+    )
 
 
 def is_ready(cluster_data: Dict[str, Any]) -> bool:
@@ -642,53 +641,3 @@ def get_chart_values_slurm_cluster() -> dict[str, Any]:
         },
     }
 
-
-def show_getting_started_help(console: Console) -> None:
-    """Show getting started help after successful MicroK8s SLURM deployment.
-
-    Displays connection instructions and useful commands for accessing the deployed cluster.
-    """
-    from rich.panel import Panel
-
-    help_message = snick.dedent(
-        """
-        🎉 SLURM cluster deployment completed successfully!
-
-        📋 Next Steps:
-
-        1️⃣ Check cluster status:
-           microk8s.kubectl get pods -A --namespace slurm
-
-        2️⃣ Get SLURM login service connection details:
-           SLURM_LOGIN_IP="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
-           SLURM_LOGIN_PORT="$(microk8s.kubectl get services -n slurm slurm-login-slinky -o jsonpath='{.spec.ports[0].port}')"
-
-        3️⃣ Connect to SLURM login node:
-           # Using root access (if rootSshAuthorizedKeys was configured):
-           ssh -p ${SLURM_LOGIN_PORT:-22} root@${SLURM_LOGIN_IP}
-
-           # Using SSSD user authentication (if SSSD is configured):
-           ssh -p ${SLURM_LOGIN_PORT:-22} ${USER}@${SLURM_LOGIN_IP}
-
-        4️⃣ Useful SLURM commands once connected:
-           sinfo                    # Show cluster information
-           squeue                   # Show job queue
-           srun hostname            # Run simple test job
-           sbatch <script.sh>       # Submit batch job
-
-        📚 Additional Resources:
-           • MicroK8s docs: https://microk8s.io/docs
-           • SLURM docs: https://slurm.schedmd.com/documentation.html
-           • Troubleshooting: microk8s.kubectl logs -n slurm <pod-name>
-        """
-    ).strip()
-
-    console.print(
-        Panel(
-            help_message,
-            title="🚀 Getting Started with Your SLURM Cluster",
-            title_align="left",
-            border_style="green",
-            padding=(1, 2),
-        )
-    )

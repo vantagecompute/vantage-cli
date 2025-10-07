@@ -23,8 +23,11 @@ from vantage_cli.apps.common import (
     create_deployment_with_init_status,
     generate_default_deployment_name,
     generate_dev_cluster_data,
+    get_jupyterhub_token,
+    get_sssd_binder_password,
     update_deployment_status,
 )
+from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
 from vantage_cli.apps.slurm_microk8s_localhost.constants import (
     APP_NAME,
     CHART_CERT_MANAGER,
@@ -67,6 +70,7 @@ from vantage_cli.constants import CLOUD_LOCALHOST, CLOUD_TYPE_K8S
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.render import RenderStepOutput, TerminalOutputManager
 
+from .utils import render_sssd_conf
 
 def _add_helm_repositories() -> None:
     """Add required Helm repositories."""
@@ -157,15 +161,16 @@ def _install_slurm_operator() -> None:
         )
 
 
-def _install_slurm_cluster() -> None:
+def _install_slurm_cluster(chart_values: Dict[Any, Any] = {}) -> None:
     """Install SLURM cluster."""
-    chart_values = get_chart_values_slurm_cluster()
+    default_chart_values = get_chart_values_slurm_cluster()
+    merged_chart_values = {**default_chart_values, **chart_values}
 
     success = microk8s_deploy_chart(
         namespace=DEFAULT_NAMESPACE_SLURM,
         release_name=DEFAULT_RELEASE_SLURM_CLUSTER,
         chart_repo=CHART_SLURM_CLUSTER,
-        chart_values=chart_values,
+        chart_values=merged_chart_values,
         timeout="300s",
         upgrade=True,
     )
@@ -198,13 +203,25 @@ async def create(
     Raises:
         typer.Exit: If deployment fails
     """
-    console = ctx.obj.console if hasattr(ctx.obj, "console") else Console()
+    console = ctx.obj.console
     json_mode = cluster_data.get("json_mode", False)
 
     # Generate deployment ID and create deployment with init status
     cluster_name = cluster_data.get("name", "unknown")
     deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
     client_id = cluster_data.get("client_id", "unknown")
+
+    sssd_binder_password = get_sssd_binder_password() or DEV_SSSD_BINDER_PASSWORD
+    jupyterhub_token = get_jupyterhub_token() or DEV_JUPYTERHUB_TOKEN
+
+    sssd_conf = render_sssd_conf(
+        ldap_url=ctx.settings.get_ldap_url(),
+        org_id=ctx.persona.identity_data.org_id,
+        sssd_binder_password=sssd_binder_password,
+    )
+
+    chart_values = {
+        "jupyterhub": {
 
     create_deployment_with_init_status(
         deployment_id=deployment_id,
@@ -215,7 +232,7 @@ async def create(
         verbose=verbose,
         cloud=CLOUD_LOCALHOST,
         cloud_type=CLOUD_TYPE_K8S,
-        k8s_namespaces=[],  # Will be populated as namespaces are created
+        k8s_namespaces=[DEFAULT_NAMESPACE_CERT_MANAGER, DEFAULT_NAMESPACE_PROMETHEUS, DEFAULT_NAMESPACE_SLINKY, DEFAULT_NAMESPACE_SLURM],  # Will be populated as namespaces are created
     )
 
     if json_mode:
