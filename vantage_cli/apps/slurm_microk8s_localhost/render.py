@@ -11,6 +11,9 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Rendering functions for SLURM MicroK8s localhost deployment."""
 
+from textwrap import dedent
+from rich.panel import Panel
+
 from .constants import (
     DEFAULT_NAMESPACE_CERT_MANAGER,
     DEFAULT_NAMESPACE_PROMETHEUS,
@@ -86,9 +89,8 @@ def show_getting_started_help(console: Console) -> None:
 
     Displays connection instructions and useful commands for accessing the deployed cluster.
     """
-    from rich.panel import Panel
-
-    help_message = snick.dedent(
+    
+    help_message = dedent(
         """
         🎉 SLURM cluster deployment completed successfully!
 

@@ -27,8 +27,24 @@ from vantage_cli.apps.common import (
     get_sssd_binder_password,
     update_deployment_status,
 )
+
 from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
-from vantage_cli.apps.slurm_microk8s_localhost.constants import (
+
+from vantage_cli.apps.slurm_microk8s_localhost.utils import get_ssh_keys
+from vantage_cli.apps.utils import (
+    helm_repo_add,
+    helm_repo_update,
+    microk8s_deploy_chart,
+)
+
+from vantage_cli.config import attach_settings
+from vantage_cli.constants import CLOUD_LOCALHOST, CLOUD_TYPE_K8S
+from vantage_cli.exceptions import handle_abort
+from vantage_cli.render import TerminalOutputManager
+
+
+from .chart_values import CHART_VALUES_SLURM_CLUSTER
+from .constants import (
     APP_NAME,
     CHART_CERT_MANAGER,
     CHART_PROMETHEUS,
@@ -48,29 +64,9 @@ from vantage_cli.apps.slurm_microk8s_localhost.constants import (
     REPO_PROMETHEUS_URL,
     REPO_SLURM_URL,
 )
-from vantage_cli.apps.slurm_microk8s_localhost.render import (
-    format_deployment_failure_content,
-    format_deployment_success_content,
-)
-from vantage_cli.apps.slurm_microk8s_localhost.utils import (
-    get_chart_values_slurm_cluster,
-    is_ready,
-)
-from vantage_cli.apps.utils import (
-    PrerequisiteStatus,
-    check_prerequisites,
-    create_complete_prerequisite_checks,
-    create_k8s_namespace,
-    helm_repo_add,
-    helm_repo_update,
-    microk8s_deploy_chart,
-)
-from vantage_cli.config import attach_settings
-from vantage_cli.constants import CLOUD_LOCALHOST, CLOUD_TYPE_K8S
-from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import RenderStepOutput, TerminalOutputManager
 
-from .utils import render_sssd_conf
+from .templates import sssd_conf
+
 
 def _add_helm_repositories() -> None:
     """Add required Helm repositories."""
@@ -161,16 +157,15 @@ def _install_slurm_operator() -> None:
         )
 
 
-def _install_slurm_cluster(chart_values: Dict[Any, Any] = {}) -> None:
+def _install_slurm_cluster(set_values: Dict[str, str] = {}) -> None:
     """Install SLURM cluster."""
-    default_chart_values = get_chart_values_slurm_cluster()
-    merged_chart_values = {**default_chart_values, **chart_values}
 
     success = microk8s_deploy_chart(
         namespace=DEFAULT_NAMESPACE_SLURM,
         release_name=DEFAULT_RELEASE_SLURM_CLUSTER,
         chart_repo=CHART_SLURM_CLUSTER,
-        chart_values=merged_chart_values,
+        chart_values=CHART_VALUES_SLURM_CLUSTER,
+        set_values=set_values,
         timeout="300s",
         upgrade=True,
     )
@@ -204,7 +199,6 @@ async def create(
         typer.Exit: If deployment fails
     """
     console = ctx.obj.console
-    json_mode = cluster_data.get("json_mode", False)
 
     # Generate deployment ID and create deployment with init status
     cluster_name = cluster_data.get("name", "unknown")
@@ -214,14 +208,11 @@ async def create(
     sssd_binder_password = get_sssd_binder_password() or DEV_SSSD_BINDER_PASSWORD
     jupyterhub_token = get_jupyterhub_token() or DEV_JUPYTERHUB_TOKEN
 
-    sssd_conf = render_sssd_conf(
+    rendered_sssd_conf = sssd_conf(
         ldap_url=ctx.settings.get_ldap_url(),
         org_id=ctx.persona.identity_data.org_id,
         sssd_binder_password=sssd_binder_password,
     )
-
-    chart_values = {
-        "jupyterhub": {
 
     create_deployment_with_init_status(
         deployment_id=deployment_id,
@@ -235,156 +226,118 @@ async def create(
         k8s_namespaces=[DEFAULT_NAMESPACE_CERT_MANAGER, DEFAULT_NAMESPACE_PROMETHEUS, DEFAULT_NAMESPACE_SLINKY, DEFAULT_NAMESPACE_SLURM],  # Will be populated as namespaces are created
     )
 
-    if json_mode:
-        # JSON mode: execute without UI panels
+    set_values = {
+        "loginsets.slinky.sssdConf": rendered_sssd_conf,
+    }
+
+    if (ssh_keys := get_ssh_keys()) is not None and ssh_keys.strip() != "":
+        set_values["loginsets.slinky.sshAuthorizedKeys"] = ssh_keys
+
+    with TerminalOutputManager(
+        console=console,
+        operation_name="🚀 SLURM MicroK8S Deployment Progress",
+        verbose=verbose,
+        json_output=False,
+        use_live_panel=True,
+    ) as output:
         try:
-            # Check prerequisites
+            # Step 1: Check prerequisites
+            output.status("🔍 Checking prerequisites...")
+
             checks = create_complete_prerequisite_checks()
-            all_met, _ = check_prerequisites(checks, console, verbose=verbose, show_table=False)
+            all_met, results = check_prerequisites(
+                checks, console, verbose=verbose, show_table=False
+            )
 
             if not all_met:
+                missing_tools: list[str] = []
+                for result in results:
+                    if result.status != PrerequisiteStatus.AVAILABLE:
+                        missing_tools.append(
+                            f"{result.name}: {result.error_message or 'Missing'}"
+                        )
+
+                error_msg = f"Missing prerequisites: {'; '.join(missing_tools)}"
+                output.set_final_content(
+                    format_deployment_failure_content(error_msg), success=False
+                )
                 update_deployment_status(deployment_id, "failed", console)
                 raise typer.Exit(1)
 
-            # Perform deployment steps
-            _add_helm_repositories()
+            output.success("Prerequisites check passed")
+            time.sleep(1)
 
-            # Create namespaces
-            for namespace in [
+            # Step 2: Setup Helm repositories
+            output.status("📦 Setting up Helm repositories...")
+            _add_helm_repositories()
+            output.success("Helm repositories configured")
+            time.sleep(1)
+
+            # Step 3: Create namespaces
+            output.status("🔧 Creating Kubernetes namespaces...")
+            namespaces = [
                 DEFAULT_NAMESPACE_CERT_MANAGER,
                 DEFAULT_NAMESPACE_PROMETHEUS,
                 DEFAULT_NAMESPACE_SLINKY,
                 DEFAULT_NAMESPACE_SLURM,
-            ]:
+            ]
+            for namespace in namespaces:
                 if not create_k8s_namespace(namespace):
-                    update_deployment_status(deployment_id, "failed", console)
-                    raise typer.Exit(1)
-
-            # Install components
-            _install_cert_manager()
-            _install_prometheus()
-            _install_slurm_operator_crds()
-            _install_slurm_operator()
-            _install_slurm_cluster()
-
-            # Update deployment status to active on success
-            update_deployment_status(deployment_id, "active", console)
-
-        except Exception as e:
-            update_deployment_status(deployment_id, "failed", console)
-            error_msg = f"Deployment failed: {str(e)}"
-            if renderer:
-                renderer.json_bypass({"error": error_msg})
-            else:
-                console.print(f"[red]Error:[/red] {error_msg}")
-            raise typer.Exit(1)
-    else:
-        # Interactive mode with TerminalOutputManager
-        with TerminalOutputManager(
-            console=console,
-            operation_name="🚀 SLURM MicroK8S Deployment Progress",
-            verbose=verbose,
-            json_output=getattr(ctx.obj, "json_output", False),
-            use_live_panel=True,
-        ) as output:
-            try:
-                # Step 1: Check prerequisites
-                output.status("🔍 Checking prerequisites...")
-
-                checks = create_complete_prerequisite_checks()
-                all_met, results = check_prerequisites(
-                    checks, console, verbose=verbose, show_table=False
-                )
-
-                if not all_met:
-                    missing_tools: list[str] = []
-                    for result in results:
-                        if result.status != PrerequisiteStatus.AVAILABLE:
-                            missing_tools.append(
-                                f"{result.name}: {result.error_message or 'Missing'}"
-                            )
-
-                    error_msg = f"Missing prerequisites: {'; '.join(missing_tools)}"
+                    error_msg = f"Failed to create namespace '{namespace}'"
                     output.set_final_content(
                         format_deployment_failure_content(error_msg), success=False
                     )
                     update_deployment_status(deployment_id, "failed", console)
                     raise typer.Exit(1)
+            output.success("Namespaces created")
+            time.sleep(1)
 
-                output.success("Prerequisites check passed")
-                time.sleep(1)
+            # Step 4: Install cert-manager
+            output.status("🔒 Installing cert-manager...")
+            # _install_cert_manager()
+            output.success("cert-manager installed")
+            time.sleep(1)
 
-                # Step 2: Setup Helm repositories
-                output.status("📦 Setting up Helm repositories...")
-                _add_helm_repositories()
-                output.success("Helm repositories configured")
-                time.sleep(1)
+            # Step 5: Install Prometheus
+            output.status("📊 Installing Prometheus...")
+            _install_prometheus()
+            output.success("Prometheus installed")
+            time.sleep(1)
 
-                # Step 3: Create namespaces
-                output.status("🔧 Creating Kubernetes namespaces...")
-                namespaces = [
-                    DEFAULT_NAMESPACE_CERT_MANAGER,
-                    DEFAULT_NAMESPACE_PROMETHEUS,
-                    DEFAULT_NAMESPACE_SLINKY,
-                    DEFAULT_NAMESPACE_SLURM,
-                ]
-                for namespace in namespaces:
-                    if not create_k8s_namespace(namespace):
-                        error_msg = f"Failed to create namespace '{namespace}'"
-                        output.set_final_content(
-                            format_deployment_failure_content(error_msg), success=False
-                        )
-                        update_deployment_status(deployment_id, "failed", console)
-                        raise typer.Exit(1)
-                output.success("Namespaces created")
-                time.sleep(1)
+            # Step 6: Install SLURM operator CRDs
+            output.status("⚙️ Installing SLURM operator CRDs...")
+            _install_slurm_operator_crds()
+            output.success("SLURM operator CRDs installed")
+            time.sleep(1)
 
-                # Step 4: Install cert-manager
-                output.status("🔒 Installing cert-manager...")
-                # _install_cert_manager()
-                output.success("cert-manager installed")
-                time.sleep(1)
+            # Step 7: Install SLURM operator
+            output.status("🎛️ Installing SLURM operator...")
+            _install_slurm_operator()
+            output.success("SLURM operator installed")
+            time.sleep(1)
 
-                # Step 5: Install Prometheus
-                output.status("📊 Installing Prometheus...")
-                _install_prometheus()
-                output.success("Prometheus installed")
-                time.sleep(1)
+            # Step 8: Install SLURM cluster
+            output.status("🖥️ Installing SLURM cluster...")
+            _install_slurm_cluster(set_values=set_values)
+            output.success("SLURM cluster installed")
+            time.sleep(1)
 
-                # Step 6: Install SLURM operator CRDs
-                output.status("⚙️ Installing SLURM operator CRDs...")
-                _install_slurm_operator_crds()
-                output.success("SLURM operator CRDs installed")
-                time.sleep(1)
+            # Step 9: Finalize
+            output.status("🎉 Finalizing deployment...")
+            update_deployment_status(deployment_id, "active", console)
 
-                # Step 7: Install SLURM operator
-                output.status("🎛️ Installing SLURM operator...")
-                _install_slurm_operator()
-                output.success("SLURM operator installed")
-                time.sleep(1)
+            # Set beautiful success content
+            output.set_final_content(
+                format_deployment_success_content(client_id), success=True
+            )
 
-                # Step 8: Install SLURM cluster
-                output.status("🖥️ Installing SLURM cluster...")
-                _install_slurm_cluster()
-                output.success("SLURM cluster installed")
-                time.sleep(1)
-
-                # Step 9: Finalize
-                output.status("🎉 Finalizing deployment...")
-                update_deployment_status(deployment_id, "active", console)
-
-                # Set beautiful success content
-                output.set_final_content(
-                    format_deployment_success_content(client_id), success=True
-                )
-
-            except Exception as e:
-                update_deployment_status(deployment_id, "failed", console)
-                error_msg = f"Deployment failed: {str(e)}"
-                output.set_final_content(
-                    format_deployment_failure_content(error_msg), success=False
-                )
-                raise typer.Exit(1)
+        except Exception as e:
+            update_deployment_status(deployment_id, "failed", console)
+            error_msg = f"Deployment failed: {str(e)}"
+            output.set_final_content(
+                format_deployment_failure_content(error_msg), success=False
+            )
+            raise typer.Exit(1)
 
 
 # Command functions that the deployment system will discover

@@ -37,3 +37,7 @@ VERSION_SLURM_CLUSTER = "0.4.0"
 # URLs for default values files
 VALUES_URL_SLURM_OPERATOR = "https://raw.githubusercontent.com/jamesbeedy/slurm-operator/refs/tags/v0.4.0/helm/slurm-operator/values.yaml"
 VALUES_URL_SLURM_CLUSTER = "https://raw.githubusercontent.com/jamesbeedy/slurm-operator/refs/tags/v0.4.0/helm/slurm/values.yaml"
+
+
+LOGINSET_IMAGE = "ghcr.io/jamesbeedy/login"
+LOGINSET_IMAGE_TAG = "0.0.7"

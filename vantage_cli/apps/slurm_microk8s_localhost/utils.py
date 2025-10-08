@@ -16,7 +16,9 @@ import shutil
 import subprocess
 from shutil import which
 from textwrap import dedent
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
+
+from pathlib import Path
 
 import snick
 import yaml
@@ -69,7 +71,7 @@ def check_microk8s_addons() -> None:
     required_addons = {
         "dns": {
             "description": "CoreDNS for cluster DNS resolution",
-            "enable_command": "sudo microk8s.enable dns",
+            "enable_command": "microk8s.enable dns",
         },
         "hostpath-storage": {
             "description": "Storage provisioner for persistent volumes",
@@ -77,12 +79,12 @@ def check_microk8s_addons() -> None:
         },
         "metallb": {
             "description": "Load balancer for services",
-            "enable_command": "sudo microk8s.enable metallb:10.64.140.43-10.64.140.49",
+            "enable_command": "microk8s.enable metallb:10.64.140.43-10.64.140.49",
             "note": "Adjust the IP range (10.64.140.43-10.64.140.49) to match your network",
         },
         "helm3": {
             "description": "Helm package manager for application deployment",
-            "enable_command": "sudo microk8s.enable helm3",
+            "enable_command": "microk8s.enable helm3",
         },
     }
 
@@ -197,12 +199,12 @@ def check_existing_deployment() -> None:
             namespace_list = "\n".join(
                 f"                  • {ns}" for ns in sorted(found_namespaces)
             )
-            message = snick.dedent(
+            message = dedent(
                 f"""
                 🔍 Existing SLURM deployment detected!
 
                 Found the following SLURM-related namespaces:
-{namespace_list}
+                {namespace_list}
 
                 📋  Options:
 
@@ -239,78 +241,6 @@ def check_existing_deployment() -> None:
         # kubectl command not found or other file system issues
         # Let the deployment continue and let other checks handle this
         pass
-
-
-EXTRA_SSHD_CONF = dedent(
-    """\
-    # Custom SSHD configuration
-    AuthorizedKeysCommand /usr/bin/sss_ssh_authorizedkeys
-    AuthorizedKeysCommandUser root
-    """
-)
-
-
-def render_sssd_conf(ldap_url: str, org_id: str, sssd_binder_password: str) -> str:
-    """Render the SSSD configuration for LDAP integration.
-
-    Returns:
-        The SSSD configuration as a string
-    """
-    return dedent(
-        f"""\
-        [sssd]
-        # Core configuration
-        config_file_version = 2
-        services = nss, pam, ssh
-        domains  = vantagecompute.ai
-        
-        # Debugging (for NSS)
-        [nss]
-        debug_level = 7
-        
-        # -----------------------------------------------------------------------------
-        # Domain-specific settings for vantagecompute.ai
-        # -----------------------------------------------------------------------------
-        [domain/vantagecompute.ai]
-        # ─── Identity and Authentication ─────────────────────────────────────────────
-        id_provider      = ldap
-        auth_provider    = ldap
-        chpass_provider  = ldap
-        access_provider  = ldap
-        
-        # LDAP servers and search bases
-        ldap_uri               = {ldap_url}
-        ldap_search_base       = dc=vantagecompute,dc=ai
-        ldap_user_search_base  = ou=People,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
-        ldap_group_search_base = ou=Groups,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
-        
-        # Credentials for binding to LDAP
-        ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
-        ldap_default_authtok      = {sssd_binder_password}
-        ldap_default_authtok_type = password
-        
-        # ─── Access control ───────────────────────────────────────────────────────────
-        # Only allow slurm-users to log in
-        ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,ou={org_id},ou=organizations,dc=vantagecompute,dc=ai
-        
-        # ─── SSH public key lookup ────────────────────────────────────────────────────
-        ldap_user_ssh_public_key = sshPublicKey
-        
-        # ─── Group mapping ─────────────────────────────────────────────────────────────
-        ldap_group_object_class = groupOfNames
-        ldap_group_member       = member
-        ldap_group_name         = cn
-        ldap_group_gid_number   = gidNumber
-        
-        # ─── Caching and performance ──────────────────────────────────────────────────
-        cache_credentials   = true
-        entry_cache_timeout = 600
-        enumerate           = false
-        
-        # ─── Schema type ───────────────────────────────────────────────────────────────
-        ldap_schema = rfc2307bis
-        """
-    )
 
 
 def is_ready(cluster_data: Dict[str, Any]) -> bool:
@@ -390,254 +320,19 @@ def is_ready(cluster_data: Dict[str, Any]) -> bool:
         return False
 
 
-def get_chart_values_slurm_operator() -> dict[str, Any]:
-    """Get Helm chart values for SLURM operator deployment.
+def get_ssh_keys() -> Optional[str]:
+    """Retrieve user's SSH public keys for SLURM cluster access."""
+    user_ssh_rsa_pub_key = Path.home() / ".ssh" / "id_rsa.pub"
+    user_ssh_ed25519_pub_key = Path.home() / ".ssh" / "id_ed25519.pub"
 
-    Returns:
-        Dictionary containing Helm chart values for SLURM operator.
-    """
-    return {
-        "nameOverride": "",
-        "fullnameOverride": "",
-        "namespaceOverride": "",
-        "imagePullSecrets": [],
-        "priorityClassName": "",
-        "crds": {"enabled": False},
-        "operator": {
-            "enabled": True,
-            "replicas": 1,
-            "imagePullPolicy": "IfNotPresent",
-            "image": {"repository": "ghcr.io/slinkyproject/slurm-operator", "tag": ""},
-            "serviceAccount": {"create": True, "name": ""},
-            "affinity": {},
-            "tolerations": [],
-            "resources": {},
-            "accountingWorkers": 4,
-            "controllerWorkers": 4,
-            "loginsetWorkers": 4,
-            "nodesetWorkers": 4,
-            "restapiWorkers": 4,
-            "tokenWorkers": 4,
-            "slurmclientWorkers": 2,
-            "logLevel": "info",
-        },
-        "webhook": {
-            "enabled": True,
-            "replicas": 1,
-            "imagePullPolicy": "IfNotPresent",
-            "image": {"repository": "ghcr.io/slinkyproject/slurm-operator-webhook", "tag": ""},
-            "serviceAccount": {"create": True, "name": ""},
-            "timeoutSeconds": 10,
-            "affinity": {},
-            "tolerations": [],
-            "resources": {},
-            "logLevel": "info",
-        },
-        "certManager": {
-            "enabled": True,
-            "secretName": "slurm-operator-webhook-ca",
-            "duration": "43800h0m0s",
-            "renewBefore": "8760h0m0s",
-        },
-    }
+    ssh_authorized_keys: List[Any] = []
 
+    if user_ssh_rsa_pub_key.exists():
+        ssh_authorized_keys.append(user_ssh_rsa_pub_key.read_text().strip())
+    if user_ssh_ed25519_pub_key.exists():
+        ssh_authorized_keys.append(user_ssh_ed25519_pub_key.read_text().strip())
 
-def get_chart_values_slurm_cluster() -> dict[str, Any]:
-    """Get Helm chart values for SLURM cluster deployment.
+    if len(ssh_authorized_keys) > 0:
+        return "\n".join(ssh_authorized_keys)
 
-    Returns:
-        Dictionary containing Helm chart values for SLURM cluster.
-    """
-    return {
-        "nameOverride": None,
-        "fullnameOverride": None,
-        "namespaceOverride": None,
-        "imagePullSecrets": [],
-        "imagePullPolicy": "IfNotPresent",
-        "priorityClassName": None,
-        "slurmKeyRef": {},
-        "jwtHs256KeyRef": {},
-        "clusterName": None,
-        "configFiles": {},
-        "prologScripts": {},
-        "epilogScripts": {},
-        "controller": {
-            "slurmctld": {
-                "image": {
-                    "repository": "ghcr.io/slinkyproject/slurmctld",
-                    "tag": "25.05-ubuntu24.04",
-                },
-                "args": [],
-                "resources": {},
-            },
-            "reconfigure": {
-                "image": {
-                    "repository": "ghcr.io/slinkyproject/slurmctld",
-                    "tag": "25.05-ubuntu24.04",
-                },
-                "resources": {},
-            },
-            "logfile": {
-                "image": {"repository": "docker.io/library/alpine", "tag": "latest"},
-                "resources": {},
-            },
-            "persistence": {
-                "enabled": True,
-                "existingClaim": None,
-                "storageClassName": None,
-                "accessModes": ["ReadWriteOnce"],
-                "resources": {"requests": {"storage": "4Gi"}},
-            },
-            "extraConf": None,
-            "extraConfMap": {},
-            "metadata": {},
-            "podSpec": {
-                "initContainers": [],
-                "nodeSelector": {"kubernetes.io/os": "linux"},
-                "affinity": {},
-                "tolerations": [],
-            },
-            "service": {},
-        },
-        "restapi": {
-            "replicas": 1,
-            "slurmrestd": {
-                "image": {
-                    "repository": "ghcr.io/slinkyproject/slurmrestd",
-                    "tag": "25.05-ubuntu24.04",
-                },
-                "env": [],
-                "args": [],
-                "resources": {},
-            },
-            "metadata": {},
-            "podSpec": {
-                "initContainers": [],
-                "nodeSelector": {"kubernetes.io/os": "linux"},
-                "affinity": {},
-                "tolerations": [],
-            },
-            "service": {},
-        },
-        "slurm-exporter": {
-            "enabled": True,
-            "exporter": {
-                "enabled": True,
-                "secretName": "slurm-token-exporter",
-                "nodeSelector": {"kubernetes.io/os": "linux"},
-                "affinity": {},
-                "tolerations": [],
-            },
-        },
-        "accounting": {
-            "enabled": False,
-            "slurmdbd": {
-                "image": {
-                    "repository": "ghcr.io/slinkyproject/slurmdbd",
-                    "tag": "25.05-ubuntu24.04",
-                },
-                "args": [],
-                "resources": {},
-            },
-            "initconf": {
-                "image": {"repository": "ghcr.io/slinkyproject/sackd", "tag": "25.05-ubuntu24.04"},
-                "resources": {},
-            },
-            "storageConfig": {
-                "host": "mariadb",
-                "port": 3306,
-                "database": "slurm_acct_db",
-                "username": "slurm",
-                "passwordKeyRef": {"name": "mariadb-password", "key": "password"},
-            },
-            "extraConf": None,
-            "extraConfMap": {},
-            "metadata": {},
-            "podSpec": {
-                "initContainers": [],
-                "nodeSelector": {"kubernetes.io/os": "linux"},
-                "affinity": {},
-                "tolerations": [],
-            },
-            "service": {},
-        },
-        "loginsets": {
-            "slinky": {
-                "enabled": True,
-                "replicas": 1,
-                "login": {
-                    "image": {
-                        "repository": "ghcr.io/jamesbeedy/login",
-                        "tag": "0.0.7",
-                    },
-                    "env": [],
-                    "securityContext": {"privileged": False},
-                    "resources": {
-                        "limits": {"cpu": "1000m", "memory": "1024Mi"},
-                    },
-                    "volumeMounts": [],
-                },
-                "rootSshAuthorizedKeys": None,
-                "extraSshdConfig": EXTRA_SSHD_CONF,
-                "sssdConf": SSSD_CONF,
-                "metadata": {},
-                "podSpec": {
-                    "initContainers": [],
-                    "nodeSelector": {"kubernetes.io/os": "linux"},
-                    "affinity": {},
-                    "tolerations": [],
-                    "volumes": [],
-                },
-                "service": {"type": "LoadBalancer"},
-            }
-        },
-        "nodesets": {
-            "slinky": {
-                "enabled": True,
-                "replicas": 1,
-                "slurmd": {
-                    "image": {
-                        "repository": "ghcr.io/slinkyproject/slurmd",
-                        "tag": "25.05-ubuntu24.04",
-                    },
-                    "args": [],
-                    "resources": {},
-                    "volumeMounts": [],
-                },
-                "logfile": {
-                    "image": {"repository": "docker.io/library/alpine", "tag": "latest"},
-                    "resources": {},
-                },
-                "extraConf": None,
-                "extraConfMap": {},
-                "partition": {"enabled": True, "config": None, "configMap": {}},
-                "useResourceLimits": True,
-                "metadata": {},
-                "podSpec": {
-                    "initContainers": [],
-                    "nodeSelector": {"kubernetes.io/os": "linux"},
-                    "affinity": {},
-                    "tolerations": [],
-                    "volumes": [],
-                },
-            }
-        },
-        "partitions": {
-            "all": {
-                "enabled": True,
-                "nodesets": ["ALL"],
-                "config": None,
-                "configMap": {"State": "UP", "Default": "YES", "MaxTime": "UNLIMITED"},
-            }
-        },
-        "vendor": {
-            "nvidia": {
-                "dcgm": {
-                    "enabled": False,
-                    "jobMappingDir": "/var/lib/dcgm-exporter/job-mapping",
-                    "scriptPriority": "90",
-                }
-            }
-        },
-    }
-
+    return None
