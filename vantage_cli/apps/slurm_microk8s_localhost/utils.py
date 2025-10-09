@@ -24,6 +24,12 @@ import snick
 import yaml
 from rich.console import Console
 
+from vantage_cli.apps.utils import (
+    PrerequisiteCheck,
+    PrerequisiteResult,
+    PrerequisiteStatus,
+    check_prerequisites,
+)
 from vantage_cli.exceptions import Abort
 
 
@@ -320,6 +326,139 @@ def is_ready(cluster_data: Dict[str, Any]) -> bool:
         return False
 
 
+def create_common_prerequisite_checks() -> List[PrerequisiteCheck]:
+    """Create common prerequisite checks for MicroK8s deployments."""
+    return [
+        PrerequisiteCheck(
+            name="microk8s",
+            command=["microk8s", "status", "--wait-ready", "--timeout", "5"],
+            version_command=["microk8s", "version"],
+            installation_hint="Install MicroK8s: sudo snap install microk8s --classic",
+            required=True,
+        ),
+        PrerequisiteCheck(
+            name="docker",
+            command=["docker", "--version"],
+            version_command=["docker", "--version"],
+            installation_hint="Install Docker: https://docs.docker.com/get-docker/",
+            required=True,
+        ),
+        PrerequisiteCheck(
+            name="microk8s helm",
+            command=["microk8s", "helm", "version"],
+            version_command=["microk8s", "helm", "version"],
+            installation_hint="Enable helm addon: microk8s enable helm3",
+            required=True,
+        ),
+        PrerequisiteCheck(
+            name="kubectl",
+            command=["microk8s", "kubectl", "version", "--client"],
+            version_command=["microk8s", "kubectl", "version", "--client"],
+            installation_hint="kubectl is available through microk8s",
+            required=False,
+        ),
+    ]
+
+
+def check_microk8s_addon_enabled(addon_name: str) -> bool:
+    """Check if a specific MicroK8s addon is enabled.
+
+    Args:
+        addon_name: Name of the addon to check (e.g., 'dns', 'metallb', 'hostpath-storage')
+
+    Returns:
+        bool: True if addon is enabled, False otherwise
+    """
+    try:
+        result = subprocess.run(
+            ["microk8s", "status"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return False
+
+        # Parse the output to check if addon is enabled
+        # MicroK8s status output shows enabled addons with their status
+        lines = result.stdout.split("\n")
+        for line in lines:
+            if addon_name in line and ("enabled" in line.lower() or "running" in line.lower()):
+                return True
+
+        return False
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return False
+
+
+def create_microk8s_addon_prerequisite_checks() -> List[PrerequisiteCheck]:
+    """Create prerequisite checks for required MicroK8s addons."""
+    return [
+        PrerequisiteCheck(
+            name="microk8s dns addon",
+            command=[
+                "sh",
+                "-c",
+                "microk8s status | awk '/enabled:/{flag=1; next} /disabled:/{flag=0} flag && /dns/' | grep -q dns && echo 'enabled' || exit 1",
+            ],
+            installation_hint="Enable DNS addon: microk8s enable dns",
+            required=True,
+        ),
+        PrerequisiteCheck(
+            name="microk8s metallb addon",
+            command=[
+                "sh",
+                "-c",
+                "microk8s status | awk '/enabled:/{flag=1; next} /disabled:/{flag=0} flag && /metallb/' | grep -q metallb && echo 'enabled' || exit 1",
+            ],
+            installation_hint="Enable MetalLB addon: microk8s enable metallb:10.64.140.43-10.64.140.49 (adjust IP range as needed)",
+            required=True,
+        ),
+        PrerequisiteCheck(
+            name="microk8s hostpath-storage addon",
+            command=[
+                "sh",
+                "-c",
+                "microk8s status | awk '/enabled:/{flag=1; next} /disabled:/{flag=0} flag && /hostpath-storage/' | grep -q hostpath-storage && echo 'enabled' || exit 1",
+            ],
+            installation_hint="Enable hostpath-storage addon: microk8s enable hostpath-storage",
+            required=True,
+        ),
+    ]
+
+
+def create_complete_prerequisite_checks() -> List[PrerequisiteCheck]:
+    """Create complete prerequisite checks including MicroK8s addons."""
+    basic_checks = create_common_prerequisite_checks()
+    addon_checks = create_microk8s_addon_prerequisite_checks()
+    return basic_checks + addon_checks
+
+
+def create_k8s_namespace(namespace: str) -> bool:
+    """Create a Kubernetes namespace.
+
+    Args:
+        namespace: Name of the namespace to create
+
+    Returns:
+        bool: True if namespace was created or already exists, False if creation failed
+    """
+    try:
+        subprocess.run(
+            ["microk8s", "kubectl", "create", "namespace", namespace],
+            capture_output=True,
+            check=True,
+        )
+        return True
+    except subprocess.CalledProcessError as e:
+        # Namespace might already exist, which is fine
+        stderr_output = e.stderr.decode().strip() if e.stderr else ""
+        if "already exists" in stderr_output:
+            return True
+        else:
+            return False
+
+
 def get_ssh_keys() -> Optional[str]:
     """Retrieve user's SSH public keys for SLURM cluster access."""
     user_ssh_rsa_pub_key = Path.home() / ".ssh" / "id_rsa.pub"
@@ -336,3 +475,292 @@ def get_ssh_keys() -> Optional[str]:
         return "\n".join(ssh_authorized_keys)
 
     return None
+
+
+def helm_repo_add(repo_name: str, repo_url: str, update: bool = True) -> bool:
+    """Add a Helm repository and optionally update.
+
+    Args:
+        repo_name: Name for the repository
+        repo_url: URL of the repository
+        update: Whether to run helm repo update after adding (default: True)
+
+    Returns:
+        bool: True if successful, False if failed
+    """
+    try:
+        # Add the repository
+        subprocess.run(
+            ["microk8s", "helm", "repo", "add", repo_name, repo_url],
+            capture_output=True,
+            check=True,
+        )
+
+        # Update repositories if requested
+        if update:
+            subprocess.run(
+                ["microk8s", "helm", "repo", "update"],
+                capture_output=True,
+                check=True,
+            )
+
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def helm_repo_update() -> bool:
+    """Update all Helm repositories.
+
+    Returns:
+        bool: True if successful, False if failed
+    """
+    try:
+        subprocess.run(
+            ["microk8s", "helm", "repo", "update"],
+            capture_output=True,
+            check=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def microk8s_deploy_chart(
+    namespace: str,
+    release_name: str,
+    chart_repo: str,
+    chart_values: Optional[Dict[str, Any]] = None,
+    set_values: Optional[Dict[str, str]] = None,
+    timeout: str = "10m",
+    upgrade: bool = True,
+) -> bool:
+    """Deploy a Helm chart using MicroK8s helm3.
+
+    Args:
+        namespace: Kubernetes namespace to deploy to (can be empty string for cluster-scoped resources like CRDs)
+        release_name: Name for the Helm release
+        chart_repo: Chart repository URL (e.g., "oci://registry-1.docker.io/bitnamicharts/keycloak")
+        chart_values: Optional dictionary containing chart values (will be passed as YAML)
+        set_values: Optional dictionary of key-value pairs for --set parameters
+        timeout: Helm timeout duration (default: "10m")
+        upgrade: Whether to use upgrade --install (default: True)
+
+    Returns:
+        bool: True if deployment succeeded, False otherwise
+    """
+    try:
+        # Build the command
+        cmd: List[str] = [
+            "microk8s",
+            "helm",
+            "upgrade" if upgrade else "install",
+            release_name,
+            chart_repo,
+            "--wait",
+            f"--timeout={timeout}",
+        ]
+
+        # Add --install flag for upgrade mode
+        if upgrade:
+            cmd.insert(3, "--install")
+
+        # Add namespace parameter only if namespace is specified (not empty for CRDs)
+        if namespace:
+            cmd.extend([f"--namespace={namespace}"])
+
+        # Add --set parameters if provided
+        if set_values:
+            for key, value in set_values.items():
+                cmd.extend(["--set", f"{key}={value}"])
+
+        # Prepare input for values file
+        input_data = None
+        if chart_values:
+            cmd.extend(["--values", "-"])
+            input_data = yaml.dump(chart_values).encode("utf-8")
+
+        subprocess.run(
+            cmd,
+            input=input_data,
+            capture_output=True,
+            check=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def add_helm_repositories(repos: List[tuple[str, str]]) -> None:
+    """Add required Helm repositories.
+    
+    Args:
+        repos: List of (name, url) tuples for Helm repositories to add
+        
+    Raises:
+        subprocess.CalledProcessError: If adding or updating repositories fails
+    """
+    for name, url in repos:
+        if not helm_repo_add(name, url, update=False):
+            raise subprocess.CalledProcessError(
+                1, ["helm", "repo", "add"], stderr=f"Failed to add repository {name}"
+            )
+
+    # Update all repositories at once
+    if not helm_repo_update():
+        raise subprocess.CalledProcessError(
+            1, ["helm", "repo", "update"], stderr="Failed to update Helm repositories"
+        )
+
+
+def install_cert_manager(
+    namespace: str,
+    release_name: str,
+    chart_repo: str,
+) -> None:
+    """Install cert-manager with Helm.
+    
+    Args:
+        namespace: Kubernetes namespace to install into
+        release_name: Name for the Helm release
+        chart_repo: Chart repository URL
+        
+    Raises:
+        subprocess.CalledProcessError: If installation fails
+    """
+    set_values = {"crds.enabled": "true"}
+
+    success = microk8s_deploy_chart(
+        namespace=namespace,
+        release_name=release_name,
+        chart_repo=chart_repo,
+        set_values=set_values,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install cert-manager"
+        )
+
+
+def install_prometheus(
+    namespace: str,
+    release_name: str,
+    chart_repo: str,
+) -> None:
+    """Install Prometheus with Helm.
+    
+    Args:
+        namespace: Kubernetes namespace to install into
+        release_name: Name for the Helm release
+        chart_repo: Chart repository URL
+        
+    Raises:
+        subprocess.CalledProcessError: If installation fails
+    """
+    success = microk8s_deploy_chart(
+        namespace=namespace,
+        release_name=release_name,
+        chart_repo=chart_repo,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install Prometheus"
+        )
+
+
+def install_slurm_operator_crds(
+    release_name: str,
+    chart_repo: str,
+) -> None:
+    """Install SLURM operator CRDs.
+    
+    Args:
+        release_name: Name for the Helm release
+        chart_repo: Chart repository URL
+        
+    Raises:
+        subprocess.CalledProcessError: If installation fails
+    """
+    # For CRDs, we need to use global namespace (pass empty string instead of None)
+    success = microk8s_deploy_chart(
+        namespace="",  # CRDs are cluster-scoped, empty string for global
+        release_name=release_name,
+        chart_repo=chart_repo,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install SLURM operator CRDs"
+        )
+
+
+def install_slurm_operator(
+    namespace: str,
+    release_name: str,
+    chart_repo: str,
+) -> None:
+    """Install SLURM operator.
+    
+    Args:
+        namespace: Kubernetes namespace to install into
+        release_name: Name for the Helm release
+        chart_repo: Chart repository URL
+        
+    Raises:
+        subprocess.CalledProcessError: If installation fails
+    """
+    success = microk8s_deploy_chart(
+        namespace=namespace,
+        release_name=release_name,
+        chart_repo=chart_repo,
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install SLURM operator"
+        )
+
+
+def install_slurm_cluster(
+    namespace: str,
+    release_name: str,
+    chart_repo: str,
+    chart_values: Dict[str, Any],
+    set_values: Optional[Dict[str, str]] = None,
+) -> None:
+    """Install SLURM cluster.
+    
+    Args:
+        namespace: Kubernetes namespace to install into
+        release_name: Name for the Helm release
+        chart_repo: Chart repository URL
+        chart_values: Dictionary of chart values
+        set_values: Optional dictionary of additional values to set
+        
+    Raises:
+        subprocess.CalledProcessError: If installation fails
+    """
+    success = microk8s_deploy_chart(
+        namespace=namespace,
+        release_name=release_name,
+        chart_repo=chart_repo,
+        chart_values=chart_values,
+        set_values=set_values or {},
+        timeout="300s",
+        upgrade=True,
+    )
+
+    if not success:
+        raise subprocess.CalledProcessError(
+            1, ["helm", "install"], stderr="Failed to install SLURM cluster"
+        )

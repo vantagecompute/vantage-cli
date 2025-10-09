@@ -11,17 +11,17 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Shared utilities for cluster commands."""
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import httpx
 import typer
-from loguru import logger
 
 from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.auth import extract_persona
 from vantage_cli.config import Settings
 from vantage_cli.exceptions import Abort
-from vantage_cli.sdk.cluster import get as get_cluster_sdk
+from vantage_cli.sdk.cluster.crud import cluster_sdk
+from vantage_cli.sdk.cluster.schema import Cluster
 
 
 def get_cloud_choices() -> list[str]:
@@ -35,10 +35,8 @@ def get_app_choices() -> list[str]:
     try:
         apps = get_available_apps()
         choices = list(apps.keys())
-        logger.debug(f"App choices: {choices}")
         return choices
-    except Exception as e:
-        logger.warning(f"Failed to get available apps: {e}")
+    except Exception:
         return []
 
 
@@ -65,20 +63,15 @@ async def get_cluster_client_secret(ctx: typer.Context, client_id: str) -> Optio
         async with httpx.AsyncClient() as client:
             # First, search for the client by clientId
             params = {"client_id": client_id}
-            logger.debug(f"Searching for client with ID: {client_id} at {api_url}")
             response = await client.get(api_url, headers=headers, params=params)
 
             if response.status_code != 200:
-                logger.error(
-                    f"Failed to query vantage-api clients: {response.status_code} - {response.text}"
-                )
                 return None
 
             response_data = response.json()
             clients = response_data.get("clients", [])
 
             if not clients:
-                logger.warning(f"No client found with clientId: {client_id}")
                 return None
 
             # Get the first matching client's internal ID
@@ -86,39 +79,26 @@ async def get_cluster_client_secret(ctx: typer.Context, client_id: str) -> Optio
             internal_id = vantage_client.get("id")
 
             if not internal_id:
-                logger.error(f"No internal ID found for client: {client_id}")
                 return None
 
             # Get the client secret using the internal ID
             secret_url = f"{api_url}/{internal_id}"
-            logger.debug(f"Fetching client secret from: {secret_url}")
             secret_response = await client.get(secret_url, headers=headers)
 
             if secret_response.status_code != 200:
-                logger.error(
-                    f"Failed to get client secret: {secret_response.status_code} - {secret_response.text}"
-                )
                 return None
 
             secret_data = secret_response.json()
-            logger.debug(f"Client secret response data: {secret_data}")
             # Try both camelCase and snake_case field names
             client_secret = secret_data.get("client_secret")
 
-            if client_secret:
-                logger.debug(f"Successfully retrieved client secret for {client_id}")
-            else:
-                logger.warning(f"Client secret not found in response for {client_id}")
-                logger.debug(f"Available keys in response: {list(secret_data.keys())}")
-
             return client_secret
 
-    except Exception as e:
-        logger.error(f"Error retrieving client secret for {client_id}: {e}")
+    except Exception:
         return None
 
 
-async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str, Any] | None:
+async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Cluster | None:
     """Get cluster details by name using the cluster SDK.
 
     Args:
@@ -126,7 +106,7 @@ async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str
         cluster_name: The name of the cluster to retrieve
 
     Returns:
-        The cluster data if found, None otherwise
+        The Cluster object if found, None otherwise
     """
     # Ensure we have settings configured
     if not ctx.obj or not ctx.obj.settings:
@@ -138,33 +118,28 @@ async def get_cluster_by_name(ctx: typer.Context, cluster_name: str) -> Dict[str
 
     try:
         # Use the SDK to get the cluster
-        logger.debug(f"Using SDK to get cluster: {cluster_name}")
-        cluster = await get_cluster_sdk(ctx, cluster_name)
+        cluster_obj = await cluster_sdk.get_cluster(ctx, cluster_name)
 
-        if not cluster:
+        if not cluster_obj:
             return None
 
-        # Fetch client secret from API if clientId is available
-        client_id = cluster.get("clientId")
+        # Fetch client secret from API if clientId is available and update the cluster object
+        client_id = cluster_obj.client_id
         if client_id:
             try:
                 client_secret = await get_cluster_client_secret(ctx, client_id)
-                cluster["client_secret"] = client_secret
-            except Exception as e:
-                logger.warning(
-                    f"Failed to retrieve client secret for cluster '{cluster_name}': {e}"
-                )
-                cluster["client_secret"] = None
-        else:
-            cluster["client_secret"] = None
+                if client_secret:
+                    # Update the cluster object with the fetched secret
+                    cluster_obj.client_secret = client_secret
+            except Exception:
+                pass  # Keep the existing client_secret value (None)
 
-        return cluster
+        return cluster_obj
 
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages
         raise
     except Exception as e:
-        logger.error(f"Unexpected error getting cluster '{cluster_name}': {e}")
         raise Abort(
             f"Failed to retrieve cluster '{cluster_name}' from Vantage API.",
             subject="API Error",

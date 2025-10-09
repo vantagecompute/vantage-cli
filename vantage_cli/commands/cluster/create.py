@@ -11,29 +11,30 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Create new clusters and register them in Vantage."""
 
-import uuid
 from pathlib import Path
 from typing import Any, Optional
 
 import click
 import typer
-from loguru import logger
 from typing_extensions import Annotated
 
-from vantage_cli.apps.common import track_deployment
 from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.gql_client import create_async_graphql_client
+from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
+from vantage_cli.sdk.cluster.crud import cluster_sdk
+from vantage_cli.sdk.cluster.schema import Cluster
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
-from .render import render_cluster_details
 from .utils import get_app_choices, get_cloud_choices
 
 
 @handle_abort
 @attach_settings
 @attach_persona
+@attach_vantage_rest_client
 async def create_cluster(
     ctx: typer.Context,
     cluster_name: Annotated[str, typer.Argument(help="Name of the cluster to create")],
@@ -69,6 +70,10 @@ async def create_cluster(
     ] = None,
 ):
     """Create a new Vantage cluster."""
+    # Use UniversalOutputFormatter for consistent output
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    verbose = getattr(ctx.obj, "verbose", False)
+    
     # Ensure we have settings configured
     if not ctx.obj or not ctx.obj.settings:
         raise Abort(
@@ -86,36 +91,6 @@ async def create_cluster(
             log_message=f"Invalid cloud provider: {cloud}",
         )
 
-    # GraphQL mutation for creating a cluster
-    create_mutation = """
-    mutation createCluster($createClusterInput: CreateClusterInput!) {
-        createCluster(createClusterInput: $createClusterInput) {
-            ... on Cluster {
-                name
-                status
-                clientId
-                description
-                ownerEmail
-                provider
-                cloudAccountId
-                creationParameters
-            }
-            ... on ClusterNameInUse {
-                message
-            }
-            ... on InvalidInput {
-                message
-            }
-            ... on ClusterCouldNotBeDeployed {
-                message
-            }
-            ... on UnexpectedBehavior {
-                message
-            }
-        }
-    }
-    """
-
     # Map cloud provider to GraphQL enum values
     provider_mapping = {
         "localhost": "on_prem",
@@ -125,18 +100,12 @@ async def create_cluster(
         "on-premises": "on_prem",
     }
 
-    # Build the input variables
-    cluster_input: dict[str, Any] = {
-        "name": cluster_name,
-        "description": f"Cluster {cluster_name} created via CLI",
-        "provider": provider_mapping.get(cloud, "on_prem"),
-    }
-
-    # Add provider-specific attributes if needed
+    # Build provider-specific attributes
+    provider_attributes: Optional[dict[str, Any]] = None
     if cloud == "aws":
         # For AWS, we need providerAttributes (camelCase for GraphQL)
         # This is a simplified example - in practice you'd need to collect more details
-        cluster_input["providerAttributes"] = {
+        provider_attributes = {
             "aws": {
                 "headNodeInstanceType": "t3.medium",  # camelCase for GraphQL
                 "keyPair": "default",  # This should be configurable
@@ -151,8 +120,9 @@ async def create_cluster(
             import json
 
             config_data = json.loads(config_file.read_text())
-            # Merge config file data with input
-            cluster_input.update(config_data)
+            # Merge config file data
+            if "providerAttributes" in config_data:
+                provider_attributes = config_data["providerAttributes"]
         except Exception as e:
             raise Abort(
                 f"Failed to read configuration file: {e}",
@@ -160,69 +130,37 @@ async def create_cluster(
                 log_message=f"Config file error: {e}",
             )
 
-    variables = {"createClusterInput": cluster_input}
-
     try:
-        # Create async GraphQL client
-        logger.debug(f"CTX OBJ: {ctx.obj}")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, ctx.obj.profile)
+        # Use SDK to create cluster
+        if verbose:
+            ctx.obj.console.print(
+                f"[bold blue]Creating cluster '{cluster_name}' on {cloud}...[/bold blue]"
+            )
 
-        # Execute the mutation
-        logger.debug(f"Creating cluster: {cluster_name}")
-        ctx.obj.console.print(
-            f"[bold blue]Creating cluster '{cluster_name}' on {cloud}...[/bold blue]"
+        # Create cluster using SDK
+        cluster = await cluster_sdk.create_cluster(
+            ctx=ctx,
+            name=cluster_name,
+            provider=provider_mapping.get(cloud, "on_prem"),
+            description=f"Cluster {cluster_name} created via CLI",
+            provider_attributes=provider_attributes,
         )
 
-        response_data = await graphql_client.execute_async(create_mutation, variables)
 
-        # Handle the response
-        create_result = response_data.get("createCluster")
+        # Use formatter to render the created cluster
+        formatter.render_create(
+            data=cluster.model_dump(),
+            resource_name="Cluster",
+        )
 
-        if not create_result:
-            raise Abort(
-                "No response from server",
-                subject="Server Error",
-                log_message="Empty response from createCluster mutation",
-            )
-
-        # Check for errors in the response
-        if "message" in create_result:
-            # This is an error response
-            error_message = create_result["message"]
-            ctx.obj.console.print(
-                f"[bold red]Failed to create cluster: {error_message}[/bold red]"
-            )
-            raise Abort(
-                f"Cluster creation failed: {error_message}",
-                subject="Cluster Creation Failed",
-                log_message=f"GraphQL error: {error_message}",
-            )
-
-        # Success case - cluster was created
-        if "name" in create_result:
-            ctx.obj.console.print(
-                f"[bold green]✓ Cluster '{create_result['name']}' created successfully![/bold green]"
-            )
-            ctx.obj.console.print()
-
-            # Display detailed cluster information
-            cluster_table = render_cluster_details(create_result)
-            ctx.obj.console.print(cluster_table)
-
-            # Deploy application if --app option was provided
-            if app:
-                await deploy_app_to_cluster(ctx, create_result, app)
-
-        else:
-            ctx.obj.console.print(
-                "[bold yellow]Cluster creation initiated but status unclear[/bold yellow]"
-            )
+        # Deploy application if --app option was provided
+        if app:
+            await deploy_app_to_cluster(ctx, cluster, app)
 
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages
         raise
     except Exception as e:
-        logger.error(f"Unexpected error creating cluster: {e}")
         raise Abort(
             "An unexpected error occurred while creating the cluster.",
             subject="Unexpected Error",
@@ -230,7 +168,7 @@ async def create_cluster(
         )
 
 
-async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name: str):
+async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: str):
     """Deploy an application to the newly created cluster."""
     try:
         # Get available apps
@@ -241,7 +179,7 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
             return
 
         ctx.obj.console.print(
-            f"[bold blue]Deploying app '{app_name}' to cluster '{cluster_data['name']}'...[/bold blue]"
+            f"[bold blue]Deploying app '{app_name}' to cluster '{cluster.name}'...[/bold blue]"
         )
 
         # Get the app info
@@ -252,61 +190,26 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
             # Function-based app
             create_function = app_info["create_function"]
 
-            # Generate a unique deployment ID and deployment name
-            deployment_id = str(uuid.uuid4())
-            deployment_name = f"{app_name}-{cluster_data['name']}-{uuid.uuid4().hex[:8]}"
+            # Fetch sssd_binder_password from organization extra attributes
+            if extra_attrs := await get_extra_attributes(ctx):
+                if sssd_binder_password := extra_attrs.get("sssd_binder_password"):
+                    cluster.sssd_binder_password = sssd_binder_password
 
-            # Add deployment_name to cluster_data so apps can use it
-            cluster_data["deployment_name"] = deployment_name
-
-            await create_function(ctx, cluster_data)
-
-            track_deployment(
-                deployment_id=deployment_id,
-                app_name=app_name,
-                cluster_name=cluster_data["name"],
-                cluster_data=cluster_data,
-                deployment_name=deployment_name,
-                console=ctx.obj.console,
-                additional_metadata={
-                    "deployment_method": "vantage cluster create --app",
-                    "cluster_created": True,
-                    "app_type": "function-based",
-                },
-            )
+            await create_function(ctx, cluster)
 
             ctx.obj.console.print(
                 f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
             )
+
         elif "instance" in app_info:
             # Class-based app
             app_instance = app_info["instance"]
 
             # Check if the app has a deploy method
-            if hasattr(app_instance, "deploy"):
-                # Generate a unique deployment ID and deployment name
-                deployment_id = str(uuid.uuid4())
-                deployment_name = f"{app_name}-{cluster_data['name']}-{uuid.uuid4().hex[:8]}"
-
-                # Add deployment_name to cluster_data so apps can use it
-                cluster_data["deployment_name"] = deployment_name
+            if hasattr(app_instance, "create"):
 
                 # Call the app's create method
-                await app_instance.create(ctx)
-
-                track_deployment(
-                    deployment_id=deployment_id,
-                    app_name=app_name,
-                    cluster_name=cluster_data["name"],
-                    cluster_data=cluster_data,
-                    deployment_name=deployment_name,
-                    console=ctx.obj.console,
-                    additional_metadata={
-                        "deployment_method": "vantage cluster create --app",
-                        "cluster_created": True,
-                        "app_type": "class-based",
-                    },
-                )
+                await app_instance.create(ctx, cluster)
 
                 ctx.obj.console.print(
                     f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
@@ -327,7 +230,6 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name
             )
 
     except Exception as e:
-        logger.error(f"Failed to deploy app '{app_name}': {e}")
         ctx.obj.console.print(f"[bold red]✗ Failed to deploy app '{app_name}': {e}[/bold red]")
         ctx.obj.console.print(
             "[dim]The cluster was created successfully, but app deployment failed.[/dim]"

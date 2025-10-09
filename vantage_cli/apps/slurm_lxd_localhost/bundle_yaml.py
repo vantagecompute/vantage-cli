@@ -15,7 +15,7 @@
 
 from typing import Any, Dict
 
-VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
+VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML: Dict[str, Any] = {
     "applications": {
         "apptainer": {
             "charm": "apptainer",
@@ -133,6 +133,14 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "to": ["5"],
             "constraints": "arch=amd64 cores=4 mem=8192 virt-type=virtual-machine",
         },
+        "slurmrestd": {
+            "charm": "slurmrestd",
+            "base": "ubuntu@24.04/stable",
+            "channel": "latest/edge",
+            "num_units": 1,
+            "to": ["6"],
+            "constraints": "arch=amd64",
+        },
     },
     "machines": {
         "0": {
@@ -159,23 +167,29 @@ VANTAGE_JUPYTERHUB_YAML: Dict[str, Any] = {
             "constraints": "arch=amd64 cores=4 mem=8192 virt-type=virtual-machine",
             "base": "ubuntu@24.04/stable",
         },
+        "6": {
+            "constraints": "arch=amd64",
+            "base": "ubuntu@24.04/stable",
+        },
     },
     "relations": [
+        ["slurmdbd:slurmctld", "slurmctld:slurmdbd"],
+        ["slurmd:slurmctld", "slurmctld:slurmd"],
+        ["slurmrestd:slurmctld", "slurmctld:slurmrestd"],
+        ["sackd:slurmctld", "slurmctld:login-node"],
+        ["mysql:database", "slurmdbd:database"],
+        ["influxdb:query", "slurmctld:influxdb"],
+        ["vantage-jupyterhub-nfs-client:juju-info", "slurmd:juju-info"],
+        ["vantage-jupyterhub:filesystem", "vantage-jupyterhub-nfs-client:filesystem"],
+        ["vantage-agent:juju-info", "sackd:juju-info"],
+        ["jobbergate-agent:juju-info", "sackd:juju-info"],
+        ["vantage-sssd:juju-info", "sackd:juju-info"],
+        ["vantage-sssd:juju-info", "slurmctld:juju-info"],
+        ["vantage-sssd:juju-info", "slurmd:juju-info"],
         ["apptainer:oci-runtime", "slurmctld:oci-runtime"],
         ["apptainer:juju-info", "slurmctld:juju-info"],
         ["apptainer:juju-info", "sackd:juju-info"],
         ["apptainer:juju-info", "slurmd:juju-info"],
-        ["slurmdbd:database", "mysql:database"],
-        ["slurmctld:influxdb", "influxdb:query"],
-        ["slurmdbd:slurmctld", "slurmctld:slurmdbd"],
-        ["slurmd:slurmctld", "slurmctld:slurmd"],
-        ["sackd:slurmctld", "slurmctld:login-node"],
-        ["vantage-jupyterhub-nfs-client:juju-info", "slurmd:juju-info"],
-        ["vantage-jupyterhub:filesystem", "vantage-jupyterhub-nfs-client:filesystem"],
-        ["sackd:juju-info", "vantage-agent:juju-info"],
-        ["sackd:juju-info", "jobbergate-agent:juju-info"],
-        ["sackd:juju-info", "vantage-sssd:juju-info"],
-        ["slurmctld:juju-info", "vantage-sssd:juju-info"],
-        ["slurmd:juju-info", "vantage-sssd:juju-info"],
+  
     ],
 }

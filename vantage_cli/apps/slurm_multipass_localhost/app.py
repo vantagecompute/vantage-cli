@@ -41,7 +41,7 @@ from vantage_cli.constants import (
     MULTIPASS_CLOUD_IMAGE_URL,
 )
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.sdk.cluster.schema import VantageClusterContext
+from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 
 from .constants import APP_NAME
 from .templates import CloudInitTemplate
@@ -156,12 +156,12 @@ def _launch_vm_instance(
         raise RuntimeError(f"Error launching multipass instance: {e}")
 
 
-async def _create_deployment(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+async def _create_deployment(ctx: typer.Context, cluster_obj: Cluster) -> None:
     """Internal function to create a single-node SLURM cluster using Multipass.
 
     Args:
         ctx: Typer context containing settings and configuration
-        cluster_data: Dictionary containing cluster configuration including client credentials
+        cluster_obj: Cluster object containing cluster configuration including client credentials
 
     Raises:
         typer.Exit: If deployment fails due to missing dependencies or invalid configuration
@@ -169,23 +169,22 @@ async def _create_deployment(ctx: typer.Context, cluster_data: Dict[str, Any]) -
     console = ctx.obj.console
     verbose = ctx.obj.verbose
     json_output = ctx.obj.json_output
-    #dev_run = ctx.obj.dev_run
     command_start_time = ctx.obj.command_start_time
 
-    cluster_name = cluster_data["name"]
+    cluster_name = cluster_obj.name
 
-    client_id, client_secret = validate_client_credentials(cluster_data, console)
+    client_id, client_secret = validate_client_credentials(cluster_obj, console)
     
     # Import locally to avoid circular import
     from vantage_cli.commands.cluster.utils import get_cluster_client_secret
     client_secret = await get_cluster_client_secret(ctx=ctx, client_id=client_id)
 
     deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
-    deployment_name = cluster_data.get("deployment_name", f"multipass-singlenode-{client_id.split('-')[0]}")
+    deployment_name = f"multipass-singlenode-{client_id.split('-')[0]}"
 
     org_id = ctx.obj.persona.identity_data.org_id
-    jupyterhub_token = get_jupyterhub_token(cluster_data)
-    sssd_binder_password = get_sssd_binder_password(cluster_data)
+    jupyterhub_token = get_jupyterhub_token(cluster_obj)
+    sssd_binder_password = get_sssd_binder_password(cluster_obj)
 
     deployment_context = VantageClusterContext(
         cluster_name=cluster_name,
@@ -207,7 +206,7 @@ async def _create_deployment(ctx: typer.Context, cluster_data: Dict[str, Any]) -
         deployment_id=deployment_id,
         app_name=APP_NAME,
         cluster_name=cluster_name,
-        cluster_data=cluster_data,
+        cluster=cluster_obj,
         console=console,
         deployment_name=deployment_name,
         verbose=verbose,
@@ -284,17 +283,17 @@ async def _create_deployment(ctx: typer.Context, cluster_data: Dict[str, Any]) -
 
 
 # Core implementation functions
-async def create(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:
+async def create(ctx: typer.Context, cluster_obj: Cluster) -> None:
     """Create a single-node SLURM cluster using Multipass.
 
     Args:
         ctx: Typer context containing settings and configuration
-        cluster_data: Dictionary containing cluster configuration including client credentials
+        cluster_obj: Cluster object containing cluster configuration including client credentials
 
     Raises:
         typer.Exit: If deployment fails due to missing dependencies or invalid configuration
     """
-    await _create_deployment(ctx=ctx, cluster_data=cluster_data)
+    await _create_deployment(ctx=ctx, cluster_obj=cluster_obj)
 
 
 # Command functions that the deployment system will discover
@@ -317,11 +316,14 @@ async def create_command(
     from vantage_cli.commands.cluster import utils as cluster_utils
 
     if dev_run:
-        cluster_data = generate_dev_cluster_data(cluster_name)
-        await create(ctx=ctx, cluster_data=cluster_data)
+        cluster_obj = generate_dev_cluster_data(cluster_name)
     else:
-        cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
-        await create(ctx=ctx, cluster_data=cluster_data)
+        cluster_obj = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+        if cluster_obj is None:
+            raise ValueError(f"Cluster '{cluster_name}' not found")
+    
+    # Pass Cluster object directly to create function
+    await create(ctx=ctx, cluster_obj=cluster_obj)
 
 
 async def remove(ctx: typer.Context, cluster_data: Dict[str, Any]) -> None:

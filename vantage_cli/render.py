@@ -1394,25 +1394,16 @@ class UniversalOutputFormatter:
         if not items:
             return
 
-        # Get actual terminal width for dynamic sizing
-        import os
-
-        try:
-            terminal_width = os.get_terminal_size().columns
-        except:
-            terminal_width = 120  # fallback
-
-        # Create Rich table with dynamic width constraint
+        # Create Rich table with proper formatting and auto-scaling
         table = Table(
             title=title if title else None,
             show_header=True,
             header_style="bold magenta",
-            width=min(terminal_width - 4, 200),  # Responsive width with max of 200
-            expand=False,  # Don't expand beyond our calculated width
-            padding=(0, 1),  # Standard padding
-            show_edge=True,
-            box=box.ROUNDED,  # Nice rounded borders like Rich tables
+            box=box.ROUNDED,
             border_style="blue",
+            padding=(0, 1),
+            expand=False,  # Don't expand beyond content, but let Rich wrap columns
+            width=None,  # Let Rich determine width based on console
         )
 
         # Get all unique keys from items
@@ -1439,41 +1430,20 @@ class UniversalOutputFormatter:
 
         sorted_keys.extend(sorted(all_keys))
 
-        # Add columns with smart ratio-based sizing within 150 chars
-        num_columns = len(sorted_keys)
-
+        # Add columns with proportional sizing for auto-scaling
         for key in sorted_keys:
             header = self._format_column_header(key)
-
-            # Use optimized ratio-based column sizing for best proportional fit
-            # Ratios based on typical content length analysis for balanced display
-            if key in ["id"]:
-                # IDs are short - minimal space needed
-                ratio = 1
-            elif key in ["name", "title"]:
-                # Names are moderate length - medium space
-                ratio = 3
-            elif key in ["description", "summary", "details"]:
-                # Descriptions are longest - need most space
-                ratio = 6
-            elif key in ["module", "path", "file", "endpoint", "url"]:
-                # Module paths are long but structured - substantial space
-                ratio = 4
-            elif key in ["status", "state", "type", "kind"]:
-                # Status fields are short - minimal space
-                ratio = 1
+            
+            # Set column properties based on content type
+            if key in ["description", "summary", "details"]:
+                # Longer text fields - allow wrapping
+                table.add_column(header, overflow="fold", no_wrap=False)
+            elif key in ["id", "client_id", "clientId"]:
+                # IDs should not wrap
+                table.add_column(header, overflow="ellipsis", no_wrap=True)
             else:
-                # Other fields get balanced medium ratio
-                ratio = 2
-
-            table.add_column(
-                header,
-                ratio=ratio,  # Proportional width distribution
-                overflow="ellipsis",  # Truncate with "..." instead of wrapping
-                justify="left",
-                min_width=8,  # Minimum readable width
-                no_wrap=True,  # Never wrap text, always truncate
-            )
+                # Default columns
+                table.add_column(header, overflow="fold")
 
         # Add rows
         for item in items:
@@ -1557,9 +1527,17 @@ class UniversalOutputFormatter:
         return final_widths
 
     def _render_dict_as_table(self, item: Dict[str, Any], title: str) -> None:
-        """Render a single dictionary as a details table."""
-        table = Table(title=f"📋 {title}", show_header=True, header_style="bold cyan")
-        table.add_column("Field", style="cyan", width=20)
+        """Render a single dictionary as a details table with auto-scaling."""
+        from rich import box
+        
+        table = Table(
+            title=f"📋 {title}", 
+            show_header=True, 
+            header_style="bold magenta",  # Match list table header style
+            box=box.ROUNDED,
+            border_style="blue",
+        )
+        table.add_column("Field", style="cyan", no_wrap=True)
         table.add_column("Value", style="white")
 
         # Sort keys with common ones first

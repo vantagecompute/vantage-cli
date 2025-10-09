@@ -13,21 +13,23 @@
 
 from textwrap import dedent
 
+from vantage_cli.sdk.deployment.schema import Deployment
+
 
 __all__ = []
 
 
-def success_create_message(cluster_name: str, client_id: str, deployment_id: str) -> str:
+def success_create_message(deployment: Deployment) -> str:
     return dedent(
         f"""\
         🎉 [bold green]Charmed HPC Juju deployment completed successfully![/bold green]
 
-        Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compute/clusters/{client_id}[/cyan]
-        
+        Access your cluster in the Vantage UI: [cyan]https://app.vantagecompute.ai/compute/clusters/{deployment.cluster.client_id}[/cyan]
+
         [bold]Deployment Summary:[/bold]
-        • Juju controller: [cyan]{cluster_name}-controller[/cyan]
-        • Juju model: [cyan]{cluster_name}-model[/cyan]
-        • Deployment ID: [cyan]{deployment_id}[/cyan]
+        • Juju controller: [cyan]{deployment.cluster.name}-controller[/cyan]
+        • Juju model: [cyan]{deployment.cluster.name}-model[/cyan]
+        • Deployment ID: [cyan]{deployment.id}[/cyan]
         • Container environment: [cyan]LXD containers[/cyan]
         
         [bold]Connect to Charmed HPC Cluster:[/bold]
@@ -63,12 +65,12 @@ def success_create_message(cluster_name: str, client_id: str, deployment_id: str
         """
     )
 
-def success_destroy_message(cluster_name: str) -> str:
+def success_destroy_message(deployment: Deployment) -> str:
     return dedent(
         f"""\
         ✅ [bold green]Charmed HPC cleanup completed successfully![/bold green]
 
-        The Juju model '{cluster_name}-model' has been destroyed and all resources have been cleaned up.
+        The Juju model '{deployment.cluster.name}-model' has been destroyed and all resources have been cleaned up.
 
         [bold]Next Steps:[/bold]
         • Verify removal: [cyan]juju models[/cyan]

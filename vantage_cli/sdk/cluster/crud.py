@@ -46,33 +46,240 @@ class ClusterSDK(BaseGraphQLResourceSDK):
         }
         """
 
-    async def create(
+    def _get_single_query(self) -> str:
+        """Get the GraphQL query for fetching a single cluster.
+
+        The GraphQL API supports filtering via the filters parameter. We use
+        the name filter with an 'eq' operator to fetch a specific cluster.
+        
+        Returns:
+            GraphQL query string for fetching a single cluster by name
+        """
+        return """
+        query getClusters($first: Int!, $filters: JSONScalar) {
+            clusters(first: $first, filters: $filters) {
+                edges {
+                    node {
+                        name
+                        status
+                        clientId
+                        description
+                        ownerEmail
+                        provider
+                        cloudAccountId
+                        creationParameters
+                    }
+                }
+            }
+        }
+        """
+
+    async def get(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, ctx: typer.Context, resource_id: str, **kwargs: Any
+    ) -> Optional[Cluster]:
+        """Get a specific cluster by name using GraphQL query with filtering.
+
+        This method uses the GraphQL filters parameter to query for a specific
+        cluster by name, which is more efficient than fetching all clusters.
+
+        Args:
+            ctx: Typer context with settings and console
+            resource_id: Cluster name to retrieve
+            **kwargs: Additional parameters
+
+        Returns:
+            Cluster object or None if not found
+        """
+        try:
+            # Use GraphQL filters to query for specific cluster by name
+            # Filter syntax: {"name": {"eq": "cluster-name"}}
+            variables = {
+                "first": 1,  # We only expect one result
+                "filters": {"name": {"eq": resource_id}},
+            }
+            query = self._get_single_query()
+
+            data = await self._execute_graphql_query(ctx, query, variables)
+
+            # Extract cluster from GraphQL connection structure
+            edges = data.get("clusters", {}).get("edges", [])
+            
+            if edges:
+                cluster_data = edges[0]["node"]
+                # Convert to Cluster object
+                return Cluster(
+                    name=cluster_data.get("name", ""),
+                    status=cluster_data.get("status", "unknown"),
+                    client_id=cluster_data.get("clientId", ""),
+                    client_secret=cluster_data.get("clientSecret"),  # May be None
+                    description=cluster_data.get("description", ""),
+                    owner_email=cluster_data.get("ownerEmail", ""),
+                    provider=cluster_data.get("provider", "unknown"),
+                    cloud_account_id=cluster_data.get("cloudAccountId"),
+                    creation_parameters=cluster_data.get("creationParameters", {}),
+                )
+
+            return None
+
+        except Exception:
+            # Re-raise to let the base class error handling deal with it
+            raise
+
+    def _get_create_mutation(self) -> str:
+        """Get the GraphQL mutation for creating a cluster."""
+        return """
+        mutation createCluster($createClusterInput: CreateClusterInput!) {
+            createCluster(createClusterInput: $createClusterInput) {
+                ... on Cluster {
+                    name
+                    status
+                    clientId
+                    description
+                    ownerEmail
+                    provider
+                    cloudAccountId
+                    creationParameters
+                }
+                ... on ClusterNameInUse {
+                    message
+                }
+                ... on InvalidInput {
+                    message
+                }
+                ... on ClusterCouldNotBeDeployed {
+                    message
+                }
+                ... on UnexpectedBehavior {
+                    message
+                }
+            }
+        }
+        """
+
+    async def create(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, ctx: typer.Context, resource_data: Dict[str, Any], **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> Cluster:
         """Create a new cluster.
 
-        Note: Cluster creation is not yet implemented in the GraphQL API.
-        This is a placeholder for future implementation.
-        """
-        raise NotImplementedError("Cluster creation is not yet implemented")
+        Args:
+            ctx: Typer context with settings and console
+            resource_data: Dictionary containing cluster creation parameters:
+                - name: Cluster name (required)
+                - description: Cluster description (optional)
+                - provider: Cloud provider (required) - "on_prem", "aws", etc.
+                - providerAttributes: Provider-specific configuration (optional)
+            **kwargs: Additional parameters
 
-    async def update(
+        Returns:
+            Created Cluster object
+
+        Raises:
+            Exception: If cluster creation fails or name is already in use
+        """
+        mutation = self._get_create_mutation()
+        variables = {"createClusterInput": resource_data}
+
+        data = await self._execute_graphql_query(ctx, mutation, variables)
+        result = data.get("createCluster", {})
+
+        # Check for error responses
+        if "message" in result and "name" not in result:
+            error_message = result.get("message", "Unknown error")
+            raise Exception(f"Failed to create cluster: {error_message}")
+
+        # Convert to Cluster object
+        return Cluster(
+            name=result.get("name", ""),
+            status=result.get("status", "unknown"),
+            client_id=result.get("clientId", ""),
+            client_secret=None,  # clientSecret not returned by API
+            description=result.get("description", ""),
+            owner_email=result.get("ownerEmail", ""),
+            provider=result.get("provider", "unknown"),
+            cloud_account_id=result.get("cloudAccountId"),
+            creation_parameters=result.get("creationParameters", {}),
+        )
+
+    def _get_delete_mutation(self) -> str:
+        """Get the GraphQL mutation for deleting a cluster."""
+        return """
+        mutation deleteCluster($clusterName: String!) {
+            deleteCluster(clusterName: $clusterName) {
+                ... on ClusterDeleted {
+                    message
+                }
+                ... on ClusterNotFound {
+                    message
+                }
+                ... on InvalidProviderInput {
+                    message
+                }
+                ... on UnexpectedBehavior {
+                    message
+                }
+            }
+        }
+        """
+
+    async def update(  # pyright: ignore[reportIncompatibleMethodOverride]
         self, ctx: typer.Context, resource_id: str, resource_data: Dict[str, Any], **kwargs: Any
-    ) -> Dict[str, Any]:
+    ) -> Cluster:
         """Update an existing cluster.
 
-        Note: Cluster updates are not yet implemented in the GraphQL API.
-        This is a placeholder for future implementation.
+        Args:
+            ctx: Typer context with settings and console
+            resource_id: Cluster name to update
+            resource_data: Dictionary containing fields to update
+            **kwargs: Additional parameters
+
+        Returns:
+            Updated Cluster object
+
+        Raises:
+            NotImplementedError: Cluster updates are not currently supported by the GraphQL API
+        
+        Note: The Vantage GraphQL API does not currently support cluster updates.
+        This method is included for API completeness but will raise NotImplementedError.
         """
-        raise NotImplementedError("Cluster updates are not yet implemented")
+        raise NotImplementedError(
+            "Cluster updates are not currently supported by the Vantage API. "
+            "To modify a cluster, you must delete and recreate it."
+        )
 
     async def delete(self, ctx: typer.Context, resource_id: str, **kwargs: Any) -> bool:
         """Delete a cluster.
 
-        Note: Cluster deletion is not yet implemented in the GraphQL API.
-        This is a placeholder for future implementation.
+        Args:
+            ctx: Typer context with settings and console
+            resource_id: Cluster name to delete
+            **kwargs: Additional parameters
+
+        Returns:
+            True if deletion was successful
+
+        Raises:
+            Exception: If cluster deletion fails or cluster not found
         """
-        raise NotImplementedError("Cluster deletion is not yet implemented")
+        mutation = self._get_delete_mutation()
+        variables = {"clusterName": resource_id}
+
+        data = await self._execute_graphql_query(ctx, mutation, variables)
+        result = data.get("deleteCluster", {})
+
+        # Check for successful deletion
+        if "ClusterDeleted" in str(type(result).__name__) or (
+            "message" in result and "deleted" in result["message"].lower()
+        ):
+            return True
+
+        # Check for error responses
+        if "message" in result:
+            error_message = result.get("message", "Unknown error")
+            if "not found" in error_message.lower():
+                raise Exception(f"Cluster not found: {resource_id}")
+            raise Exception(f"Failed to delete cluster: {error_message}")
+
+        return True
 
     async def list_clusters(self, ctx: typer.Context, **kwargs: Any) -> List[Cluster]:
         """List all clusters as Cluster objects.
@@ -94,7 +301,7 @@ class ClusterSDK(BaseGraphQLResourceSDK):
                     name=cluster_data.get("name", ""),
                     status=cluster_data.get("status", "unknown"),
                     client_id=cluster_data.get("clientId", ""),
-                    client_secret=cluster_data.get("clientSecret"),  # May be None for list operations
+                    client_secret=cluster_data.get("clientSecret"),  # Will be None for list operations
                     description=cluster_data.get("description", ""),
                     owner_email=cluster_data.get("ownerEmail", ""),
                     provider=cluster_data.get("provider", "unknown"),
@@ -102,10 +309,8 @@ class ClusterSDK(BaseGraphQLResourceSDK):
                     creation_parameters=cluster_data.get("creationParameters", {}),
                 )
                 clusters.append(cluster)
-            except Exception as e:
-                from loguru import logger
-
-                logger.warning(f"Failed to parse cluster data: {e}")
+            except Exception:
+                # Skip clusters that fail to parse
                 continue
 
         return clusters
@@ -115,6 +320,8 @@ class ClusterSDK(BaseGraphQLResourceSDK):
     ) -> Optional[Cluster]:
         """Get a specific cluster as a Cluster object.
 
+        This is an alias for the get() method for consistency with list_clusters().
+
         Args:
             ctx: Typer context
             cluster_name: Name of the cluster to retrieve
@@ -123,29 +330,63 @@ class ClusterSDK(BaseGraphQLResourceSDK):
         Returns:
             Cluster object or None if not found
         """
-        # Get raw cluster data from the base get method
-        cluster_data = await self.get(ctx, cluster_name, **kwargs)
+        return await self.get(ctx, cluster_name, **kwargs)
 
-        if not cluster_data:
-            return None
+    async def create_cluster(
+        self,
+        ctx: typer.Context,
+        name: str,
+        provider: str,
+        description: Optional[str] = None,
+        provider_attributes: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> Cluster:
+        """Create a new cluster with simplified parameters.
 
-        try:
-            return Cluster(
-                name=cluster_data.get("name", ""),
-                status=cluster_data.get("status", "unknown"),
-                client_id=cluster_data.get("clientId", ""),
-                client_secret=cluster_data.get("clientSecret"),  # May be None
-                description=cluster_data.get("description", ""),
-                owner_email=cluster_data.get("ownerEmail", ""),
-                provider=cluster_data.get("provider", "unknown"),
-                cloud_account_id=cluster_data.get("cloudAccountId"),
-                creation_parameters=cluster_data.get("creationParameters", {}),
-            )
-        except Exception as e:
-            from loguru import logger
+        Args:
+            ctx: Typer context
+            name: Cluster name
+            provider: Cloud provider ("on_prem", "aws", "gcp", "azure")
+            description: Optional cluster description
+            provider_attributes: Optional provider-specific configuration
+            **kwargs: Additional parameters
 
-            logger.error(f"Failed to parse cluster data for '{cluster_name}': {e}")
-            return None
+        Returns:
+            Created Cluster object
+
+        Raises:
+            Exception: If cluster creation fails
+        """
+        resource_data: Dict[str, Any] = {
+            "name": name,
+            "provider": provider,
+            "description": description or f"Cluster {name} created via CLI",
+        }
+
+        if provider_attributes:
+            resource_data["providerAttributes"] = provider_attributes
+
+        return await self.create(ctx, resource_data, **kwargs)
+
+    async def delete_cluster(
+        self, ctx: typer.Context, cluster_name: str, **kwargs: Any
+    ) -> bool:
+        """Delete a cluster by name.
+
+        This is an alias for the delete() method for consistency with other cluster methods.
+
+        Args:
+            ctx: Typer context
+            cluster_name: Name of the cluster to delete
+            **kwargs: Additional parameters
+
+        Returns:
+            True if deletion was successful
+
+        Raises:
+            Exception: If cluster deletion fails
+        """
+        return await self.delete(ctx, cluster_name, **kwargs)
 
 
 # Create a singleton instance for use in commands

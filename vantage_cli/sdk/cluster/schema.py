@@ -55,6 +55,7 @@ class Cluster(BaseModel):
     provider: str
     cloud_account_id: Optional[str] = None
     creation_parameters: Dict[str, Any] = {}
+    sssd_binder_password: Optional[str] = None
 
     @computed_field
     @property

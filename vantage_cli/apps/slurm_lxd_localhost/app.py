@@ -29,26 +29,25 @@ from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
     create_deployment_with_init_status,
-    generate_default_deployment_name,
     generate_dev_cluster_data,
-    get_jupyterhub_token,
-    get_sssd_binder_password,
-    update_deployment_status,
     validate_client_credentials,
 )
-from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
+from vantage_cli.apps.constants import DEV_CLIENT_SECRET, DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
 from vantage_cli.apps.slurm_lxd_localhost.utils import (
     SuppressOutput,
     check_juju_available,
 )
 from vantage_cli.config import attach_settings
+from vantage_cli.auth import attach_persona
 from vantage_cli.constants import (
     CLOUD_TYPE_CONTAINER,
 )
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.sdk.cluster.schema import VantageClusterContext
+from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
+from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
 
-from .bundle_yaml import VANTAGE_JUPYTERHUB_YAML
+from .bundle_yaml import VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML
 from .constants import (
     APP_NAME,
     CLOUD as CLOUD_LOCALHOST,
@@ -79,7 +78,7 @@ def _build_vantage_sssd_secret_args(ctx: Any) -> list[str]:
     ]
 
 def _prepare_bundle(ctx: Any, model_name: str, vantage_jupyterhub_config_secret_id: str, vantage_sssd_config_secret_id: str) -> dict[str, Any]:
-    bundle_yaml = copy.deepcopy(VANTAGE_JUPYTERHUB_YAML)
+    bundle_yaml = copy.deepcopy(VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML)
     bundle_yaml["applications"]["slurmctld"]["options"]["cluster-name"] = model_name
     va_opts = bundle_yaml["applications"]["vantage-agent"]["options"]
     jb_opts = bundle_yaml["applications"]["jobbergate-agent"]["options"]
@@ -165,16 +164,14 @@ async def _configure_jobbergate_influxdb(model) -> None:
     await jobbergate_agent.set_config({"jobbergate-agent-influx-dsn": influxdb_uri})
 
 
-async def deploy_juju_localhost(vantage_ctx: Any, deployment_name: str) -> None | typer.Exit:
+async def deploy_juju_localhost(vantage_ctx: VantageClusterContext) -> None | typer.Exit:
     """Deploy Vantage JupyterHub Charmed HPC cluster using Juju on localhost (refactored)."""
 
     controller = Controller()
-    model_name = deployment_name  # Use deployment_name as model_name
-
     try:
         await controller.connect()
 
-        model = await controller.add_model(model_name, cloud_name="localhost")
+        model = await controller.add_model(vantage_ctx.client_id, cloud_name=CLOUD_LOCALHOST)
 
         vantage_jupyterhub_config_secret_id = await model.add_secret(
             JUPYTERHUB_SECRET_NAME,
@@ -182,13 +179,13 @@ async def deploy_juju_localhost(vantage_ctx: Any, deployment_name: str) -> None 
         )
 
         vantage_sssd_config_secret_id = await model.add_secret(
-        SSSD_SECRET_NAME,
+            SSSD_SECRET_NAME,
             _build_vantage_sssd_secret_args(vantage_ctx)
         )
 
         bundle_yaml = _prepare_bundle(
             vantage_ctx,
-            model_name=model_name,
+            model_name=vantage_ctx.client_id,
             vantage_jupyterhub_config_secret_id=vantage_jupyterhub_config_secret_id,
             vantage_sssd_config_secret_id=vantage_sssd_config_secret_id,
         )
@@ -211,13 +208,12 @@ async def deploy_juju_localhost(vantage_ctx: Any, deployment_name: str) -> None 
         return typer.Exit(code=1)
 
 
-async def create(
-    ctx: typer.Context, cluster_data: Dict[str, Any]) -> None | typer.Exit:
+async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     """Create Juju localhost Charmed HPC cluster using cluster data.
 
     Args:
         ctx: Typer context containing CLI configuration
-        cluster_data: Cluster configuration dictionary with client credentials
+        cluster_obj: Cluster object with configuration and client credentials
 
     Raises:
         typer.Exit: If deployment fails due to missing or invalid cluster data
@@ -228,63 +224,53 @@ async def create(
 
     org_id = ctx.obj.persona.identity_data.org_id
 
-    cluster_name = cluster_data["name"]
-    
     # Validate and fetch client credentials
-    client_id, client_secret = validate_client_credentials(cluster_data, console)
+    client_id, client_secret = validate_client_credentials(cluster, console)
     
-    # Import locally to avoid circular import
-    from vantage_cli.commands.cluster.utils import get_cluster_client_secret
-    client_secret = await get_cluster_client_secret(ctx=ctx, client_id=client_id)
-    
-    deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
-
-    sssd_binder_password = get_sssd_binder_password(cluster_data)
-    jupyterhub_token = get_jupyterhub_token(cluster_data)
-
-    create_deployment_with_init_status(
-        deployment_id=deployment_id,
-        app_name=APP_NAME,
-        cluster_name=cluster_name,
-        cluster_data=cluster_data,
-        console=console,
-        verbose=verbose,
-        cloud=CLOUD_LOCALHOST,
-        cloud_type=CLOUD_TYPE_CONTAINER,
-    )
-
-    vantage_ctx = VantageClusterContext(
-        cluster_name=cluster_name,
+    vantage_cluster_ctx = VantageClusterContext(
+        cluster_name=cluster.name,
         client_id=client_id,
         client_secret=client_secret or DEV_CLIENT_SECRET,
         base_api_url=settings.get_apis_url(),
         oidc_base_url=settings.get_auth_url(),
         oidc_domain=settings.oidc_domain,
         tunnel_api_url=settings.get_tunnel_url(),
-        jupyterhub_token=jupyterhub_token or DEV_JUPYTERHUB_TOKEN,
-        sssd_binder_password=sssd_binder_password or DEV_SSSD_BINDER_PASSWORD,
+        jupyterhub_token=cluster.creation_parameters.get("jupyterhub_token") or DEV_JUPYTERHUB_TOKEN,
+        sssd_binder_password=cluster.sssd_binder_password or DEV_SSSD_BINDER_PASSWORD,
         ldap_url=settings.get_ldap_url(),
         org_id=org_id,
     )
+
+    deployment = create_deployment_with_init_status(
+        app_name=APP_NAME,
+        cluster=cluster,
+        vantage_cluster_ctx=vantage_cluster_ctx,
+        verbose=verbose,
+        cloud_provider=CLOUD_LOCALHOST,
+        substrate=CLOUD_TYPE_CONTAINER,
+    )
+    deployment.write()
+
     try:
-        await deploy_juju_localhost(vantage_ctx, deployment_id)
+        await deploy_juju_localhost(vantage_cluster_ctx)
     except Exception as e:
-        update_deployment_status(deployment_id, "error", console, verbose=verbose)
-        console.print(f"[bold red]Error:[/bold red] Deployment failed: {e}")
+        deployment.status = "error"
+        deployment.write()
+        ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment failed: {e}")
         return typer.Exit(code=1)
     
-    update_deployment_status(deployment_id, "active", console, verbose=verbose)
-    console.print(success_create_message(
-        cluster_name=cluster_name,
-        client_id=cluster_data["clientId"],
-        deployment_id=deployment_id,
-    ))
+    deployment.status = "active"
+    deployment.write()
+
+    ctx.obj.console.print(success_create_message(deployment=deployment))
     return typer.Exit(0)
 
 
 # Typer CLI commands
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def create_command(
     ctx: typer.Context,
     cluster_name: Annotated[
@@ -299,19 +285,24 @@ async def create_command(
     # Check for Juju early before doing any other work
     check_juju_available()
 
-    # Import cluster_utils locally to avoid circular import
-    from vantage_cli.commands.cluster import utils as cluster_utils
 
-    cluster_data = generate_dev_cluster_data(cluster_name)
-    cluster_data["clientSecret"] = DEV_CLIENT_SECRET
+    cluster = generate_dev_cluster_data(cluster_name)
 
     if not dev_run:
-        if (cluster_data := await cluster_utils.get_cluster_by_name(ctx, cluster_name)) is not None:
-            if (client_id := cluster_data.get("clientId")) is not None:
-                if (client_secret := await cluster_utils.get_cluster_client_secret(ctx=ctx, client_id=client_id)) is not None:
-                    cluster_data["clientSecret"] = client_secret
+        from vantage_cli.commands.cluster import utils as cluster_utils
+        if (cluster := await cluster_utils.get_cluster_by_name(ctx, cluster_name)) is not None:
+            if (extra_attrs := await get_extra_attributes(ctx)) is not None:
+                if (sssd_binder_password := extra_attrs.get("sssd_binder_password")) is not None:
+                    cluster.sssd_binder_password = sssd_binder_password
+                else:
+                    raise typer.Exit(code=1)
+            else:
+                raise typer.Exit(code=1)
+        else:
+            raise typer.Exit(code=1)
+    
+    await create(ctx=ctx, cluster=cluster)
 
-    await create(ctx=ctx, cluster_data=cluster_data)
 
 
 async def remove_juju_localhost(ctx: typer.Context, deployment_data: Dict[str, Any]) -> None:

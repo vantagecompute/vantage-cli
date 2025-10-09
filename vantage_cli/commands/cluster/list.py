@@ -12,7 +12,6 @@
 """List clusters command."""
 
 import typer
-from loguru import logger
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
@@ -31,7 +30,6 @@ async def list_clusters(
 
     try:
         # Use the SDK to get clusters
-        logger.debug("Using SDK to list clusters")
         clusters = await cluster_sdk.list_clusters(ctx)
 
         if not clusters:
@@ -43,15 +41,20 @@ async def list_clusters(
         # Convert Cluster objects to dict format for the formatter
         clusters_data = []
         for cluster in clusters:
+            # Access Cluster attributes directly
+            description = cluster.description
+            # Truncate description for list view
+            if description and len(description) > 50:
+                description = description[:47] + "..."
+            
             cluster_dict = {
                 "name": cluster.name,
                 "status": cluster.status,
                 "provider": cluster.provider,
                 "owner_email": cluster.owner_email,
                 "client_id": cluster.client_id,
-                "description": cluster.description[:47] + "..."
-                if cluster.description and len(cluster.description) > 50
-                else cluster.description,
+                "description": description,
+                "cloud_account_id": cluster.cloud_account_id,
             }
             clusters_data.append(cluster_dict)
 
@@ -64,7 +67,6 @@ async def list_clusters(
         # Re-raise Abort exceptions as they contain user-friendly messages
         raise
     except Exception as e:
-        logger.error(f"Unexpected error listing clusters: {e}")
         formatter.render_error(
             error_message="An unexpected error occurred while listing clusters.",
             details={"error": str(e)},

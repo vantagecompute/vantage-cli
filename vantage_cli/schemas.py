@@ -20,7 +20,7 @@ Domain-specific schemas have been moved to their respective SDK modules:
 - Support ticket schemas: vantage_cli.sdk.support_ticket.schema
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 from pydantic import BaseModel
@@ -79,3 +79,4 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
     settings: Optional[Settings] = None
     console: Optional[Console] = None
     command_start_time: Optional[float] = None
+    rest_client: Optional[Any] = None  # VantageRestApiClient (avoid circular import)

@@ -12,7 +12,6 @@
 """Get cluster command for Vantage CLI."""
 
 import typer
-from loguru import logger
 from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
@@ -33,7 +32,6 @@ async def get_cluster(
 
     try:
         # Use SDK to get cluster
-        logger.debug(f"Fetching cluster '{cluster_name}' from SDK")
         cluster = await cluster_sdk.get_cluster(ctx, cluster_name)
 
         if not cluster:
@@ -44,24 +42,30 @@ async def get_cluster(
                 log_message=f"Cluster '{cluster_name}' not found",
             )
 
-        # Convert Cluster object to dict format for the formatter
+        # Access Cluster attributes directly to build data dict
         cluster_data = {
             "name": cluster.name,
             "status": cluster.status,
-            "provider": cluster.provider,
-            "owner_email": cluster.owner_email,
             "client_id": cluster.client_id,
+            "client_secret": cluster.client_secret,
             "description": cluster.description,
+            "owner_email": cluster.owner_email,
+            "provider": cluster.provider,
             "cloud_account_id": cluster.cloud_account_id,
+            "creation_parameters": cluster.creation_parameters,
+            "cluster_type": cluster.cluster_type,
+            "is_ready": cluster.is_ready,
+            "jupyterhub_url": cluster.jupyterhub_url,
+            "jupyterhub_token": cluster.jupyterhub_token,
+            "sssd_binder_password": cluster.sssd_binder_password,
         }
-
+        
         # Use formatter to render the cluster details
         formatter.render_get(data=cluster_data, resource_name="Cluster", resource_id=cluster_name)
 
     except Abort:
         raise
     except Exception as e:
-        logger.error(f"Unexpected error getting cluster '{cluster_name}': {e}")
         formatter.render_error(
             error_message=f"An unexpected error occurred while getting cluster '{cluster_name}'.",
             details={"error": str(e)},

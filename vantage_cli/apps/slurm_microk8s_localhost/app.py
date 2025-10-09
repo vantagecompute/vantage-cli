@@ -27,14 +27,22 @@ from vantage_cli.apps.common import (
     get_sssd_binder_password,
     update_deployment_status,
 )
+from vantage_cli.sdk.cluster.schema import Cluster
 
 from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
 
-from vantage_cli.apps.slurm_microk8s_localhost.utils import get_ssh_keys
-from vantage_cli.apps.utils import (
-    helm_repo_add,
-    helm_repo_update,
-    microk8s_deploy_chart,
+from vantage_cli.apps.slurm_microk8s_localhost.utils import (
+    PrerequisiteStatus,
+    add_helm_repositories,
+    check_prerequisites,
+    create_complete_prerequisite_checks,
+    create_k8s_namespace,
+    get_ssh_keys,
+    install_cert_manager,
+    install_prometheus,
+    install_slurm_cluster,
+    install_slurm_operator,
+    install_slurm_operator_crds,
 )
 
 from vantage_cli.config import attach_settings
@@ -68,120 +76,10 @@ from .constants import (
 from .templates import sssd_conf
 
 
-def _add_helm_repositories() -> None:
-    """Add required Helm repositories."""
-    repos = [
-        ("jetstack", REPO_JETSTACK_URL),
-        ("prometheus-community", REPO_PROMETHEUS_URL),
-        ("jamesbeedy-slinky-slurm", REPO_SLURM_URL),
-    ]
-
-    for name, url in repos:
-        if not helm_repo_add(name, url, update=False):
-            raise subprocess.CalledProcessError(
-                1, ["helm", "repo", "add"], stderr=f"Failed to add repository {name}"
-            )
-
-    # Update all repositories at once
-    if not helm_repo_update():
-        raise subprocess.CalledProcessError(
-            1, ["helm", "repo", "update"], stderr="Failed to update Helm repositories"
-        )
-
-
-def _install_cert_manager() -> None:
-    """Install cert-manager with Helm."""
-    set_values = {"crds.enabled": "true"}
-
-    success = microk8s_deploy_chart(
-        namespace=DEFAULT_NAMESPACE_CERT_MANAGER,
-        release_name=DEFAULT_RELEASE_CERT_MANAGER,
-        chart_repo=CHART_CERT_MANAGER,
-        set_values=set_values,
-        timeout="300s",
-        upgrade=True,
-    )
-
-    if not success:
-        raise subprocess.CalledProcessError(
-            1, ["helm", "install"], stderr="Failed to install cert-manager"
-        )
-
-
-def _install_prometheus() -> None:
-    """Install Prometheus with Helm."""
-    success = microk8s_deploy_chart(
-        namespace=DEFAULT_NAMESPACE_PROMETHEUS,
-        release_name=DEFAULT_RELEASE_PROMETHEUS,
-        chart_repo=CHART_PROMETHEUS,
-        timeout="300s",
-        upgrade=True,
-    )
-
-    if not success:
-        raise subprocess.CalledProcessError(
-            1, ["helm", "install"], stderr="Failed to install Prometheus"
-        )
-
-
-def _install_slurm_operator_crds() -> None:
-    """Install SLURM operator CRDs."""
-    # For CRDs, we need to use global namespace (pass empty string instead of None)
-    success = microk8s_deploy_chart(
-        namespace="",  # CRDs are cluster-scoped, empty string for global
-        release_name=DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
-        chart_repo=CHART_SLURM_OPERATOR_CRDS,
-        timeout="300s",
-        upgrade=True,
-    )
-
-    if not success:
-        raise subprocess.CalledProcessError(
-            1, ["helm", "install"], stderr="Failed to install SLURM operator CRDs"
-        )
-
-
-def _install_slurm_operator() -> None:
-    """Install SLURM operator."""
-    success = microk8s_deploy_chart(
-        namespace=DEFAULT_NAMESPACE_SLINKY,
-        release_name=DEFAULT_RELEASE_SLURM_OPERATOR,
-        chart_repo=CHART_SLURM_OPERATOR,
-        timeout="300s",
-        upgrade=True,
-    )
-
-    if not success:
-        raise subprocess.CalledProcessError(
-            1, ["helm", "install"], stderr="Failed to install SLURM operator"
-        )
-
-
-def _install_slurm_cluster(set_values: Dict[str, str] = {}) -> None:
-    """Install SLURM cluster."""
-
-    success = microk8s_deploy_chart(
-        namespace=DEFAULT_NAMESPACE_SLURM,
-        release_name=DEFAULT_RELEASE_SLURM_CLUSTER,
-        chart_repo=CHART_SLURM_CLUSTER,
-        chart_values=CHART_VALUES_SLURM_CLUSTER,
-        set_values=set_values,
-        timeout="300s",
-        upgrade=True,
-    )
-
-    if not success:
-        raise subprocess.CalledProcessError(
-            1, ["helm", "install"], stderr="Failed to install SLURM cluster"
-        )
-
-
 async def create(
     ctx: typer.Context,
-    cluster_data: Dict[str, Any],
+    cluster_obj: Cluster,
     verbose: bool = False,
-    force: bool = False,
-    renderer: Optional[RenderStepOutput] = None,
 ) -> None:
     """Create SLURM cluster on MicroK8s using Helm.
 
@@ -190,10 +88,8 @@ async def create(
 
     Args:
         ctx: Typer context containing settings and configuration
-        cluster_data: Dictionary containing cluster configuration
+        cluster_obj: Cluster object containing cluster configuration
         verbose: Whether to enable verbose output
-        force: Whether to force deployment even if cluster exists
-        renderer: Optional renderer for updating deployment progress
 
     Raises:
         typer.Exit: If deployment fails
@@ -201,16 +97,16 @@ async def create(
     console = ctx.obj.console
 
     # Generate deployment ID and create deployment with init status
-    cluster_name = cluster_data.get("name", "unknown")
+    cluster_name = cluster_obj.name
     deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
-    client_id = cluster_data.get("client_id", "unknown")
+    client_id = cluster_obj.client_id
 
-    sssd_binder_password = get_sssd_binder_password() or DEV_SSSD_BINDER_PASSWORD
-    jupyterhub_token = get_jupyterhub_token() or DEV_JUPYTERHUB_TOKEN
+    sssd_binder_password = get_sssd_binder_password(cluster_obj) or DEV_SSSD_BINDER_PASSWORD
+    jupyterhub_token = get_jupyterhub_token(cluster_obj) or DEV_JUPYTERHUB_TOKEN
 
     rendered_sssd_conf = sssd_conf(
-        ldap_url=ctx.settings.get_ldap_url(),
-        org_id=ctx.persona.identity_data.org_id,
+        ldap_url=ctx.obj.settings.get_ldap_url(),
+        org_id=ctx.obj.persona.identity_data.org_id,
         sssd_binder_password=sssd_binder_password,
     )
 
@@ -218,12 +114,12 @@ async def create(
         deployment_id=deployment_id,
         app_name=APP_NAME,
         cluster_name=cluster_name,
-        cluster_data=cluster_data,
+        cluster=cluster_obj,
         console=console,
         verbose=verbose,
         cloud=CLOUD_LOCALHOST,
         cloud_type=CLOUD_TYPE_K8S,
-        k8s_namespaces=[DEFAULT_NAMESPACE_CERT_MANAGER, DEFAULT_NAMESPACE_PROMETHEUS, DEFAULT_NAMESPACE_SLINKY, DEFAULT_NAMESPACE_SLURM],  # Will be populated as namespaces are created
+        k8s_namespaces=[DEFAULT_NAMESPACE_CERT_MANAGER, DEFAULT_NAMESPACE_PROMETHEUS, DEFAULT_NAMESPACE_SLINKY, DEFAULT_NAMESPACE_SLURM],
     )
 
     set_values = {
@@ -269,7 +165,12 @@ async def create(
 
             # Step 2: Setup Helm repositories
             output.status("📦 Setting up Helm repositories...")
-            _add_helm_repositories()
+            repos = [
+                ("jetstack", REPO_JETSTACK_URL),
+                ("prometheus-community", REPO_PROMETHEUS_URL),
+                ("jamesbeedy-slinky-slurm", REPO_SLURM_URL),
+            ]
+            add_helm_repositories(repos)
             output.success("Helm repositories configured")
             time.sleep(1)
 
@@ -294,31 +195,52 @@ async def create(
 
             # Step 4: Install cert-manager
             output.status("🔒 Installing cert-manager...")
-            # _install_cert_manager()
+            # install_cert_manager(
+            #     DEFAULT_NAMESPACE_CERT_MANAGER,
+            #     DEFAULT_RELEASE_CERT_MANAGER,
+            #     CHART_CERT_MANAGER,
+            # )
             output.success("cert-manager installed")
             time.sleep(1)
 
             # Step 5: Install Prometheus
             output.status("📊 Installing Prometheus...")
-            _install_prometheus()
+            install_prometheus(
+                DEFAULT_NAMESPACE_PROMETHEUS,
+                DEFAULT_RELEASE_PROMETHEUS,
+                CHART_PROMETHEUS,
+            )
             output.success("Prometheus installed")
             time.sleep(1)
 
             # Step 6: Install SLURM operator CRDs
             output.status("⚙️ Installing SLURM operator CRDs...")
-            _install_slurm_operator_crds()
+            install_slurm_operator_crds(
+                DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
+                CHART_SLURM_OPERATOR_CRDS,
+            )
             output.success("SLURM operator CRDs installed")
             time.sleep(1)
 
             # Step 7: Install SLURM operator
             output.status("🎛️ Installing SLURM operator...")
-            _install_slurm_operator()
+            install_slurm_operator(
+                DEFAULT_NAMESPACE_SLINKY,
+                DEFAULT_RELEASE_SLURM_OPERATOR,
+                CHART_SLURM_OPERATOR,
+            )
             output.success("SLURM operator installed")
             time.sleep(1)
 
             # Step 8: Install SLURM cluster
             output.status("🖥️ Installing SLURM cluster...")
-            _install_slurm_cluster(set_values=set_values)
+            install_slurm_cluster(
+                DEFAULT_NAMESPACE_SLURM,
+                DEFAULT_RELEASE_SLURM_CLUSTER,
+                CHART_SLURM_CLUSTER,
+                CHART_VALUES_SLURM_CLUSTER,
+                set_values,
+            )
             output.success("SLURM cluster installed")
             time.sleep(1)
 
@@ -357,19 +279,21 @@ async def deploy_command(
     if cluster_name is None:
         cluster_name = "unknown"
 
-    cluster_data = generate_dev_cluster_data(cluster_name)
+    cluster_obj = generate_dev_cluster_data(cluster_name)
     if not dev_run:
         from vantage_cli.commands.cluster import utils as cluster_utils
 
-        cluster_data = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
-        if cluster_data is None:
+        fetched_cluster = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+        if fetched_cluster is None:
             raise ValueError(f"Cluster '{cluster_name}' not found")
+        cluster_obj = fetched_cluster
     else:
         ctx.obj.console.print(
             f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
         )
 
-    await create(ctx=ctx, cluster_data=cluster_data)
+    # Pass Cluster object directly to create function
+    await create(ctx=ctx, cluster_obj=cluster_obj)
 
 
 @handle_abort

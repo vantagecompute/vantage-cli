@@ -1,33 +1,32 @@
 """Vantage REST API Client for License Management and related resources.
 """
 
+import inspect
 import json as json_lib
-from typing import Any, Dict, Optional
+from functools import wraps
+from typing import Any, Callable, Dict, Optional
 
 import httpx
 from loguru import logger
 from rich.console import Console
 from rich.json import JSON
+import typer
 
-from .auth import extract_persona, refresh_access_token_standalone
-from .cache import load_tokens_from_cache, save_tokens_to_cache
+from .auth import refresh_access_token_standalone
+from .cache import save_tokens_to_cache
 from .config import Settings
-from .schemas import Persona
 
 
 class VantageRestApiClient:
     def __init__(
         self,
-        base_url: str,
-        persona: Optional[Persona] = None,
-        profile: str = "default",
-        settings: Optional[Settings] = None,
+        ctx: typer.Context,
         timeout: int = 30,
     ):
-        self.base_url = base_url.rstrip("/")
-        self.persona = persona
-        self.profile = profile
-        self.settings = settings or Settings()
+        self.base_url = ctx.obj.settings.get_apis_url().rstrip("/")
+        self.persona = ctx.obj.persona
+        self.profile = ctx.obj.profile
+        self.settings = ctx.obj.settings or Settings()
         self.timeout = timeout
         self.client = httpx.AsyncClient(timeout=timeout)
         self.console = Console()
@@ -134,35 +133,82 @@ class VantageRestApiClient:
         await self.client.aclose()
 
 
-def create_vantage_rest_client(
-    base_url: str = "https://apis.vantagecompute.ai/lm", profile: str = "default"
-) -> VantageRestApiClient:
-    """Create a VantageRestApiClient with authentication from cache.
-
-    This function follows the same pattern as create_async_graphql_client
-    by automatically loading tokens and creating a persona.
-
-    Args:
-        base_url: Base URL for the REST API
-        profile: Profile name to use for authentication
-
-    Returns:
-        Configured VantageRestApiClient instance
-
-    Raises:
-        Exception: If client creation fails
+def attach_vantage_rest_client(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Attach VantageRestApiClient to the CLI context.
+    
+    This decorator automatically initializes a VantageRestApiClient using the
+    persona and settings from the context, and attaches it to ctx.obj.rest_client.
+    
+    Prerequisites:
+        - @attach_settings must be applied before this decorator
+        - @attach_persona must be applied before this decorator
+    
+    Usage:
+        @attach_settings
+        @attach_persona
+        @attach_vantage_rest_client
+        async def my_command(ctx: typer.Context):
+            # ctx.obj.rest_client is now available
+            result = await ctx.obj.rest_client.get("/licenses")
     """
-    try:
-        # Load tokens and create persona
-        token_set = load_tokens_from_cache(profile)
-        persona = extract_persona(profile, token_set)
+    if inspect.iscoroutinefunction(func):
 
-        # Create client with authentication (it will create default settings if needed)
-        client = VantageRestApiClient(base_url=base_url, persona=persona, profile=profile)
+        @wraps(func)
+        async def async_wrapper(ctx: typer.Context, *args, **kwargs):
+            # Ensure we have settings and persona
+            if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
+                raise RuntimeError(
+                    "@attach_vantage_rest_client requires @attach_settings to be applied first"
+                )
+            
+            if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
+                raise RuntimeError(
+                    "@attach_vantage_rest_client requires @attach_persona to be applied first"
+                )
+            
+            # Create and attach the REST client
+            ctx.obj.rest_client = VantageRestApiClient(ctx=ctx)
+            if ctx.obj.verbose: 
+                ctx.obj.console.log(f"Attached REST API client for {ctx.obj.settings.get_apis_url()}")
+            
+            try:
+                return await func(ctx, *args, **kwargs)
+            finally:
+                # Clean up the client
+                await ctx.obj.rest_client.close()
 
-        logger.debug(f"Created REST API client for {base_url}")
-        return client
+        return async_wrapper
+    else:
 
-    except Exception as e:
-        logger.error(f"Failed to create REST API client: {e}")
-        raise
+        @wraps(func)
+        def wrapper(ctx: typer.Context, *args, **kwargs):
+            # Ensure we have settings and persona
+            if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
+                raise RuntimeError(
+                    "@attach_vantage_rest_client requires @attach_settings to be applied first"
+                )
+            
+            if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
+                raise RuntimeError(
+                    "@attach_vantage_rest_client requires @attach_persona to be applied first"
+                )
+            
+            # Create and attach the REST client (sync version - user must manage cleanup)
+            ctx.obj.rest_client = VantageRestApiClient(ctx=ctx)
+            if ctx.obj.verbose: 
+                ctx.obj.console.log(f"Attached REST API client for {ctx.obj.settings.get_apis_url()}")
+            # Note: Sync functions must manually close the client if needed
+            return func(ctx, *args, **kwargs)
+
+        return wrapper
+
+
+def create_vantage_rest_client(ctx: typer.Context) -> VantageRestApiClient:
+    """Create and return a VantageRestApiClient instance from the Typer context."""
+    if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
+        raise RuntimeError("Settings must be configured in context before creating REST client")
+    
+    if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
+        raise RuntimeError("Persona must be configured in context before creating REST client")
+    
+    return VantageRestApiClient(ctx=ctx)
