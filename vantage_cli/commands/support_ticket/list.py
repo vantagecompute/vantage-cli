@@ -19,7 +19,6 @@ from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
@@ -41,7 +40,6 @@ async def list_support_tickets(
 ):
     """List all support tickets."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use the SDK to get support tickets
@@ -51,7 +49,7 @@ async def list_support_tickets(
         )
 
         if not tickets:
-            formatter.render_list(
+            ctx.obj.formatter.render_list(
                 data=[], resource_name="Support Tickets", empty_message="No support tickets found."
             )
             return
@@ -71,7 +69,7 @@ async def list_support_tickets(
             tickets_data.append(ticket_dict)
 
         # Use formatter to render the tickets list
-        formatter.render_list(
+        ctx.obj.formatter.render_list(
             data=tickets_data,
             resource_name="Support Tickets",
             empty_message="No support tickets found.",
@@ -82,7 +80,7 @@ async def list_support_tickets(
         raise
     except Exception as e:
         logger.error(f"Unexpected error listing support tickets: {e}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message="An unexpected error occurred while listing support tickets.",
             details={"error": str(e)},
         )

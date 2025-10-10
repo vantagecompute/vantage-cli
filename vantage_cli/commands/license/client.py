@@ -11,10 +11,18 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """REST API client factory for license commands."""
 
-from vantage_cli.config import Settings
+import typer
+
 from vantage_cli.vantage_rest_api_client import create_vantage_rest_client
 
 
-def lm_rest_client(profile: str, settings: Settings):
-    """Create a REST client configured for License Manager API."""
-    return create_vantage_rest_client(base_url=f"{settings.api_base_url}/lm", profile=profile)
+def lm_rest_client(ctx: typer.Context):
+    """Create a REST client configured for License Manager API.
+
+    Args:
+        ctx: Typer context containing settings and persona
+
+    Returns:
+        VantageRestApiClient configured for license manager endpoints
+    """
+    return create_vantage_rest_client(ctx)

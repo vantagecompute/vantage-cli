@@ -122,7 +122,7 @@ def validate_token_and_extract_identity(token_set: TokenSet) -> IdentityData:
                 subject="Missing organization info",
                 log_message="Access token missing organization information",
             )
-        
+
         # Extract org_id from organization structure
         # Organization is typically: {"org-uuid": {"id": "org-uuid", ...}}
         organization = token_data.get("organization", {})
@@ -131,7 +131,7 @@ def validate_token_and_extract_identity(token_set: TokenSet) -> IdentityData:
         logger.debug(f"Organization key identified: {org_key}")
         org_id = organization.get(org_key, {}).get("id", "") if org_key else ""
         logger.debug(f"Extracted org_id: {org_id}")
-        
+
         identity = IdentityData(
             email=token_data.get("email"),
             client_id=token_data.get("azp") or "unknown",

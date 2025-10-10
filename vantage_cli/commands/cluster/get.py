@@ -16,7 +16,6 @@ from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.cluster.crud import cluster_sdk
 
 
@@ -28,14 +27,15 @@ async def get_cluster(
 ):
     """Get details of a specific Vantage cluster."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use SDK to get cluster
         cluster = await cluster_sdk.get_cluster(ctx, cluster_name)
 
         if not cluster:
-            formatter.render_error(error_message=f"No cluster found with name '{cluster_name}'.")
+            ctx.obj.formatter.render_error(
+                error_message=f"No cluster found with name '{cluster_name}'."
+            )
             raise Abort(
                 f"No cluster found with name '{cluster_name}'.",
                 subject="Cluster Not Found",
@@ -59,14 +59,16 @@ async def get_cluster(
             "jupyterhub_token": cluster.jupyterhub_token,
             "sssd_binder_password": cluster.sssd_binder_password,
         }
-        
+
         # Use formatter to render the cluster details
-        formatter.render_get(data=cluster_data, resource_name="Cluster", resource_id=cluster_name)
+        ctx.obj.formatter.render_get(
+            data=cluster_data, resource_name="Cluster", resource_id=cluster_name
+        )
 
     except Abort:
         raise
     except Exception as e:
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"An unexpected error occurred while getting cluster '{cluster_name}'.",
             details={"error": str(e)},
         )

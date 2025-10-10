@@ -19,7 +19,6 @@ from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.notebook.crud import notebook_sdk
 
 
@@ -45,12 +44,11 @@ async def create_notebook(
     node: Annotated[Optional[str], typer.Option("--node", help="Specific node to use")] = None,
 ):
     """Create a new Jupyter notebook server on a cluster.
-    
+
     Creates a notebook server using JupyterHub API with resource specifications.
     If username is not provided, it will use the authenticated user's email.
     """
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Get username from token if not provided
@@ -77,7 +75,7 @@ async def create_notebook(
 
         # Build server options from resource specifications
         server_options = {}
-        
+
         if partition:
             server_options["partition"] = partition
         if cpu_cores:
@@ -90,9 +88,7 @@ async def create_notebook(
             server_options["node"] = node
 
         # Use SDK to create notebook server
-        logger.debug(
-            f"Creating notebook server for user '{username}' on cluster '{cluster_name}'"
-        )
+        logger.debug(f"Creating notebook server for user '{username}' on cluster '{cluster_name}'")
         result = await notebook_sdk.create_notebook(
             ctx=ctx,
             cluster_name=cluster_name,
@@ -114,7 +110,7 @@ async def create_notebook(
             result_data["resources"] = server_options
 
         # Use formatter to render the created notebook
-        formatter.render_get(
+        ctx.obj.formatter.render_get(
             data=result_data,
             resource_name="Notebook Server",
             resource_id=result.get("server_name", "default"),
@@ -128,7 +124,7 @@ async def create_notebook(
         raise
     except Exception as e:
         logger.error(f"Unexpected error creating notebook: {e}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message="An unexpected error occurred while creating the notebook server.",
             details={"error": str(e)},
         )

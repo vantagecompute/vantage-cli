@@ -52,9 +52,7 @@ async def list_apps(
         apps_data.append(app_data)
 
     # Use UniversalOutputFormatter for consistent list rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_list(
+    ctx.obj.formatter.render_list(
         data=apps_data, resource_name="Applications", empty_message="No applications found."
     )

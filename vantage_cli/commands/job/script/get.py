@@ -15,25 +15,30 @@ from typing import Annotated
 
 import typer
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.job import job_script_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def get_job_script(
     ctx: typer.Context,
     script_id: Annotated[int, typer.Argument(help="ID of the job script to retrieve")],
 ):
     """Get details of a specific job script."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
+    # Use SDK to fetch job script
+    response = await job_script_sdk.get(ctx, str(script_id))
 
-    response = await client.get(f"/job-scripts/{script_id}")
-    script_data = response
+    if not response:
+        ctx.obj.console.print(f"[red]Job script {script_id} not found[/red]")
+        raise typer.Exit(1)
 
     # Use UniversalOutputFormatter for consistent get rendering
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_get(data=script_data, resource_name="Job Script", resource_id=str(script_id))
+    ctx.obj.formatter.render_get(
+        data=response, resource_name="Job Script", resource_id=str(script_id)
+    )

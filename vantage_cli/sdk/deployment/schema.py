@@ -13,25 +13,22 @@
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, computed_field, Field
+from pydantic import BaseModel, Field, computed_field
 
 from vantage_cli.constants import PROVIDER_SUBSTRATE_MAPPINGS
-from vantage_cli.sdk.cluster.schema import VantageClusterContext
-
-from vantage_cli.sdk.cluster.schema import Cluster
+from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 
 
 class Deployment(BaseModel):
     """Schema for deployment data.
-    
+
     The updated_at field is automatically refreshed whenever any field
     in the model is modified (e.g., deployment.status = "active").
     This happens transparently without requiring any user action.
     """
-    
+
     model_config = {"validate_assignment": True}
 
     id: UUID = Field(default_factory=uuid4)
@@ -48,37 +45,37 @@ class Deployment(BaseModel):
     deployment_type: Optional[str] = None
     k8s_namespaces: Optional[List[str]] = None
     additional_metadata: Optional[Dict[str, Any]] = None
-    
+
     def __setattr__(self, name: str, value: Any) -> None:
         """Override setattr to auto-update updated_at when any field changes.
-        
+
         This ensures that whenever a field is modified (e.g., deployment.status = "active"),
         the updated_at timestamp is automatically refreshed.
         """
         # Call parent setattr first
         super().__setattr__(name, value)
-        
+
         # Auto-update updated_at for any field change except updated_at itself
         # Also skip during initial model construction
-        if name != 'updated_at' and hasattr(self, 'updated_at'):
-            super().__setattr__('updated_at', datetime.now())
-    
+        if name != "updated_at" and hasattr(self, "updated_at"):
+            super().__setattr__("updated_at", datetime.now())
+
     def write(self) -> None:
         """Save this deployment to the deployments file.
-        
+
         This method loads the current deployments, updates this deployment's entry,
         and saves it back to ~/.vantage-cli/deployments.yaml.
-        
+
         """
         # Import here to avoid circular dependencies
         from vantage_cli.apps.common import load_deployments, save_deployments
-        
+
         # Load existing deployments
         deployments_data = load_deployments()
-        
+
         # Update this deployment's entry (using str(self.id) since YAML keys are strings)
         deployments_data["deployments"][str(self.id)] = self.model_dump()
-        
+
         # Save back to file
         save_deployments(deployments_data)
 

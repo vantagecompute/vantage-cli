@@ -14,14 +14,17 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def create_job_script(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the job script to create")],
@@ -33,20 +36,15 @@ async def create_job_script(
     ] = None,
 ):
     """Create a new job script."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(
-            data={
-                "script_id": "script-new-123",
-                "name": name,
-                "script_type": script_type,
-                "description": description,
-                "status": "created",
-                "created_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        ctx.obj.console.print(f"📜 Creating job script [bold blue]{name}[/bold blue]")
-        ctx.obj.console.print(f"   Type: [green]{script_type}[/green]")
-        if description:
-            ctx.obj.console.print(f"   Description: {description}")
-        ctx.obj.console.print("✅ Job script created successfully!")
+    # TODO: Replace mock data with actual API call
+    mock_result = {
+        "script_id": "script-new-123",
+        "name": name,
+        "script_type": script_type,
+        "description": description,
+        "status": "created",
+        "created_at": "2025-09-10T10:00:00Z",
+    }
+
+    # Render output
+    ctx.obj.ctx.obj.formatter.render_create(data=mock_result, resource_name="Job Script")

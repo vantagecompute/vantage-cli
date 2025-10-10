@@ -16,15 +16,18 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.job import job_submission_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def update_job_submission(
     ctx: typer.Context,
     submission_id: Annotated[int, typer.Argument(help="ID of the job submission to update")],
@@ -45,9 +48,6 @@ async def update_job_submission(
     ),
 ):
     """Update a job submission."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     if json_file:
         # Read data from JSON file
         try:
@@ -76,13 +76,13 @@ async def update_job_submission(
             )
             raise typer.Exit(1)
 
-    result = await client.put(f"/job-submissions/{submission_id}", json=update_data)
+    # Use SDK to update job submission
+    result = await job_submission_sdk.update(ctx, str(submission_id), update_data)
 
-    if ctx.obj.json_output:
-        print_json(data=result)
-    else:
-        ctx.obj.console.print(
-            f"✅ Job submission '{result.get('name')}' updated successfully!", style="green"
-        )
-        ctx.obj.console.print(f"📋 Submission ID: {result.get('id')}")
-        ctx.obj.console.print(f"📝 Status: {result.get('status')}")
+    # Use UniversalOutputFormatter for consistent update rendering
+    ctx.obj.formatter.render_update(
+        data=result,
+        resource_name="Job Submission",
+        resource_id=str(submission_id),
+        success_message=f"Job submission '{result.get('name')}' updated successfully!",
+    )

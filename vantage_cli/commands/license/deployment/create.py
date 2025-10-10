@@ -14,14 +14,17 @@
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def create_license_deployment(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the license deployment to create")],
@@ -40,26 +43,21 @@ async def create_license_deployment(
     ] = None,
 ):
     """Create a new license deployment."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        print_json(
-            data={
-                "deployment_id": "deployment-new-123",
-                "name": name,
-                "product_id": product_id,
-                "environment": environment,
-                "nodes": nodes,
-                "description": description,
-                "status": "created",
-                "created_at": "2025-09-10T10:00:00Z",
-            }
-        )
-    else:
-        # Rich console output
-        ctx.obj.console.print(f"📦 Creating license deployment [bold blue]{name}[/bold blue]")
-        ctx.obj.console.print(f"   Product ID: [green]{product_id}[/green]")
-        ctx.obj.console.print(f"   Environment: [yellow]{environment}[/yellow]")
-        ctx.obj.console.print(f"   Nodes: [cyan]{nodes}[/cyan]")
-        if description:
-            ctx.obj.console.print(f"   Description: {description}")
-        ctx.obj.console.print("✅ License deployment created successfully!")
+    # Stub data - replace with actual API call
+    deployment_data = {
+        "deployment_id": "deployment-new-123",
+        "name": name,
+        "product_id": product_id,
+        "environment": environment,
+        "nodes": nodes,
+        "description": description,
+        "status": "created",
+        "created_at": "2025-09-10T10:00:00Z",
+    }
+
+    # Use UniversalOutputFormatter for consistent create rendering
+    ctx.obj.formatter.render_create(
+        data=deployment_data,
+        resource_name="License Deployment",
+        success_message=f"License deployment '{name}' created successfully",
+    )

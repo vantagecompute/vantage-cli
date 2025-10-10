@@ -15,27 +15,26 @@ from typing import Annotated
 
 import typer
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.job import job_submission_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def get_job_submission(
     ctx: typer.Context,
     submission_id: Annotated[int, typer.Argument(help="ID of the job submission to retrieve")],
 ):
     """Get details of a specific job submission."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
-    response = await client.get(f"/job-submissions/{submission_id}")
-    submission_data = response
+    # Use SDK to get job submission
+    response = await job_submission_sdk.get(ctx, str(submission_id))
 
     # Use UniversalOutputFormatter for consistent get rendering
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_get(
-        data=submission_data, resource_name="Job Submission", resource_id=str(submission_id)
+    ctx.obj.formatter.render_get(
+        data=response, resource_name="Job Submission", resource_id=str(submission_id)
     )

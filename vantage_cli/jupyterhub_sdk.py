@@ -168,9 +168,7 @@ class JupyterHubSDK:
         hub_client = await self.get_cluster_jupyterhub_client(ctx, cluster_name)
 
         try:
-            return await hub_client.stop_user_server(
-                username=username, server_name=server_name
-            )
+            return await hub_client.stop_user_server(username=username, server_name=server_name)
 
         finally:
             await hub_client.close()

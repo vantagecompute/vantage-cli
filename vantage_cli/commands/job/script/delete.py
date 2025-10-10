@@ -15,31 +15,31 @@ from typing import Annotated
 
 import typer
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.job import job_script_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def delete_job_script(
     ctx: typer.Context,
     script_id: Annotated[int, typer.Argument(help="ID of the job script to delete")],
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
 ):
     """Delete a job script."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     script_name = str(script_id)
 
     if not yes and not ctx.obj.json_output:
         # Get script info for confirmation
         try:
-            response = await client.get(f"/job-scripts/{script_id}")
-            script_data = response
-            script_name = script_data.get("name", str(script_id))
+            response = await job_script_sdk.get(ctx, str(script_id))
+            if response:
+                script_name = response.get("name", str(script_id))
         except Exception:
             script_name = str(script_id)
 
@@ -50,11 +50,11 @@ async def delete_job_script(
             ctx.obj.console.print("❌ Delete operation cancelled.", style="yellow")
             raise typer.Exit(0)
 
-    response = await client.delete(f"/job-scripts/{script_id}")
+    # Use SDK to delete job script
+    await job_script_sdk.delete(ctx, str(script_id))
 
     # Use UniversalOutputFormatter for consistent delete rendering
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_delete(
+    ctx.obj.formatter.render_delete(
         resource_name="Job Script",
         resource_id=str(script_id),
         success_message=f"Job script '{script_name}' deleted successfully!",

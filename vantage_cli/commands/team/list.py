@@ -28,7 +28,7 @@ async def list_teams(ctx: typer.Context):
     ]
 
     # Use UniversalOutputFormatter for consistent list rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_list(data=teams, resource_name="Teams", empty_message="No teams found.")
+    ctx.obj.formatter.render_list(
+        data=teams, resource_name="Teams", empty_message="No teams found."
+    )

@@ -17,13 +17,17 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.commands.license.client import lm_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_feature_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def update_license_feature(
     ctx: typer.Context,
     feature_id: Annotated[str, typer.Argument(help="ID of the license feature to update")],
@@ -36,31 +40,27 @@ async def update_license_feature(
     ] = None,
 ):
     """Update an existing license feature."""
-    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     if json_file:
         if not json_file.exists():
             ctx.obj.console.print(f"❌ Error: File {json_file} does not exist")
             raise typer.Exit(1)
         with open(json_file, "r") as f:
-            payload = json.load(f)
+            update_data = json.load(f)
     else:
-        payload = {}
+        update_data = {}
         if name is not None:
-            payload["name"] = name
+            update_data["name"] = name
         if description is not None:
-            payload["description"] = description
-        if not payload:
+            update_data["description"] = description
+        if not update_data:
             ctx.obj.console.print("❌ Error: No update data provided")
             raise typer.Exit(1)
 
-    response = await client.put(f"/features/{feature_id}", json=update_data)
+    # Use SDK to update license feature
+    response = await license_feature_sdk.update(ctx, feature_id, update_data)
 
     # Use UniversalOutputFormatter for consistent update rendering
-    from vantage_cli.render import UniversalOutputFormatter
-
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_update(
+    ctx.obj.formatter.render_update(
         data=response,
         resource_name="License Feature",
         resource_id=str(feature_id),

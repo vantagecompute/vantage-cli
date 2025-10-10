@@ -198,6 +198,10 @@ class AsyncTyper(typer.Typer):
                     json_flag = kwargs.pop("json", False)
                     ctx.obj.json_output = json_flag or getattr(ctx.obj, "json_output", False)
 
+                    # Update the formatter's json_output flag if formatter exists
+                    if hasattr(ctx.obj, "formatter") and ctx.obj.formatter is not None:
+                        ctx.obj.formatter.json_output = ctx.obj.json_output
+
                     # Handle verbose parameter
                     verbose_flag = kwargs.pop("verbose", False)
                     ctx.obj.verbose = verbose_flag or getattr(ctx.obj, "verbose", False)

@@ -16,7 +16,6 @@ from loguru import logger
 from typing_extensions import Annotated
 
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.profile.crud import profile_sdk
 
 
@@ -40,7 +39,6 @@ async def create_profile(
 ):
     """Create a new Vantage CLI profile."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Prepare resource data for SDK
@@ -56,7 +54,7 @@ async def create_profile(
         result = await profile_sdk.create(ctx, resource_data, force=force, activate=activate)
 
         # Use formatter to render the creation result
-        formatter.render_create(
+        ctx.obj.formatter.render_create(
             data=result,
             resource_name="Profile",
             success_message=f"Profile '{profile_name}' created successfully"
@@ -68,7 +66,7 @@ async def create_profile(
         raise
     except Exception as e:
         logger.error(f"Failed to create profile '{profile_name}': {str(e)}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"Failed to create profile '{profile_name}': {str(e)}",
             details={"profile_name": profile_name},
         )
@@ -82,7 +80,6 @@ async def delete_profile(
 ):
     """Delete a Vantage CLI profile."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     # Confirmation prompt unless force is used
     if not force and not ctx.obj.json_output:
@@ -105,7 +102,7 @@ async def delete_profile(
 
         if success:
             # Use formatter to render the deletion result
-            formatter.render_delete(
+            ctx.obj.formatter.render_delete(
                 resource_name="Profile",
                 resource_id=profile_name,
                 success_message=f"Profile '{profile_name}' deleted successfully",
@@ -116,7 +113,7 @@ async def delete_profile(
         raise
     except Exception as e:
         logger.error(f"Failed to delete profile '{profile_name}': {str(e)}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"Failed to delete profile '{profile_name}': {str(e)}",
             details={"profile_name": profile_name},
         )
@@ -128,14 +125,13 @@ async def list_profiles(
 ):
     """List all Vantage CLI profiles."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use the SDK to get profiles as Profile objects
         profiles = await profile_sdk.get_profiles(ctx)
 
         if not profiles:
-            formatter.render_list(
+            ctx.obj.formatter.render_list(
                 data=[], resource_name="Profiles", empty_message="No profiles found."
             )
             return
@@ -152,13 +148,13 @@ async def list_profiles(
             profiles_data.append(profile_dict)
 
         # Use formatter to render the profiles list
-        formatter.render_list(
+        ctx.obj.formatter.render_list(
             data=profiles_data, resource_name="Profiles", empty_message="No profiles found."
         )
 
     except Exception as e:
         logger.error(f"Failed to list profiles: {str(e)}")
-        formatter.render_error(error_message=f"Failed to list profiles: {str(e)}")
+        ctx.obj.formatter.render_error(error_message=f"Failed to list profiles: {str(e)}")
 
 
 @handle_abort
@@ -168,14 +164,15 @@ async def get_profile(
 ):
     """Get details of a specific Vantage CLI profile."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use SDK to get profile
         profile = await profile_sdk.get_profile(ctx, profile_name)
 
         if profile is None:
-            formatter.render_error(error_message=f"Profile '{profile_name}' does not exist.")
+            ctx.obj.formatter.render_error(
+                error_message=f"Profile '{profile_name}' does not exist."
+            )
             return
 
         # Convert Profile object to dict format for the formatter
@@ -192,11 +189,13 @@ async def get_profile(
         }
 
         # Use formatter to render the profile details
-        formatter.render_get(data=profile_data, resource_name="Profile", resource_id=profile_name)
+        ctx.obj.formatter.render_get(
+            data=profile_data, resource_name="Profile", resource_id=profile_name
+        )
 
     except Exception as e:
         logger.error(f"Failed to get profile '{profile_name}': {str(e)}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"Failed to get profile '{profile_name}': {str(e)}",
             details={"profile_name": profile_name},
         )
@@ -209,14 +208,13 @@ async def use_profile(
 ):
     """Activate a profile for use in the current session."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use SDK to activate profile
         result = await profile_sdk.activate(ctx, profile_name)
 
         # Use formatter to render the activation result
-        formatter.render_update(
+        ctx.obj.formatter.render_update(
             data=result,
             resource_name="Profile",
             resource_id=profile_name,
@@ -228,7 +226,7 @@ async def use_profile(
         raise
     except Exception as e:
         logger.error(f"Failed to activate profile '{profile_name}': {str(e)}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"Failed to activate profile '{profile_name}': {str(e)}",
             details={"profile_name": profile_name},
         )

@@ -15,13 +15,17 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.commands.license.client import lm_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_product_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def create_license_product(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the license product to create")],
@@ -36,25 +40,21 @@ async def create_license_product(
     ] = "concurrent",
 ):
     """Create a new license product."""
-    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     # Build the request payload
-    payload = {
+    product_data = {
         "name": name,
         "version": version,
         "license_type": license_type,
     }
 
     if description is not None:
-        payload["description"] = description
+        product_data["description"] = description
 
-    response = await client.post("/products", json=product_data)
+    # Use SDK to create license product
+    response = await license_product_sdk.create(ctx, product_data)
 
     # Use UniversalOutputFormatter for consistent create rendering
-    from vantage_cli.render import UniversalOutputFormatter
-
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_create(
+    ctx.obj.formatter.render_create(
         data=response,
         resource_name="License Product",
         success_message=f"License product '{response.get('name')}' created successfully!",

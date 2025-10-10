@@ -17,7 +17,6 @@ from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
@@ -30,7 +29,6 @@ async def delete_support_ticket(
 ):
     """Delete a support ticket."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Confirm deletion unless --force is used
@@ -48,7 +46,7 @@ async def delete_support_ticket(
 
         if success:
             if ctx.obj.json_output:
-                formatter.render_get(
+                ctx.obj.formatter.render_get(
                     data={"id": ticket_id, "status": "deleted", "success": True},
                     resource_name="Support Ticket",
                     resource_id=ticket_id,
@@ -68,7 +66,7 @@ async def delete_support_ticket(
         raise
     except Exception as e:
         logger.error(f"Unexpected error deleting support ticket '{ticket_id}': {e}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"An unexpected error occurred while deleting support ticket '{ticket_id}'.",
             details={"error": str(e)},
         )

@@ -242,9 +242,7 @@ class NotebookSDK:
         Raises:
             Abort: If notebook creation fails
         """
-        logger.debug(
-            f"Creating notebook server for user '{username}' on cluster '{cluster_name}'"
-        )
+        logger.debug(f"Creating notebook server for user '{username}' on cluster '{cluster_name}'")
 
         try:
             # Use JupyterHub SDK to create the notebook server

@@ -27,8 +27,8 @@ from textual.reactive import reactive
 from textual.widgets import Button, DataTable, Input, Label, Static, TabPane
 
 from vantage_cli.exceptions import Abort
-from vantage_cli.sdk.profile.schema import Profile
 from vantage_cli.sdk.profile import profile_sdk
+from vantage_cli.sdk.profile.schema import Profile
 
 
 class ProfileManagementTabPane(TabPane):

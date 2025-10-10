@@ -1,5 +1,4 @@
-"""License booking management commands using the Vantage REST API.
-"""
+"""License booking management commands using the Vantage REST API."""
 
 import json
 from pathlib import Path
@@ -9,7 +8,9 @@ import typer
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.vantage_rest_api_client import create_vantage_rest_client
+from vantage_cli.vantage_rest_api_client import (
+    create_vantage_rest_client,
+)
 
 app = typer.Typer(help="License booking management commands")
 
@@ -45,10 +46,10 @@ def list_bookings(
                 params["limit"] = limit
             if offset is not None:
                 params["offset"] = offset
-            bookings = await client.get("/bookings", params=params)
+            bookings = await ctx.obj.rest_client.get("/bookings", params=params)
         finally:
             # Use UniversalOutputFormatter for consistent list rendering\n            from vantage_cli.render import UniversalOutputFormatter\n            from rich.console import Console\n            console = Console()\n            formatter = UniversalOutputFormatter(console=console, json_output=False)  # TODO: Get actual json_output flag\n            formatter.render_list(\n                data=bookings,\n                resource_name=\"License Bookings\",\n                empty_message=\"No license bookings found.\"\n            )
-            await client.close()
+            await ctx.obj.rest_client.close()
 
     asyncio.run(_list_bookings())
 
@@ -62,7 +63,7 @@ async def get_booking(
     """Get a specific license booking by ID."""
     client = create_vantage_rest_client()
     try:
-        booking = await client.get(f"/bookings/{booking_id}")
+        booking = await ctx.obj.rest_client.get(f"/bookings/{booking_id}")
 
         # Use UniversalOutputFormatter for consistent get rendering
         from vantage_cli.render import UniversalOutputFormatter
@@ -72,7 +73,7 @@ async def get_booking(
         )
         formatter.render_get(data=booking, resource_name="License Booking", resource_id=booking_id)
     finally:
-        await client.close()
+        await ctx.obj.rest_client.close()
 
 
 @app.command("create")
@@ -105,7 +106,7 @@ async def create_booking(
             if description:
                 data["description"] = description
 
-        booking = await client.post("/bookings", json=data)
+        booking = await ctx.obj.rest_client.post("/bookings", json=data)
 
         # Use UniversalOutputFormatter for consistent create rendering
         from vantage_cli.render import UniversalOutputFormatter
@@ -119,7 +120,7 @@ async def create_booking(
             success_message="License booking created successfully!",
         )
     finally:
-        await client.close()
+        await ctx.obj.rest_client.close()
 
 
 @app.command("delete")
@@ -131,7 +132,7 @@ async def delete_booking(
     """Delete a license booking."""
     client = create_vantage_rest_client()
     try:
-        await client.delete(f"/bookings/{booking_id}")
+        await ctx.obj.rest_client.delete(f"/bookings/{booking_id}")
 
         # Use UniversalOutputFormatter for consistent delete rendering
         from vantage_cli.render import UniversalOutputFormatter
@@ -145,4 +146,4 @@ async def delete_booking(
             success_message=f"License booking '{booking_id}' deleted successfully!",
         )
     finally:
-        await client.close()
+        await ctx.obj.rest_client.close()

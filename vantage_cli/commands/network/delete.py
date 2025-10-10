@@ -34,10 +34,8 @@ async def delete_network(
     json_output = getattr(ctx.obj, "json_output", False)
 
     # Use UniversalOutputFormatter for consistent delete rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_delete(
+    ctx.obj.formatter.render_delete(
         resource_name="Network",
         resource_id=network_id,
         success_message=f"Network '{network_id}' deleted successfully!",

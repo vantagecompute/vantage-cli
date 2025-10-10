@@ -17,14 +17,17 @@ from typing import Optional
 
 import typer
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.job import job_template_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def create_job_template(
     ctx: typer.Context,
     name: str = typer.Option(..., "--name", "-n", help="Name of the job template"),
@@ -39,9 +42,6 @@ async def create_job_template(
     ),
 ):
     """Create a new job template."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     if json_file:
         # Read data from JSON file
         try:
@@ -59,11 +59,11 @@ async def create_job_template(
         if identifier:
             template_data["identifier"] = identifier
 
-    result = await client.post("/job-script-templates", json=template_data)
+    # Use SDK to create job template
+    result = await job_template_sdk.create(ctx, template_data)
 
     # Use UniversalOutputFormatter for consistent create rendering
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_create(
+    ctx.obj.formatter.render_create(
         data=result,
         resource_name="Job Template",
         success_message=f"Job template '{result.get('name')}' created successfully!",

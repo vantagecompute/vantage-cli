@@ -15,7 +15,6 @@ import typer
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.cluster.crud import cluster_sdk
 
 
@@ -26,14 +25,13 @@ async def list_clusters(
 ):
     """List all Vantage clusters."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use the SDK to get clusters
         clusters = await cluster_sdk.list_clusters(ctx)
 
         if not clusters:
-            formatter.render_list(
+            ctx.obj.formatter.render_list(
                 data=[], resource_name="Clusters", empty_message="No clusters found."
             )
             return
@@ -46,7 +44,7 @@ async def list_clusters(
             # Truncate description for list view
             if description and len(description) > 50:
                 description = description[:47] + "..."
-            
+
             cluster_dict = {
                 "name": cluster.name,
                 "status": cluster.status,
@@ -59,7 +57,7 @@ async def list_clusters(
             clusters_data.append(cluster_dict)
 
         # Use formatter to render the clusters list
-        formatter.render_list(
+        ctx.obj.formatter.render_list(
             data=clusters_data, resource_name="Clusters", empty_message="No clusters found."
         )
 
@@ -67,7 +65,7 @@ async def list_clusters(
         # Re-raise Abort exceptions as they contain user-friendly messages
         raise
     except Exception as e:
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message="An unexpected error occurred while listing clusters.",
             details={"error": str(e)},
         )

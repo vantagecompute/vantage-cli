@@ -15,13 +15,17 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.commands.license.client import lm_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_server_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def list_license_servers(
     ctx: typer.Context,
     search: Annotated[
@@ -38,24 +42,12 @@ async def list_license_servers(
     ] = None,
 ):
     """List all license servers."""
-    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-
-    params = {}
-    if search:
-        params["search"] = search
-    if sort:
-        params["sort"] = sort
-    if limit:
-        params["limit"] = limit
-    if offset:
-        params["offset"] = offset
-
-    response = await client.get("/servers", params=params)
+    # Use SDK to fetch license servers
+    response = await license_server_sdk.list(
+        ctx, search=search, sort=sort, limit=limit, offset=offset
+    )
 
     # Use UniversalOutputFormatter for consistent list rendering
-    from vantage_cli.render import UniversalOutputFormatter
-
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_list(
+    ctx.obj.formatter.render_list(
         data=response, resource_name="License Servers", empty_message="No license servers found."
     )

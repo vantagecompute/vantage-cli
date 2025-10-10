@@ -31,9 +31,7 @@ async def create_team(ctx: typer.Context):
     }
 
     # Use UniversalOutputFormatter for consistent create rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_create(
+    ctx.obj.formatter.render_create(
         data=result, resource_name="Team", success_message=f"Team '{name}' created successfully!"
     )

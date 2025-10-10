@@ -1332,7 +1332,7 @@ class UniversalOutputFormatter:
 
     def _output_json(self, data: Any) -> None:
         """Output data as formatted JSON without syntax highlighting.
-        
+
         We disable highlighting to ensure clean JSON output that can be piped
         to tools like jq without ANSI color codes interfering.
         """
@@ -1394,17 +1394,8 @@ class UniversalOutputFormatter:
         if not items:
             return
 
-        # Create Rich table with proper formatting and auto-scaling
-        table = Table(
-            title=title if title else None,
-            show_header=True,
-            header_style="bold magenta",
-            box=box.ROUNDED,
-            border_style="blue",
-            padding=(0, 1),
-            expand=False,  # Don't expand beyond content, but let Rich wrap columns
-            width=None,  # Let Rich determine width based on console
-        )
+        # Get terminal width for dynamic sizing
+        terminal_width = self.console.width
 
         # Get all unique keys from items
         all_keys = set()
@@ -1430,27 +1421,73 @@ class UniversalOutputFormatter:
 
         sorted_keys.extend(sorted(all_keys))
 
-        # Add columns with proportional sizing for auto-scaling
+        # Calculate dynamic column widths based on terminal size
+        column_widths = self._calculate_proportional_widths(items, sorted_keys, terminal_width)
+
+        # Create Rich table with proper formatting and dynamic sizing
+        table = Table(
+            title=title if title else None,
+            show_header=True,
+            header_style="bold magenta",
+            box=box.ROUNDED,
+            border_style="blue",
+            padding=(0, 1),
+            expand=False,  # Don't force expansion, let calculated widths control size
+            width=None,  # Let Rich calculate based on column widths
+        )
+
+        # Add columns with calculated widths and smart overflow handling
+        # Track which columns use ellipsis for smart truncation
+        column_overflow = {}
+        
         for key in sorted_keys:
             header = self._format_column_header(key)
-            
-            # Set column properties based on content type
-            if key in ["description", "summary", "details"]:
-                # Longer text fields - allow wrapping
-                table.add_column(header, overflow="fold", no_wrap=False)
-            elif key in ["id", "client_id", "clientId"]:
-                # IDs should not wrap
-                table.add_column(header, overflow="ellipsis", no_wrap=True)
-            else:
-                # Default columns
-                table.add_column(header, overflow="fold")
+            col_width = column_widths.get(key, 20)
 
-        # Add rows
+            # Determine overflow strategy based on column type and width
+            if key.lower() in ["description", "summary", "details", "message"]:
+                # Long text fields - use fold for wrapping when very narrow
+                if col_width < 20:
+                    overflow = "ellipsis"
+                    no_wrap = True
+                else:
+                    overflow = "fold"
+                    no_wrap = False
+            elif key.lower() in ["id", "client_id", "clientid", "deployment_id", "product_id"]:
+                # IDs should never wrap, always use ellipsis
+                overflow = "ellipsis"
+                no_wrap = True
+            elif "_at" in key.lower() or "date" in key.lower() or "time" in key.lower():
+                # Dates/times should not wrap
+                overflow = "ellipsis"
+                no_wrap = True
+            else:
+                # Default columns - use ellipsis for narrow columns, fold for wider ones
+                if col_width < 15:
+                    overflow = "ellipsis"
+                    no_wrap = True
+                else:
+                    overflow = "fold"
+                    no_wrap = False
+
+            column_overflow[key] = (overflow, col_width)
+            
+            table.add_column(
+                header, overflow=overflow, no_wrap=no_wrap, width=col_width, max_width=col_width
+            )
+
+        # Add rows with smart truncation for ellipsis columns
         for item in items:
             row_data = []
             for key in sorted_keys:
                 value = item.get(key, "")
                 formatted_value = self._format_cell_value(key, value)
+                
+                # Apply smart truncation for columns using ellipsis
+                overflow_type, col_width = column_overflow[key]
+                if overflow_type == "ellipsis" and isinstance(formatted_value, str):
+                    formatted_value = self._smart_truncate(formatted_value, col_width)
+                
                 row_data.append(formatted_value)
             table.add_row(*row_data)
 
@@ -1460,85 +1497,241 @@ class UniversalOutputFormatter:
     def _calculate_proportional_widths(
         self, items: List[Dict[str, Any]], sorted_keys: List[str], total_width: int
     ) -> Dict[str, int]:
-        """Calculate proportional column widths that fill the total table width."""
+        """Calculate proportional column widths with intelligent auto-scaling.
+        
+        This method implements a smart column width algorithm that:
+        1. Calculates actual content widths from data
+        2. Assigns priority to important columns (id, name, status)
+        3. Scales down gracefully when terminal width is limited
+        4. Hides less important columns if necessary for very narrow terminals
+        """
         if not items or not sorted_keys:
             return {}
 
-        # Reserve space for borders and padding (approximately 3 chars per column)
-        available_width = (
-            total_width - (len(sorted_keys) * 3) - 4
-        )  # Extra margin for table borders
+        # Reserve space for borders, padding, and separators
+        # Each column needs: 1 char padding left + 1 char padding right + 1 char separator = 3 chars
+        border_overhead = (len(sorted_keys) * 3) + 4  # +4 for outer borders
+        available_width = max(40, total_width - border_overhead)  # Minimum 40 chars usable width
 
-        # Calculate content-based minimum widths
-        min_widths = {}
+        # Calculate actual content widths by sampling data
+        actual_widths = {}
         for key in sorted_keys:
-            # Start with header width as minimum
+            # Start with header width
             header_width = len(self._format_column_header(key))
-            content_width = header_width
+            max_content_width = header_width
 
-            # Sample content width from first few items
-            for item in items[:5]:
+            # Sample up to 10 items to get realistic content width
+            sample_size = min(10, len(items))
+            for item in items[:sample_size]:
                 value = item.get(key, "")
                 formatted_value = self._format_cell_value(key, value)
-                content_width = max(content_width, len(str(formatted_value)))
+                content_width = len(str(formatted_value))
+                max_content_width = max(max_content_width, content_width)
 
-            min_widths[key] = content_width
+            actual_widths[key] = max_content_width
 
-        # Apply column type preferences
-        preferred_widths = {}
+        # Define column priorities and constraints
+        column_config = self._get_column_config(sorted_keys, actual_widths)
+
+        # Calculate minimum required width
+        min_required = sum(config["min_width"] for config in column_config.values())
+
+        # If we don't have enough space, we need to be more aggressive
+        if min_required > available_width:
+            # Use even smaller minimum widths
+            for key in sorted_keys:
+                if column_config[key]["priority"] <= 1:
+                    # Low priority - can be very narrow or hidden
+                    column_config[key]["min_width"] = 4
+                elif column_config[key]["priority"] == 2:
+                    # Medium priority - minimal width
+                    column_config[key]["min_width"] = 6
+                else:
+                    # High priority - keep reasonable minimum
+                    column_config[key]["min_width"] = 8
+
+        # Calculate final widths using priority-based allocation
+        final_widths = self._allocate_column_widths(
+            sorted_keys, column_config, available_width
+        )
+
+        return final_widths
+
+    def _get_column_config(
+        self, sorted_keys: List[str], actual_widths: Dict[str, int]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Get column configuration with priorities and constraints."""
+        config = {}
+
         for key in sorted_keys:
-            base_width = min_widths[key]
+            key_lower = key.lower()
+            actual_width = actual_widths[key]
 
-            if key.lower() == "id":
-                # IDs need minimal space
-                preferred_widths[key] = min(base_width, 8)
-            elif key.lower() in ["name", "title"]:
-                # Names get moderate space
-                preferred_widths[key] = min(base_width, 25)
-            elif key.lower() in ["description", "message", "details"]:
-                # Descriptions get more space
-                preferred_widths[key] = min(base_width, 50)
-            elif key.lower() in ["module", "path", "file"]:
-                # Module paths get substantial space
-                preferred_widths[key] = min(base_width, 40)
+            # Determine priority (3=high, 2=medium, 1=low, 0=can hide)
+            if key_lower in ["id", "name", "title", "status"]:
+                priority = 3  # Always show
+            elif key_lower in [
+                "description",
+                "created_at",
+                "updated_at",
+                "owner_email",
+                "email",
+            ]:
+                priority = 2  # Show if possible
+            elif key_lower in ["client_id", "cloned_from_id", "parent_template_id"]:
+                priority = 1  # Low priority
             else:
-                # Other fields get default space
-                preferred_widths[key] = min(base_width, 20)
+                priority = 2  # Default medium priority
 
-        # Calculate total preferred width
-        total_preferred = sum(preferred_widths.values())
+            # Determine optimal and maximum widths
+            if key_lower == "id":
+                optimal = min(actual_width, 10)
+                max_width = 12
+                min_width = 6
+            elif key_lower in ["name", "title"]:
+                optimal = min(actual_width, 30)
+                max_width = 40
+                min_width = 10
+            elif key_lower in ["description", "message", "details", "summary"]:
+                optimal = min(actual_width, 40)
+                max_width = 60
+                min_width = 15
+            elif key_lower in ["status", "state"]:
+                optimal = min(actual_width, 15)
+                max_width = 20
+                min_width = 8
+            elif "_at" in key_lower or "date" in key_lower or "time" in key_lower:
+                optimal = min(actual_width, 12)
+                max_width = 20
+                min_width = 10
+            elif "email" in key_lower:
+                optimal = min(actual_width, 25)
+                max_width = 35
+                min_width = 12
+            else:
+                optimal = min(actual_width, 20)
+                max_width = 30
+                min_width = 8
 
-        # Scale to fit available width
+            config[key] = {
+                "priority": priority,
+                "actual_width": actual_width,
+                "optimal_width": optimal,
+                "max_width": max_width,
+                "min_width": min_width,
+            }
+
+        return config
+
+    def _allocate_column_widths(
+        self,
+        sorted_keys: List[str],
+        column_config: Dict[str, Dict[str, Any]],
+        available_width: int,
+    ) -> Dict[str, int]:
+        """Allocate column widths using priority-based algorithm."""
         final_widths = {}
-        if total_preferred <= available_width:
-            # Use preferred widths and distribute remaining space
-            remaining_space = available_width - total_preferred
-            extra_per_column = remaining_space // len(sorted_keys)
 
-            for key in sorted_keys:
-                final_widths[key] = preferred_widths[key] + extra_per_column
-        else:
-            # Scale down proportionally
-            scale_factor = available_width / total_preferred
-            for key in sorted_keys:
-                scaled_width = int(preferred_widths[key] * scale_factor)
-                final_widths[key] = max(6, scaled_width)  # Minimum 6 chars per column
+        # Start by assigning minimum widths
+        remaining_width = available_width
+        for key in sorted_keys:
+            min_width = column_config[key]["min_width"]
+            final_widths[key] = min_width
+            remaining_width -= min_width
+
+        if remaining_width <= 0:
+            # No extra space available, use minimums
+            return final_widths
+
+        # Distribute remaining space by priority
+        # First, try to reach optimal widths for high priority columns
+        for priority_level in [3, 2, 1]:
+            if remaining_width <= 0:
+                break
+
+            high_priority_keys = [
+                k for k in sorted_keys if column_config[k]["priority"] == priority_level
+            ]
+
+            if not high_priority_keys:
+                continue
+
+            # Calculate how much each column wants to grow
+            growth_needed = {}
+            total_growth = 0
+            for key in high_priority_keys:
+                current = final_widths[key]
+                optimal = column_config[key]["optimal_width"]
+                growth = max(0, optimal - current)
+                growth_needed[key] = growth
+                total_growth += growth
+
+            if total_growth == 0:
+                continue
+
+            # Distribute available space proportionally
+            space_to_distribute = min(remaining_width, total_growth)
+
+            for key in high_priority_keys:
+                if total_growth > 0:
+                    proportion = growth_needed[key] / total_growth
+                    extra_width = int(space_to_distribute * proportion)
+                    final_widths[key] += extra_width
+                    remaining_width -= extra_width
+
+        # If there's still space left, distribute evenly among all columns up to their max
+        if remaining_width > 0:
+            keys_can_grow = [
+                k
+                for k in sorted_keys
+                if final_widths[k] < column_config[k]["max_width"]
+            ]
+
+            while remaining_width > 0 and keys_can_grow:
+                extra_per_column = max(1, remaining_width // len(keys_can_grow))
+
+                for key in keys_can_grow[:]:
+                    max_width = column_config[key]["max_width"]
+                    current = final_widths[key]
+
+                    if current >= max_width:
+                        keys_can_grow.remove(key)
+                        continue
+
+                    can_add = min(extra_per_column, max_width - current, remaining_width)
+                    final_widths[key] += can_add
+                    remaining_width -= can_add
+
+                    if final_widths[key] >= max_width:
+                        keys_can_grow.remove(key)
+
+                if extra_per_column == 0:
+                    break
 
         return final_widths
 
     def _render_dict_as_table(self, item: Dict[str, Any], title: str) -> None:
         """Render a single dictionary as a details table with auto-scaling."""
         from rich import box
-        
+
+        # Get terminal width for dynamic sizing
+        terminal_width = self.console.width
+
+        # Calculate column widths (30% for field name, 70% for value)
+        field_width = max(15, int(terminal_width * 0.3))
+        value_width = max(30, int(terminal_width * 0.7) - 10)  # Reserve space for borders
+
         table = Table(
-            title=f"📋 {title}", 
-            show_header=True, 
+            title=f"📋 {title}",
+            show_header=True,
             header_style="bold magenta",  # Match list table header style
             box=box.ROUNDED,
             border_style="blue",
+            expand=True,
+            width=terminal_width,
         )
-        table.add_column("Field", style="cyan", no_wrap=True)
-        table.add_column("Value", style="white")
+        table.add_column("Field", style="cyan", no_wrap=True, width=field_width)
+        table.add_column("Value", style="white", overflow="fold", no_wrap=False, width=value_width)
 
         # Sort keys with common ones first
         common_fields = [
@@ -1652,66 +1845,6 @@ class UniversalOutputFormatter:
         # This should match the column max width minus some padding for table borders
         return self._get_column_max_width(key)
 
-    def _calculate_proportional_widths(self, keys: List[str]) -> List[int]:
-        """Calculate proportional column widths that fill the available terminal width.
-
-        Scales to terminal width if less than 200 characters, otherwise uses 200.
-
-        Args:
-            keys: List of column keys
-
-        Returns:
-            List of column widths that sum to the available terminal width
-        """
-        if not keys:
-            return []
-
-        # Get actual terminal width, but use at least 80 characters and max 200
-        # Try to get from environment first, then console, with fallbacks
-        import os
-        import shutil
-
-        # Check if COLUMNS is set and use it, otherwise detect terminal width
-        env_columns = os.environ.get("COLUMNS")
-        if env_columns and env_columns.isdigit():
-            detected_width = int(env_columns)
-        else:
-            # Use shutil.get_terminal_size() for more accurate detection
-            detected_width = shutil.get_terminal_size().columns
-
-        terminal_width = min(200, max(80, detected_width))
-
-        # Total available width minus table borders and padding
-        # Rich table uses: | col1 | col2 | col3 |
-        # So we need space for: (num_cols + 1) border chars + (num_cols * 2) padding
-        total_available = terminal_width - (len(keys) + 1) - (len(keys) * 2)
-
-        # Get relative priority weights for each field type
-        field_weights = {}
-        for key in keys:
-            field_weights[key] = self._get_field_priority_weight(key)
-
-        # Calculate total weight
-        total_weight = sum(field_weights.values())
-
-        # Calculate proportional widths
-        widths = []
-        remaining_width = total_available
-
-        for i, key in enumerate(keys):
-            if i == len(keys) - 1:
-                # Last column gets all remaining width
-                widths.append(max(8, remaining_width))  # Minimum 8 chars
-            else:
-                # Calculate proportional width
-                weight_ratio = field_weights[key] / total_weight
-                width = int(total_available * weight_ratio)
-                width = max(8, min(width, 50))  # Between 8 and 50 chars
-                widths.append(width)
-                remaining_width -= width
-
-        return widths
-
     def _get_field_priority_weight(self, key: str) -> float:
         """Get priority weight for field type to determine column width allocation.
 
@@ -1813,6 +1946,34 @@ class UniversalOutputFormatter:
                 return min(10, avg_width - 2)
             else:
                 return min(15, avg_width)
+
+    def _smart_truncate(self, text: str, max_width: int) -> str:
+        """Intelligently truncate text to fit within max_width.
+        
+        For very narrow columns (< 6 chars), shows first 3 chars + "..."
+        For wider columns, uses standard ellipsis truncation.
+        
+        Args:
+            text: Text to truncate
+            max_width: Maximum width for the text
+            
+        Returns:
+            Truncated text with ellipsis if needed
+        """
+        if not text or len(text) <= max_width:
+            return text
+            
+        # For very narrow columns (< 6 chars), show first 3 chars + "..."
+        if max_width < 6:
+            # Ensure we have at least 4 chars for "X..." pattern
+            if max_width >= 4:
+                return text[:max_width - 3] + "..."
+            else:
+                # For extremely narrow (1-3 chars), just show what we can
+                return text[:max_width]
+        
+        # For columns 6+ chars, use standard truncation with ellipsis
+        return text[:max_width - 3] + "..."
 
     def _format_cell_value(self, key: str, value: Any) -> str:
         """Format a cell value for display."""

@@ -51,10 +51,8 @@ async def update_network(
     }
 
     # Use UniversalOutputFormatter for consistent update rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_update(
+    ctx.obj.formatter.render_update(
         data=result,
         resource_name="Network",
         resource_id=network_id,

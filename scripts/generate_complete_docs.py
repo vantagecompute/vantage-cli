@@ -113,12 +113,12 @@ class CombinedDocumentationGenerator:
         except Exception as e:
             return f"Error running command: {e}", 1
 
-    def discover_commands_recursive(self, command_path: Optional[List[str]] = None, max_depth: int = 2) -> Dict[str, Any]:
+    def discover_commands_recursive(self, command_path: Optional[List[str]] = None, max_depth: int = 5) -> Dict[str, Any]:
         """Recursively discover all commands and subcommands.
         
         Args:
             command_path: Current command path (None for root)
-            max_depth: Maximum recursion depth to prevent infinite loops
+            max_depth: Maximum recursion depth to prevent infinite loops (increased to 5 for nested subcommands)
             
         Returns:
             Nested dictionary of commands and subcommands
@@ -413,7 +413,8 @@ This document provides a comprehensive reference for all available CLI commands 
                 # Clean and escape the help content
                 cleaned_lines = self.clean_and_escape_help_content(help_content)
                 
-                markdown.append(f"<TabItem value=\"{command_name}\" label=\"🔹 {command_name}\">")
+                # Use command-main for unique value to avoid conflicts with subcommands
+                markdown.append(f"<TabItem value=\"{command_name}-main\" label=\"🔹 {command_name}\">")
                 markdown.append("")
                 markdown.append('```text')
                 markdown.extend(cleaned_lines)
@@ -421,12 +422,14 @@ This document provides a comprehensive reference for all available CLI commands 
                 markdown.append("")
                 markdown.append("</TabItem>")
             
-            # Subsequent tabs: subcommands
+            # Subsequent tabs: subcommands (these may contain nested tabs)
             for subcmd_name, subcmd_data in command_data.items():
                 subcmd_path = [command_name, subcmd_name]
                 tab_content = self.generate_subcommand_tab_content(subcmd_path, subcmd_data)
                 if tab_content:
-                    markdown.append(f"<TabItem value=\"{subcmd_name}\" label=\"{subcmd_name}\">")
+                    # Use full path for unique value
+                    tab_value = "-".join(subcmd_path)
+                    markdown.append(f"<TabItem value=\"{tab_value}\" label=\"{subcmd_name}\">")
                     markdown.append("")
                     markdown.append(tab_content)
                     markdown.append("")
@@ -472,9 +475,10 @@ This document provides a comprehensive reference for all available CLI commands 
                 # First tab: main command help
                 cleaned_lines = self.clean_and_escape_help_content(help_content)
                 
-                # Use just the last part of the command for the tab label - make it stand out
+                # Use full command path for unique tab value, but just last part for label
                 main_command_label = command_path[-1]
-                markdown.append(f"<TabItem value=\"{main_command_label}\" label=\"🔹 {main_command_label}\">")
+                main_command_value = "-".join(command_path) + "-main"
+                markdown.append(f"<TabItem value=\"{main_command_value}\" label=\"🔹 {main_command_label}\">")
                 markdown.append("")
                 markdown.append('```text')
                 markdown.extend(cleaned_lines)
@@ -482,12 +486,14 @@ This document provides a comprehensive reference for all available CLI commands 
                 markdown.append("")
                 markdown.append("</TabItem>")
                 
-                # Subsequent tabs: nested subcommands
+                # Subsequent tabs: nested subcommands (recursively handle nested tabs)
                 for subcmd_name, subcmd_data in command_data.items():
                     nested_path = command_path + [subcmd_name]
                     nested_content = self.generate_subcommand_tab_content(nested_path, subcmd_data)
                     if nested_content:
-                        markdown.append(f"<TabItem value=\"{subcmd_name}\" label=\"{subcmd_name}\">")
+                        # Use full nested path for unique tab value
+                        nested_value = "-".join(nested_path)
+                        markdown.append(f"<TabItem value=\"{nested_value}\" label=\"{subcmd_name}\">")
                         markdown.append("")
                         markdown.append(nested_content)
                         markdown.append("")
@@ -576,7 +582,8 @@ This document provides a comprehensive reference for all available CLI commands 
                 if config_help:
                     cleaned_lines = self.clean_and_escape_help_content(config_help)
                     
-                    markdown.append("<TabItem value=\"config\" label=\"🔹 config\">")
+                    # Use config-main for unique value to avoid conflicts
+                    markdown.append("<TabItem value=\"config-main\" label=\"🔹 config\">")
                     markdown.append("")
                     markdown.append('```text')
                     markdown.extend(cleaned_lines)
@@ -584,11 +591,13 @@ This document provides a comprehensive reference for all available CLI commands 
                     markdown.append("")
                     markdown.append("</TabItem>")
                 
-                # Subsequent tabs: config subcommands
+                # Subsequent tabs: config subcommands (may have nested tabs)
                 for subcmd_name, subcmd_data in config_data.items():
                     tab_content = self.generate_subcommand_tab_content(["config", subcmd_name], subcmd_data)
                     if tab_content:
-                        markdown.append(f"<TabItem value=\"{subcmd_name}\" label=\"{subcmd_name}\">")
+                        # Use full path for unique value
+                        tab_value = f"config-{subcmd_name}"
+                        markdown.append(f"<TabItem value=\"{tab_value}\" label=\"{subcmd_name}\">")
                         markdown.append("")
                         markdown.append(tab_content)
                         markdown.append("")

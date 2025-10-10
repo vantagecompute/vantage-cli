@@ -15,14 +15,17 @@ from typing import Optional
 
 import typer
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.job import job_script_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def list_job_scripts(
     ctx: typer.Context,
     from_template_id: Optional[int] = typer.Option(
@@ -41,28 +44,20 @@ async def list_job_scripts(
     offset: int = typer.Option(0, "--offset", "-o", help="Number of results to skip"),
 ):
     """List all job scripts."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
+    # Use SDK to fetch job scripts
+    response = await job_script_sdk.list(
+        ctx,
+        page=(offset // limit) + 1,
+        size=limit,
+        sort_ascending=sort_ascending,
+        user_only=user_only,
+        include_archived=include_archived,
+        from_job_script_template_id=from_template_id,
+        search=search,
+        sort_field=sort_field,
+    )
 
-    # Build query parameters
-    params = {
-        "page": (offset // limit) + 1,
-        "size": limit,
-        "sort_ascending": sort_ascending,
-        "user_only": user_only,
-        "include_archived": include_archived,
-    }
-
-    if from_template_id:
-        params["from_job_script_template_id"] = from_template_id
-    if search:
-        params["search"] = search
-    if sort_field:
-        params["sort_field"] = sort_field
-
-    response = await client.get("/job-scripts", params=params)
-    scripts_data = response
-
-    # Use the UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.output(data=scripts_data, title="Job Scripts")
+    # Use UniversalOutputFormatter for consistent list rendering
+    ctx.obj.formatter.render_list(
+        data=response, resource_name="Job Scripts", empty_message="No job scripts found."
+    )

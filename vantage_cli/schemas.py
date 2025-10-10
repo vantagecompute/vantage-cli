@@ -74,6 +74,7 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
     profile: str = "default"
     verbose: bool = False
     json_output: bool = False
+    formatter: Optional[Any] = None  # UniversalOutputFormatter (avoid circular import)
     persona: Optional[Persona] = None
     client: Optional[httpx.AsyncClient] = None
     settings: Optional[Settings] = None

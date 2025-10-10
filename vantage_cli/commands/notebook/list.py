@@ -19,7 +19,6 @@ from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.notebook.crud import notebook_sdk
 
 
@@ -42,7 +41,6 @@ async def list_notebooks(
 ):
     """List notebook servers."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use the SDK to get notebooks
@@ -50,7 +48,7 @@ async def list_notebooks(
         notebooks = await notebook_sdk.list_notebooks(ctx, cluster=cluster, limit=limit)
 
         if not notebooks:
-            formatter.render_list(
+            ctx.obj.formatter.render_list(
                 data=[],
                 resource_name="Notebook Servers",
                 empty_message="No notebook servers found.",
@@ -73,7 +71,7 @@ async def list_notebooks(
             notebooks_data.append(notebook_dict)
 
         # Use formatter to render the notebooks list
-        formatter.render_list(
+        ctx.obj.formatter.render_list(
             data=notebooks_data,
             resource_name="Notebook Servers",
             empty_message="No notebook servers found.",
@@ -84,7 +82,7 @@ async def list_notebooks(
         raise
     except Exception as e:
         logger.error(f"Unexpected error listing notebooks: {e}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message="An unexpected error occurred while listing notebook servers.",
             details={"error": str(e)},
         )

@@ -18,14 +18,30 @@ import typer
 import yaml
 from rich.console import Console
 
-from vantage_cli.apps.constants import DEV_CLIENT_ID, DEV_CLIENT_SECRET, DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
+from vantage_cli.apps.constants import (
+    DEV_CLIENT_ID,
+    DEV_CLIENT_SECRET,
+    DEV_JUPYTERHUB_TOKEN,
+    DEV_SSSD_BINDER_PASSWORD,
+)
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 from vantage_cli.sdk.deployment.schema import Deployment
 
 
-def validate_client_credentials(
-    cluster: Cluster, console: Console
-) -> tuple[str, Optional[str]]:
+def generate_default_deployment_name(app_name: str, cluster_name: str) -> str:
+    """Generate a default deployment name from app name and cluster name.
+
+    Args:
+        app_name: Name of the application being deployed
+        cluster_name: Name of the cluster
+
+    Returns:
+        Generated deployment name in format: {app_name}-{cluster_name}
+    """
+    return f"{app_name}-{cluster_name}"
+
+
+def validate_client_credentials(cluster: Cluster, console: Console) -> tuple[str, Optional[str]]:
     """Validate and extract client credentials from cluster object.
 
     Args:
@@ -46,6 +62,30 @@ def validate_client_credentials(
 
     client_secret = cluster.client_secret
     return client_id, client_secret
+
+
+def get_jupyterhub_token(cluster: Cluster) -> Optional[str]:
+    """Return JupyterHub token from cluster object or None.
+
+    Args:
+        cluster: Cluster object
+
+    Returns:
+        JupyterHub token if available, otherwise None
+    """
+    return cluster.jupyterhub_token or None
+
+
+def get_sssd_binder_password(cluster: Cluster) -> Optional[str]:
+    """Return SSSD binder password from cluster object or None.
+
+    Args:
+        cluster: Cluster object
+
+    Returns:
+        SSSD binder password if available, otherwise None
+    """
+    return cluster.sssd_binder_password
 
 
 def generate_dev_cluster_data(cluster_name: Optional[str] = None) -> Cluster:
@@ -105,6 +145,23 @@ def load_deployments() -> Dict[str, Any]:
         # Load deployments and return empty dict with defaults on error
         return {"deployments": {}}
 
+
+def get_deployment_by_name(deployment_name: str) -> Optional[Deployment]:
+    """Get deployment information by name.
+
+    Args:
+        deployment_name: Unique name for the deployment
+
+    Returns:
+        Normalized deployment record dictionary or None if not found
+    """
+    deployments_data = load_deployments()
+    for deployment_data in deployments_data["deployments"].values():
+        if deployment_data.get("name") == deployment_name:
+            return Deployment(**deployment_data)
+    return None
+
+
 def get_deployment(deployment_id: str) -> Optional[Deployment]:
     """Get deployment information by ID.
 
@@ -119,6 +176,7 @@ def get_deployment(deployment_id: str) -> Optional[Deployment]:
         return Deployment(**deployment_data)
     return None
 
+
 def get_deployments() -> List[Deployment]:
     """Get all deployments with their IDs included.
 
@@ -128,8 +186,7 @@ def get_deployments() -> List[Deployment]:
     deployments = load_deployments()
 
     return [
-        Deployment(**deployment_data)
-        for deployment_data in deployments["deployments"].values()
+        Deployment(**deployment_data) for deployment_data in deployments["deployments"].values()
     ]
 
 
@@ -149,6 +206,7 @@ def list_deployments_by_app(app_name: str) -> List[Deployment | Any]:
         if deployment_data.get("app_name") == app_name
     ]
 
+
 def list_deployments_by_cluster(cluster_name: str) -> List[Deployment | Any]:
     """List all active deployments for a specific cluster.
 
@@ -162,7 +220,8 @@ def list_deployments_by_cluster(cluster_name: str) -> List[Deployment | Any]:
     return [
         Deployment(**deployment_data)
         for deployment_data in deployments_data["deployments"].values()
-        if deployment_data.get("cluster_name") == cluster_name and deployment_data.get("status") == "active"
+        if deployment_data.get("cluster_name") == cluster_name
+        and deployment_data.get("status") == "active"
     ]
 
 
@@ -203,6 +262,27 @@ def create_deployment_with_init_status(
     deployments_data["deployments"][f"{deployment.id}"] = deployment.model_dump()
 
     return deployment
+
+
+def update_deployment_status(deployment_id: str, status: str, verbose: bool = False) -> bool:
+    """Update the status of an existing deployment.
+
+    Args:
+        deployment_id: ID of the deployment to update
+        status: New status value (e.g., 'active', 'failed', 'terminated')
+        verbose: Whether to show verbose output
+
+    Returns:
+        True if update was successful, False if deployment not found
+    """
+    deployments_data = load_deployments()
+
+    if deployment_id in deployments_data["deployments"]:
+        deployments_data["deployments"][deployment_id]["status"] = status
+        # Auto-update updated_at timestamp (handled by Deployment schema)
+        save_deployments(deployments_data)
+        return True
+    return False
 
 
 def remove_deployment(deployment_id: str) -> bool:

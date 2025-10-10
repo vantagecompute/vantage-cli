@@ -17,7 +17,6 @@ from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
@@ -29,7 +28,6 @@ async def get_support_ticket(
 ):
     """Get details of a specific support ticket."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use SDK to get support ticket
@@ -37,7 +35,9 @@ async def get_support_ticket(
         ticket = await support_ticket_sdk.get_ticket(ctx, ticket_id)
 
         if not ticket:
-            formatter.render_error(error_message=f"Support ticket '{ticket_id}' not found.")
+            ctx.obj.formatter.render_error(
+                error_message=f"Support ticket '{ticket_id}' not found."
+            )
             raise Abort(
                 f"Support ticket '{ticket_id}' not found.",
                 subject="Ticket Not Found",
@@ -59,7 +59,7 @@ async def get_support_ticket(
         }
 
         # Use formatter to render the ticket details
-        formatter.render_get(
+        ctx.obj.formatter.render_get(
             data=ticket_data, resource_name="Support Ticket", resource_id=ticket_id
         )
 
@@ -67,7 +67,7 @@ async def get_support_ticket(
         raise
     except Exception as e:
         logger.error(f"Unexpected error getting support ticket '{ticket_id}': {e}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"An unexpected error occurred while getting support ticket '{ticket_id}'.",
             details={"error": str(e)},
         )

@@ -137,7 +137,7 @@ def sample_apps():
     """Sample apps data for testing."""
     return {
         "slurm-microk8s-localhost": {
-            "module": create_mock_module("vantage_cli.apps.slurm_microk8s_localhost.app"),
+            "module": create_mock_module("vantage_cli.apps.localhost.slurm_microk8s.app"),
             "deploy_function": create_mock_deploy_function(
                 "Deploy SLURM cluster on MicroK8s using Helm."
             ),
@@ -273,7 +273,7 @@ def test_list_apps_json_output():
     # Create sample apps
     sample_apps = {
         "slurm-microk8s-localhost": {
-            "module": create_mock_module("vantage_cli.apps.slurm_microk8s_localhost.app"),
+            "module": create_mock_module("vantage_cli.apps.localhost.slurm_microk8s.app"),
             "deploy_function": create_mock_deploy_function(
                 "Deploy SLURM cluster on MicroK8s using Helm."
             ),

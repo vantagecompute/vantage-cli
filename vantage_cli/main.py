@@ -12,9 +12,8 @@
 """Main typer app for vantage-cli."""
 
 # Disable HTTP library logging before any imports that might use httpx
-import logging
-
 import datetime
+import logging
 import shutil
 import subprocess
 import sys
@@ -31,6 +30,9 @@ from rich.panel import Panel
 logger.remove()  # Remove default handler
 logger.add(sys.stderr, level="ERROR")  # Only show ERROR and CRITICAL by default
 
+# Set terminal width for Rich error messages to match our console width
+import os
+
 from vantage_cli import AsyncTyper, __version__
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
 from vantage_cli.cache import clear_token_cache, load_tokens_from_cache, with_cache
@@ -46,8 +48,8 @@ from vantage_cli.commands.alias import (
     teams_command,
 )
 from vantage_cli.commands.app import app_app
-from vantage_cli.commands.cloud import cloud_app
 from vantage_cli.commands.cli_dash import cli_dash
+from vantage_cli.commands.cloud import cloud_app
 from vantage_cli.commands.cluster import cluster_app
 from vantage_cli.commands.config import config_app
 from vantage_cli.commands.job import job_app
@@ -62,17 +64,14 @@ from vantage_cli.config import (
     ensure_default_profile_exists,
     get_active_profile,
 )
-from .constants import VANTAGE_CLI_DEV_APPS_DIR
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.schemas import CliContext, Persona, TokenSet
 from vantage_cli.utils import get_dev_apps_gh_url
 
-# Set terminal width for Rich error messages to match our console width
-import os
+from .constants import VANTAGE_CLI_DEV_APPS_DIR
 
-
-os.environ["COLUMNS"] = "200"
+#os.environ["COLUMNS"] = "200"
 
 logging.getLogger("httpx").disabled = True
 logging.getLogger("httpcore").disabled = True
@@ -84,6 +83,7 @@ app = AsyncTyper(
     no_args_is_help=True,
     invoke_without_command=True,
 )
+
 
 @app.command()
 @handle_abort
@@ -113,7 +113,7 @@ app.add_typer(support_ticket_app, name="support-ticket")
 def setup_logging(verbose: bool = False):
     """Configure logging based on verbosity level."""
     import logging
-    
+
     logger.remove()
 
     if verbose:
@@ -129,21 +129,21 @@ def setup_logging(verbose: bool = False):
         # In non-verbose mode, only show ERROR and CRITICAL messages
         # This suppresses DEBUG, INFO, and WARNING messages
         logger.add(sys.stdout, level="ERROR")
-        
+
         # Disable rich tracebacks in normal mode
         # Reset exception handler to default
         sys.excepthook = sys.__excepthook__
-        
+
         # Completely suppress HTTP logs by setting them to CRITICAL level
         # This prevents HTTP request/response logs from cluttering the user interface
-        #logging.getLogger("httpx").setLevel(logging.CRITICAL)
-        #logging.getLogger("httpcore").setLevel(logging.CRITICAL)
-        #logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-        #ogging.getLogger("requests").setLevel(logging.CRITICAL)
-        
+        # logging.getLogger("httpx").setLevel(logging.CRITICAL)
+        # logging.getLogger("httpcore").setLevel(logging.CRITICAL)
+        # logging.getLogger("urllib3").setLevel(logging.CRITICAL)
+        # ogging.getLogger("requests").setLevel(logging.CRITICAL)
+
         # Also suppress any potential root logger or httpx._client logs
-        #logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
-        #logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
+        # logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
+        # logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
 
     logger.debug("Logging initialized")
 
@@ -175,7 +175,15 @@ def main(ctx: typer.Context):
     # console = Console(width=200)
     console = Console(color_system="auto", force_terminal=True)
 
-    cli_ctx = CliContext(profile=active_profile, json_output=json_output, verbose=verbose, console=console)
+    formatter = UniversalOutputFormatter(console=console, json_output=json_output)
+
+    cli_ctx = CliContext(
+        profile=active_profile,
+        json_output=json_output,
+        verbose=verbose,
+        console=console,
+        formatter=formatter,
+    )
     ctx.obj = cli_ctx
 
 
@@ -261,7 +269,7 @@ def _check_existing_login(profile: str) -> Optional[str]:
 async def login(ctx: typer.Context):
     """Authenticate against the Vantage CLI by obtaining an authentication token."""
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    
+
     # Check if user is already logged in with a valid token
     existing_email = _check_existing_login(ctx.obj.profile)
     if existing_email:
@@ -271,7 +279,7 @@ async def login(ctx: typer.Context):
             "status": "already_authenticated",
             "message": "Valid token already exists. Run 'vantage logout' first to generate a new token.",
         }
-        
+
         if ctx.obj.json_output:
             formatter.render_get(
                 data=login_data,
@@ -295,7 +303,7 @@ async def login(ctx: typer.Context):
 
     token_set: TokenSet = await fetch_auth_tokens(ctx.obj)
     persona: Persona = extract_persona(ctx.obj.profile, token_set)
-    
+
     login_data = {
         "profile": ctx.obj.profile,
         "email": persona.identity_data.email,
@@ -303,7 +311,7 @@ async def login(ctx: typer.Context):
         "status": "authenticated",
         "message": "Successfully authenticated. You can now use the CLI to interact with Vantage Compute platform.",
     }
-    
+
     if ctx.obj.json_output:
         formatter.render_create(
             data=login_data,
@@ -331,16 +339,18 @@ async def login(ctx: typer.Context):
 async def logout(ctx: typer.Context):
     """Log out of the vantage-cli and clear saved user credentials."""
     formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    
+
     existing_email = _check_existing_login(ctx.obj.profile)
-    
+
     logout_data = {
         "profile": ctx.obj.profile,
         "email": existing_email if existing_email else "Not authenticated",
         "status": "logged_out" if existing_email else "not_authenticated",
-        "message": "Please run 'vantage login' to log back in." if existing_email else "No active session found.",
+        "message": "Please run 'vantage login' to log back in."
+        if existing_email
+        else "No active session found.",
     }
-    
+
     if existing_email:
         if ctx.obj.json_output:
             formatter.render_delete(
@@ -368,7 +378,7 @@ async def logout(ctx: typer.Context):
                 resource_name="Logout Status",
                 resource_id=ctx.obj.profile,
             )
-    
+
     clear_token_cache(ctx.obj.profile)
 
 
@@ -462,6 +472,7 @@ async def whoami(ctx: typer.Context):
                 )
             )
             console.print()
+
 
 # CLI Dashboard command
 app.command("cli-dash")(cli_dash)

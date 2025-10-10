@@ -15,13 +15,17 @@ from typing import Annotated
 
 import typer
 
-from vantage_cli.commands.license.client import lm_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_server_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def delete_license_server(
     ctx: typer.Context,
     server_id: Annotated[str, typer.Argument(help="ID of the license server to delete")],
@@ -39,14 +43,11 @@ async def delete_license_server(
             ctx.obj.console.print("❌ Operation cancelled.")
             raise typer.Exit(0)
 
-    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-    response = await client.delete(f"/servers/{server_id}")
+    # Use SDK to delete license server
+    await license_server_sdk.delete(ctx, server_id)
 
     # Use UniversalOutputFormatter for consistent delete rendering
-    from vantage_cli.render import UniversalOutputFormatter
-
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_delete(
+    ctx.obj.formatter.render_delete(
         resource_name="License Server",
         resource_id=str(server_id),
         success_message="License server deleted successfully!",

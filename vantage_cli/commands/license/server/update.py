@@ -15,13 +15,17 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.commands.license.client import lm_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_server_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def update_license_server(
     ctx: typer.Context,
     server_id: Annotated[str, typer.Argument(help="ID of the license server to update")],
@@ -37,26 +41,22 @@ async def update_license_server(
     ] = None,
 ):
     """Update an existing license server."""
-    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     # Build the update payload with only provided fields
-    payload = {}
+    update_data = {}
     if name is not None:
-        payload["name"] = name
+        update_data["name"] = name
     if host is not None:
-        payload["host"] = host
+        update_data["host"] = host
     if port is not None:
-        payload["port"] = port
+        update_data["port"] = port
     if description is not None:
-        payload["description"] = description
+        update_data["description"] = description
 
-    response = await client.put(f"/servers/{server_id}", json=update_data)
+    # Use SDK to update license server
+    response = await license_server_sdk.update(ctx, server_id, update_data)
 
     # Use UniversalOutputFormatter for consistent update rendering
-    from vantage_cli.render import UniversalOutputFormatter
-
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_update(
+    ctx.obj.formatter.render_update(
         data=response,
         resource_name="License Server",
         resource_id=str(server_id),

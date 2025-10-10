@@ -1,5 +1,4 @@
-"""Vantage REST API Client for License Management and related resources.
-"""
+"""Vantage REST API Client for License Management and related resources."""
 
 import inspect
 import json as json_lib
@@ -7,10 +6,10 @@ from functools import wraps
 from typing import Any, Callable, Dict, Optional
 
 import httpx
+import typer
 from loguru import logger
 from rich.console import Console
 from rich.json import JSON
-import typer
 
 from .auth import refresh_access_token_standalone
 from .cache import save_tokens_to_cache
@@ -22,8 +21,10 @@ class VantageRestApiClient:
         self,
         ctx: typer.Context,
         timeout: int = 30,
+        base_path: str = "",
     ):
-        self.base_url = ctx.obj.settings.get_apis_url().rstrip("/")
+        apis_url = ctx.obj.settings.get_apis_url().rstrip("/")
+        self.base_url = f"{apis_url}{base_path}" if base_path else apis_url
         self.persona = ctx.obj.persona
         self.profile = ctx.obj.profile
         self.settings = ctx.obj.settings or Settings()
@@ -133,16 +134,18 @@ class VantageRestApiClient:
         await self.client.aclose()
 
 
-def attach_vantage_rest_client(func: Callable[..., Any]) -> Callable[..., Any]:
+def attach_vantage_rest_client(
+    func: Callable[..., Any] = None, base_path: str = ""
+) -> Callable[..., Any]:
     """Attach VantageRestApiClient to the CLI context.
-    
+
     This decorator automatically initializes a VantageRestApiClient using the
     persona and settings from the context, and attaches it to ctx.obj.rest_client.
-    
+
     Prerequisites:
         - @attach_settings must be applied before this decorator
         - @attach_persona must be applied before this decorator
-    
+
     Usage:
         @attach_settings
         @attach_persona
@@ -150,65 +153,100 @@ def attach_vantage_rest_client(func: Callable[..., Any]) -> Callable[..., Any]:
         async def my_command(ctx: typer.Context):
             # ctx.obj.rest_client is now available
             result = await ctx.obj.rest_client.get("/licenses")
+
+        # For jobbergate endpoints:
+        @attach_settings
+        @attach_persona
+        @attach_vantage_rest_client(base_path="/jobbergate")
+        async def job_command(ctx: typer.Context):
+            result = await ctx.obj.rest_client.get("/job-scripts")
     """
-    if inspect.iscoroutinefunction(func):
 
-        @wraps(func)
-        async def async_wrapper(ctx: typer.Context, *args, **kwargs):
-            # Ensure we have settings and persona
-            if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
-                raise RuntimeError(
-                    "@attach_vantage_rest_client requires @attach_settings to be applied first"
-                )
-            
-            if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
-                raise RuntimeError(
-                    "@attach_vantage_rest_client requires @attach_persona to be applied first"
-                )
-            
-            # Create and attach the REST client
-            ctx.obj.rest_client = VantageRestApiClient(ctx=ctx)
-            if ctx.obj.verbose: 
-                ctx.obj.console.log(f"Attached REST API client for {ctx.obj.settings.get_apis_url()}")
-            
-            try:
-                return await func(ctx, *args, **kwargs)
-            finally:
-                # Clean up the client
-                await ctx.obj.rest_client.close()
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if inspect.iscoroutinefunction(func):
 
-        return async_wrapper
+            @wraps(func)
+            async def async_wrapper(ctx: typer.Context, *args, **kwargs):
+                # Ensure we have settings and persona
+                if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
+                    raise RuntimeError(
+                        "@attach_vantage_rest_client requires @attach_settings to be applied first"
+                    )
+
+                if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
+                    raise RuntimeError(
+                        "@attach_vantage_rest_client requires @attach_persona to be applied first"
+                    )
+
+                # Create and attach the REST client with base_path
+                ctx.obj.rest_client = VantageRestApiClient(ctx=ctx, base_path=base_path)
+                if ctx.obj.verbose:
+                    full_url = (
+                        f"{ctx.obj.settings.get_apis_url()}{base_path}"
+                        if base_path
+                        else ctx.obj.settings.get_apis_url()
+                    )
+                    ctx.obj.console.log(f"Attached REST API client for {full_url}")
+
+                try:
+                    return await func(ctx, *args, **kwargs)
+                finally:
+                    # Clean up the client
+                    await ctx.obj.rest_client.close()
+
+            return async_wrapper
+        else:
+
+            @wraps(func)
+            def wrapper(ctx: typer.Context, *args, **kwargs):
+                # Ensure we have settings and persona
+                if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
+                    raise RuntimeError(
+                        "@attach_vantage_rest_client requires @attach_settings to be applied first"
+                    )
+
+                if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
+                    raise RuntimeError(
+                        "@attach_vantage_rest_client requires @attach_persona to be applied first"
+                    )
+
+                # Create and attach the REST client (sync version - user must manage cleanup)
+                ctx.obj.rest_client = VantageRestApiClient(ctx=ctx, base_path=base_path)
+                if ctx.obj.verbose:
+                    full_url = (
+                        f"{ctx.obj.settings.get_apis_url()}{base_path}"
+                        if base_path
+                        else ctx.obj.settings.get_apis_url()
+                    )
+                    ctx.obj.console.log(f"Attached REST API client for {full_url}")
+                # Note: Sync functions must manually close the client if needed
+                return func(ctx, *args, **kwargs)
+
+            return wrapper
+
+    # Handle decorator with or without parentheses
+    if func is None:
+        # Called with parentheses: @attach_vantage_rest_client(base_path="/jobbergate")
+        return decorator
     else:
-
-        @wraps(func)
-        def wrapper(ctx: typer.Context, *args, **kwargs):
-            # Ensure we have settings and persona
-            if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
-                raise RuntimeError(
-                    "@attach_vantage_rest_client requires @attach_settings to be applied first"
-                )
-            
-            if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
-                raise RuntimeError(
-                    "@attach_vantage_rest_client requires @attach_persona to be applied first"
-                )
-            
-            # Create and attach the REST client (sync version - user must manage cleanup)
-            ctx.obj.rest_client = VantageRestApiClient(ctx=ctx)
-            if ctx.obj.verbose: 
-                ctx.obj.console.log(f"Attached REST API client for {ctx.obj.settings.get_apis_url()}")
-            # Note: Sync functions must manually close the client if needed
-            return func(ctx, *args, **kwargs)
-
-        return wrapper
+        # Called without parentheses: @attach_vantage_rest_client
+        return decorator(func)
 
 
-def create_vantage_rest_client(ctx: typer.Context) -> VantageRestApiClient:
-    """Create and return a VantageRestApiClient instance from the Typer context."""
+def create_vantage_rest_client(ctx: typer.Context, base_path: str = "") -> VantageRestApiClient:
+    """Create and return a VantageRestApiClient instance from the Typer context.
+
+    Args:
+        ctx: Typer context containing settings and persona
+        base_path: Optional base path to prepend to all API calls (e.g., "/jobbergate")
+
+    Returns:
+        VantageRestApiClient configured with the specified base path
+    """
     if not hasattr(ctx.obj, "settings") or ctx.obj.settings is None:
         raise RuntimeError("Settings must be configured in context before creating REST client")
-    
+
     if not hasattr(ctx.obj, "persona") or ctx.obj.persona is None:
         raise RuntimeError("Persona must be configured in context before creating REST client")
-    
-    return VantageRestApiClient(ctx=ctx)
+
+    return VantageRestApiClient(ctx=ctx, base_path=base_path)

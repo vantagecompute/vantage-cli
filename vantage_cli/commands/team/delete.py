@@ -26,10 +26,8 @@ async def delete_team(
 ):
     """Delete a team."""
     # Use UniversalOutputFormatter for consistent delete rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_delete(
+    ctx.obj.formatter.render_delete(
         resource_name="Team",
         resource_id=team_id,
         success_message=f"Team '{team_id}' deleted successfully!",

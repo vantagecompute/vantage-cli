@@ -79,9 +79,7 @@ async def list_networks(
     networks = networks[:limit] if limit else networks
 
     # Use UniversalOutputFormatter for consistent list rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_list(
+    ctx.obj.formatter.render_list(
         data=networks, resource_name="Virtual Networks", empty_message="No networks found."
     )

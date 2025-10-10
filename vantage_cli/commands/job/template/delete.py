@@ -14,15 +14,18 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.job import job_template_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def delete_job_template(
     ctx: typer.Context,
     template_id: Annotated[
@@ -31,17 +34,14 @@ async def delete_job_template(
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
 ):
     """Delete a job template."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     template_name = str(template_id)
 
     if not yes and not ctx.obj.json_output:
         # Get template info for confirmation
         try:
-            response = await client.get(f"/job-script-templates/{template_id}")
-            template_data = response
-            template_name = template_data.get("name", str(template_id))
+            response = await job_template_sdk.get(ctx, template_id)
+            if response:
+                template_name = response.get("name", str(template_id))
         except Exception:
             template_name = str(template_id)
 
@@ -52,12 +52,12 @@ async def delete_job_template(
             ctx.obj.console.print("❌ Delete operation cancelled.", style="yellow")
             raise typer.Exit(0)
 
-    await client.delete(f"/job-script-templates/{template_id}")
+    # Use SDK to delete job template
+    await job_template_sdk.delete(ctx, template_id)
 
-    # DELETE typically returns empty response on success (204 No Content)
-    if ctx.obj.json_output:
-        print_json(data={"template_id": template_id, "status": "deleted"})
-    else:
-        ctx.obj.console.print(
-            f"✅ Job template '{template_name}' deleted successfully!", style="green"
-        )
+    # Render output
+    ctx.obj.formatter.render_delete(
+        data={"template_id": template_id, "status": "deleted"},
+        resource_name="Job Template",
+        resource_id=str(template_id),
+    )

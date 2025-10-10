@@ -16,15 +16,18 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.job import job_template_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def update_job_template(
     ctx: typer.Context,
     template_id: Annotated[
@@ -45,9 +48,6 @@ async def update_job_template(
     ),
 ):
     """Update a job template."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     if json_file:
         # Read data from JSON file
         try:
@@ -76,12 +76,10 @@ async def update_job_template(
             )
             raise typer.Exit(1)
 
-    result = await client.put(f"/job-script-templates/{template_id}", json=update_data)
+    # Use SDK to update job template
+    result = await job_template_sdk.update(ctx, template_id, update_data)
 
-    if ctx.obj.json_output:
-        print_json(data=result)
-    else:
-        ctx.obj.console.print(
-            f"✅ Job template '{result.get('name')}' updated successfully!", style="green"
-        )
-        ctx.obj.console.print(f"📋 Template ID: {result.get('id')}")
+    # Render output
+    ctx.obj.formatter.render_update(
+        data=result, resource_name="Job Template", resource_id=str(template_id)
+    )

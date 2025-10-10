@@ -1,11 +1,12 @@
-"""Delete license booking command using the Vantage REST API.
-"""
+"""Delete license booking command using the Vantage REST API."""
 
 import typer
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.vantage_rest_api_client import create_vantage_rest_client
+from vantage_cli.vantage_rest_api_client import (
+    create_vantage_rest_client,
+)
 
 
 @attach_settings
@@ -16,7 +17,7 @@ async def delete_booking(
     """Delete a license booking."""
     client = create_vantage_rest_client()
     try:
-        await client.delete(f"/bookings/{booking_id}")
+        await ctx.obj.rest_client.delete(f"/bookings/{booking_id}")
 
         # Use UniversalOutputFormatter for consistent delete rendering
         from vantage_cli.render import UniversalOutputFormatter
@@ -30,4 +31,4 @@ async def delete_booking(
             success_message=f"License booking '{booking_id}' deleted successfully!",
         )
     finally:
-        await client.close()
+        await ctx.obj.rest_client.close()

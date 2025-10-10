@@ -51,7 +51,7 @@ class ClusterSDK(BaseGraphQLResourceSDK):
 
         The GraphQL API supports filtering via the filters parameter. We use
         the name filter with an 'eq' operator to fetch a specific cluster.
-        
+
         Returns:
             GraphQL query string for fetching a single cluster by name
         """
@@ -103,7 +103,7 @@ class ClusterSDK(BaseGraphQLResourceSDK):
 
             # Extract cluster from GraphQL connection structure
             edges = data.get("clusters", {}).get("edges", [])
-            
+
             if edges:
                 cluster_data = edges[0]["node"]
                 # Convert to Cluster object
@@ -237,7 +237,7 @@ class ClusterSDK(BaseGraphQLResourceSDK):
 
         Raises:
             NotImplementedError: Cluster updates are not currently supported by the GraphQL API
-        
+
         Note: The Vantage GraphQL API does not currently support cluster updates.
         This method is included for API completeness but will raise NotImplementedError.
         """
@@ -301,7 +301,9 @@ class ClusterSDK(BaseGraphQLResourceSDK):
                     name=cluster_data.get("name", ""),
                     status=cluster_data.get("status", "unknown"),
                     client_id=cluster_data.get("clientId", ""),
-                    client_secret=cluster_data.get("clientSecret"),  # Will be None for list operations
+                    client_secret=cluster_data.get(
+                        "clientSecret"
+                    ),  # Will be None for list operations
                     description=cluster_data.get("description", ""),
                     owner_email=cluster_data.get("ownerEmail", ""),
                     provider=cluster_data.get("provider", "unknown"),
@@ -368,9 +370,7 @@ class ClusterSDK(BaseGraphQLResourceSDK):
 
         return await self.create(ctx, resource_data, **kwargs)
 
-    async def delete_cluster(
-        self, ctx: typer.Context, cluster_name: str, **kwargs: Any
-    ) -> bool:
+    async def delete_cluster(self, ctx: typer.Context, cluster_name: str, **kwargs: Any) -> bool:
         """Delete a cluster by name.
 
         This is an alias for the delete() method for consistency with other cluster methods.

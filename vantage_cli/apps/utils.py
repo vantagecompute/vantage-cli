@@ -17,7 +17,6 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -271,7 +270,9 @@ async def get_cluster_data(
     if not dev_run:
         from vantage_cli.commands.cluster import utils as cluster_utils
 
-        fetched_cluster = await cluster_utils.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+        fetched_cluster = await cluster_utils.get_cluster_by_name(
+            ctx=ctx, cluster_name=cluster_name
+        )
         if fetched_cluster is None:
             raise ValueError(f"Cluster '{cluster_name}' not found")
         cluster_obj = fetched_cluster
@@ -339,13 +340,27 @@ def _load_dev_app_as_package(app_path: Path, app_name: str):
 
 
 def _discover_builtin_apps(built_in_apps_dir: Path) -> list[tuple]:
-    """Discover built-in apps from the apps directory."""
+    """Discover built-in apps from the apps directory.
+    
+    Supports both top-level apps and nested apps (e.g., localhost/slurm_*).
+    """
     built_in_apps = []
+    
     for app_path in built_in_apps_dir.iterdir():
         if app_path.is_dir() and not app_path.name.startswith("__"):
+            # Check if it's a direct app directory
             app_module_path = app_path / "app.py"
             if app_module_path.exists():
                 built_in_apps.append((app_path, True))  # (path, is_builtin)
+            # Check if it's a category directory (e.g., localhost/)
+            elif app_path.is_dir():
+                # Look for nested app directories
+                for nested_app_path in app_path.iterdir():
+                    if nested_app_path.is_dir() and not nested_app_path.name.startswith("__"):
+                        nested_app_module_path = nested_app_path / "app.py"
+                        if nested_app_module_path.exists():
+                            built_in_apps.append((nested_app_path, True))
+    
     return built_in_apps
 
 
@@ -385,8 +400,18 @@ def _process_app(app_path: Path, is_builtin: bool, apps: Dict[str, Dict[str, Any
 
     try:
         if is_builtin:
-            # Import built-in app
-            app_module = importlib.import_module(f"vantage_cli.apps.{app_name}.app")
+            # Import built-in app - handle nested structure (e.g., localhost/slurm_lxd)
+            # Check if this is a nested app (has a parent directory that's not 'apps')
+            parent_dir = app_path.parent
+            apps_dir = app_path.parent.parent  # Should be the 'apps' directory
+            
+            if parent_dir.name != "apps" and apps_dir.name == "apps":
+                # Nested app (e.g., localhost/slurm_lxd)
+                category = parent_dir.name
+                app_module = importlib.import_module(f"vantage_cli.apps.{category}.{app_name}.app")
+            else:
+                # Top-level app
+                app_module = importlib.import_module(f"vantage_cli.apps.{app_name}.app")
         else:
             # Import dev app using direct file loading with proper package system
             app_module = None
@@ -452,5 +477,5 @@ def get_sssd_binder_password(cluster_data: Dict[str, Any]) -> Optional[str]:
     """Return SSSD Binder Password if exists in cluster_data or None."""
     sssd_binder_password = None
     if sssd_binder_password_data := cluster_data.get("sssdBinderPassword"):
-            sssd_binder_password = sssd_binder_password_data
+        sssd_binder_password = sssd_binder_password_data
     return sssd_binder_password

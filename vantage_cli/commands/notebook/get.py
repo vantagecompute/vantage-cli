@@ -17,7 +17,6 @@ from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.notebook.crud import notebook_sdk
 
 
@@ -29,7 +28,6 @@ async def get_notebook(
 ):
     """Get notebook server details."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
 
     try:
         # Use SDK to get notebook
@@ -37,7 +35,7 @@ async def get_notebook(
         notebook = await notebook_sdk.get_notebook(ctx, name)
 
         if not notebook:
-            formatter.render_error(error_message=f"Notebook server '{name}' not found.")
+            ctx.obj.formatter.render_error(error_message=f"Notebook server '{name}' not found.")
             raise Abort(
                 f"Notebook server '{name}' not found.",
                 subject="Notebook Not Found",
@@ -58,13 +56,15 @@ async def get_notebook(
         }
 
         # Use formatter to render the notebook details
-        formatter.render_get(data=notebook_data, resource_name="Notebook Server", resource_id=name)
+        ctx.obj.formatter.render_get(
+            data=notebook_data, resource_name="Notebook Server", resource_id=name
+        )
 
     except Abort:
         raise
     except Exception as e:
         logger.error(f"Unexpected error getting notebook '{name}': {e}")
-        formatter.render_error(
+        ctx.obj.formatter.render_error(
             error_message=f"An unexpected error occurred while getting notebook '{name}'.",
             details={"error": str(e)},
         )

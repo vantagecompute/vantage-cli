@@ -21,7 +21,6 @@ from typing_extensions import Annotated
 from vantage_cli.apps.common import list_deployments_by_cluster, remove_deployment
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.cluster.crud import cluster_sdk
 
 from .utils import get_cluster_by_name
@@ -47,7 +46,6 @@ async def delete_cluster(
     verbose = getattr(ctx.obj, "verbose", False)
 
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=json_output)
 
     # Confirmation prompt unless force is used
     if not force and not json_output:
@@ -68,7 +66,9 @@ async def delete_cluster(
 
         cluster = await get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
         if not cluster:
-            formatter.render_error(error_message=f"No cluster found with name '{cluster_name}'.")
+            ctx.obj.formatter.render_error(
+                error_message=f"No cluster found with name '{cluster_name}'."
+            )
             raise Abort(
                 f"No cluster found with name '{cluster_name}'.",
                 subject="Cluster Not Found",
@@ -80,13 +80,15 @@ async def delete_cluster(
 
         # Use SDK to delete cluster
         success = await cluster_sdk.delete_cluster(ctx, cluster_name)
-        
+
         if not success:
-            formatter.render_error(error_message=f"Failed to delete cluster '{cluster_name}'.")
+            ctx.obj.formatter.render_error(
+                error_message=f"Failed to delete cluster '{cluster_name}'."
+            )
             raise Abort(
                 f"Failed to delete cluster '{cluster_name}'.",
                 subject="Deletion Failed",
-                log_message=f"Cluster deletion failed",
+                log_message="Cluster deletion failed",
             )
 
         cleanup_result = None
@@ -106,7 +108,7 @@ async def delete_cluster(
         if app and cleanup_result is not None:
             output_data["app_cleanup"] = cleanup_result
 
-        formatter.render_delete(
+        ctx.obj.formatter.render_delete(
             resource_name="Cluster",
             resource_id=cluster_name,
             data=output_data,
@@ -129,15 +131,15 @@ async def _call_app_cleanup_function(
 ) -> None:
     """Call the appropriate cleanup function based on app type."""
     if app == "slurm-juju-localhost":
-        from vantage_cli.apps.slurm_lxd_localhost.app import cleanup_juju_localhost
+        from vantage_cli.apps.localhost.slurm_lxd.app import cleanup_juju_localhost
 
         await cleanup_juju_localhost(ctx, cluster_data)
     elif app == "slurm-multipass-localhost":
-        from vantage_cli.apps.slurm_multipass_localhost.app import remove
+        from vantage_cli.apps.localhost.slurm_multipass.app import remove
 
         await remove(ctx, cluster_data)
     elif app == "slurm-microk8s-localhost":
-        from vantage_cli.apps.slurm_microk8s_localhost.app import (
+        from vantage_cli.apps.localhost.slurm_microk8s.app import (
             cleanup_microk8s_localhost,
         )
 
@@ -190,7 +192,7 @@ async def _cleanup_app_deployments(
         app: Type of app to clean up
         json_output: Whether to output JSON or rich console messages
         console: Console instance for output
-        
+
     Returns:
         Dictionary with cleanup results
     """
@@ -208,7 +210,7 @@ async def _cleanup_app_deployments(
         return {
             "deployments_found": 0,
             "deployments_cleaned": 0,
-            "message": f"No '{app}' deployments found"
+            "message": f"No '{app}' deployments found",
         }
 
     cleanup_count = 0
@@ -225,5 +227,5 @@ async def _cleanup_app_deployments(
         "deployments_found": len(app_deployments),
         "deployments_cleaned": cleanup_count,
         "failed_deployments": failed_deployments,
-        "message": f"Cleaned up {cleanup_count}/{len(app_deployments)} deployments"
+        "message": f"Cleaned up {cleanup_count}/{len(app_deployments)} deployments",
     }

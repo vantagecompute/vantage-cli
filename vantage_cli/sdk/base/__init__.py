@@ -11,6 +11,11 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Base SDK classes for CRUD operations."""
 
-from .crud import BaseCRUDSDK, BaseGraphQLResourceSDK, BaseLocalResourceSDK
+from .crud import BaseCRUDSDK, BaseGraphQLResourceSDK, BaseLocalResourceSDK, BaseRestApiResourceSDK
 
-__all__ = ["BaseCRUDSDK", "BaseLocalResourceSDK", "BaseGraphQLResourceSDK"]
+__all__ = [
+    "BaseCRUDSDK",
+    "BaseLocalResourceSDK",
+    "BaseGraphQLResourceSDK",
+    "BaseRestApiResourceSDK",
+]

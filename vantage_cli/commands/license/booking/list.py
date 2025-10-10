@@ -1,17 +1,21 @@
-"""List license bookings command using the License Manager API.
-"""
+"""List license bookings command using the License Manager API."""
 
 from typing import Optional
 
 import typer
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.vantage_rest_api_client import create_vantage_rest_client
+from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.license import license_booking_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
-@attach_settings
 @handle_abort
+@attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def list_bookings(
     ctx: typer.Context,
     search: Optional[str] = typer.Option(
@@ -28,29 +32,15 @@ async def list_bookings(
     ),
 ):
     """List all license bookings."""
-    client = create_vantage_rest_client()
-    try:
-        params = {}
-        if search:
-            params["search"] = search
-        if sort:
-            params["sort"] = sort
-        if limit is not None:
-            params["limit"] = limit
-        if offset is not None:
-            params["offset"] = offset
-        bookings = await client.get("/bookings", params=params)
+    # Use SDK to list license bookings
+    response = await license_booking_sdk.list(
+        ctx, search=search, sort=sort, limit=limit, offset=offset
+    )
 
-        # Use UniversalOutputFormatter for consistent list rendering
-        from vantage_cli.render import UniversalOutputFormatter
-
-        formatter = UniversalOutputFormatter(
-            console=ctx.obj.console, json_output=ctx.obj.json_output
-        )
-        formatter.render_list(
-            data=bookings,
-            resource_name="License Bookings",
-            empty_message="No license bookings found.",
-        )
-    finally:
-        await client.close()
+    # Use UniversalOutputFormatter for consistent list rendering
+    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
+    formatter.render_list(
+        data=response,
+        resource_name="License Bookings",
+        empty_message="No license bookings found.",
+    )

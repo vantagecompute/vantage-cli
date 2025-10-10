@@ -15,13 +15,17 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.commands.license.client import lm_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_product_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def update_license_product(
     ctx: typer.Context,
     product_id: Annotated[str, typer.Argument(help="ID of the license product to update")],
@@ -37,26 +41,22 @@ async def update_license_product(
     ] = None,
 ):
     """Update an existing license product."""
-    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     # Build the update payload with only provided fields
-    payload = {}
+    update_data = {}
     if name is not None:
-        payload["name"] = name
+        update_data["name"] = name
     if version is not None:
-        payload["version"] = version
+        update_data["version"] = version
     if description is not None:
-        payload["description"] = description
+        update_data["description"] = description
     if license_type is not None:
-        payload["license_type"] = license_type
+        update_data["license_type"] = license_type
 
-    response = await client.put(f"/products/{product_id}", json=update_data)
+    # Use SDK to update license product
+    response = await license_product_sdk.update(ctx, product_id, update_data)
 
     # Use UniversalOutputFormatter for consistent update rendering
-    from vantage_cli.render import UniversalOutputFormatter
-
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_update(
+    ctx.obj.formatter.render_update(
         data=response,
         resource_name="License Product",
         resource_id=str(product_id),

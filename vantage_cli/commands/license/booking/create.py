@@ -1,5 +1,4 @@
-"""Create license booking command using the Vantage REST API.
-"""
+"""Create license booking command using the Vantage REST API."""
 
 import json
 from pathlib import Path
@@ -9,7 +8,9 @@ import typer
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.vantage_rest_api_client import create_vantage_rest_client
+from vantage_cli.vantage_rest_api_client import (
+    create_vantage_rest_client,
+)
 
 
 @attach_settings
@@ -41,7 +42,7 @@ async def create_booking(
             if description:
                 data["description"] = description
 
-        booking = await client.post("/bookings", json=data)
+        booking = await ctx.obj.rest_client.post("/bookings", json=data)
 
         # Use UniversalOutputFormatter for consistent create rendering
         from vantage_cli.render import UniversalOutputFormatter
@@ -55,4 +56,4 @@ async def create_booking(
             success_message="License booking created successfully!",
         )
     finally:
-        await client.close()
+        await ctx.obj.rest_client.close()

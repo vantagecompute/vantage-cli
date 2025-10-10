@@ -22,7 +22,6 @@ from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import UniversalOutputFormatter
 from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
 from vantage_cli.sdk.cluster.crud import cluster_sdk
 from vantage_cli.sdk.cluster.schema import Cluster
@@ -71,9 +70,8 @@ async def create_cluster(
 ):
     """Create a new Vantage cluster."""
     # Use UniversalOutputFormatter for consistent output
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
     verbose = getattr(ctx.obj, "verbose", False)
-    
+
     # Ensure we have settings configured
     if not ctx.obj or not ctx.obj.settings:
         raise Abort(
@@ -146,9 +144,8 @@ async def create_cluster(
             provider_attributes=provider_attributes,
         )
 
-
         # Use formatter to render the created cluster
-        formatter.render_create(
+        ctx.obj.formatter.render_create(
             data=cluster.model_dump(),
             resource_name="Cluster",
         )
@@ -207,7 +204,6 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
 
             # Check if the app has a deploy method
             if hasattr(app_instance, "create"):
-
                 # Call the app's create method
                 await app_instance.create(ctx, cluster)
 

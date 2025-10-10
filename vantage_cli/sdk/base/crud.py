@@ -336,3 +336,174 @@ class BaseLocalResourceSDK(BaseCRUDSDK):
             return resource
 
         return None
+
+
+class BaseRestApiResourceSDK(BaseCRUDSDK):
+    """Base class for resources that interact with REST APIs.
+
+    This class provides common REST API functionality for resources
+    like licenses and jobs that are managed through REST endpoints.
+    """
+
+    def __init__(self, resource_name: str, base_path: str, endpoint_path: str):
+        """Initialize REST API resource SDK.
+
+        Args:
+            resource_name: Name of the resource type (e.g., "license_server", "job_script")
+            base_path: Base path for the API (e.g., "/lm", "/jobbergate")
+            endpoint_path: Endpoint path for this resource (e.g., "/license_servers", "/job-scripts")
+        """
+        self.resource_name = resource_name
+        self.base_path = base_path
+        self.endpoint_path = endpoint_path
+
+    def _get_rest_client(self, ctx: typer.Context):
+        """Get or create REST client from context.
+
+        Args:
+            ctx: Typer context
+
+        Returns:
+            VantageRestApiClient instance
+
+        Raises:
+            RuntimeError: If rest_client not attached to context
+        """
+        if not hasattr(ctx.obj, "rest_client") or ctx.obj.rest_client is None:
+            raise RuntimeError(
+                f"REST client not attached. Ensure @attach_vantage_rest_client(base_path='{self.base_path}') "
+                f"is applied to the command function."
+            )
+        return ctx.obj.rest_client
+
+    async def list(self, ctx: typer.Context, **kwargs: Any) -> List[Dict[str, Any]]:
+        """List all resources via REST API.
+
+        Args:
+            ctx: Typer context with rest_client attached
+            **kwargs: Query parameters (search, sort, limit, offset, etc.)
+
+        Returns:
+            List of resource dictionaries
+        """
+        rest_client = self._get_rest_client(ctx)
+
+        # Build query parameters
+        params = {}
+        for key in [
+            "search",
+            "sort",
+            "sort_field",
+            "sort_ascending",
+            "limit",
+            "offset",
+            "page",
+            "perPage",
+        ]:
+            if key in kwargs and kwargs[key] is not None:
+                params[key] = kwargs[key]
+
+        response = await rest_client.get(self.endpoint_path, params=params if params else None)
+
+        # Handle different response formats
+        if isinstance(response, list):
+            return response
+        elif isinstance(response, dict):
+            # Check for common pagination wrappers
+            if "items" in response:
+                return response["items"]
+            elif "data" in response:
+                return response["data"]
+            elif "results" in response:
+                return response["results"]
+            # Return as single-item list if it looks like a single resource
+            return [response]
+
+        return []
+
+    async def get(
+        self, ctx: typer.Context, resource_id: str, **kwargs: Any
+    ) -> Optional[Dict[str, Any]]:
+        """Get a specific resource by ID via REST API.
+
+        Args:
+            ctx: Typer context with rest_client attached
+            resource_id: Unique identifier for the resource
+            **kwargs: Additional parameters
+
+        Returns:
+            Resource dictionary or None if not found
+        """
+        rest_client = self._get_rest_client(ctx)
+
+        try:
+            response = await rest_client.get(f"{self.endpoint_path}/{resource_id}")
+            return response if isinstance(response, dict) else None
+        except Exception as e:
+            logger.debug(f"Failed to get {self.resource_name} {resource_id}: {e}")
+            return None
+
+    async def create(
+        self, ctx: typer.Context, resource_data: Dict[str, Any], **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Create a new resource via REST API.
+
+        Args:
+            ctx: Typer context with rest_client attached
+            resource_data: Data for creating the resource
+            **kwargs: Additional parameters
+
+        Returns:
+            Created resource dictionary
+        """
+        rest_client = self._get_rest_client(ctx)
+
+        response = await rest_client.post(self.endpoint_path, json=resource_data)
+
+        if isinstance(response, dict):
+            return response
+
+        raise ValueError(f"Unexpected response format from create {self.resource_name}")
+
+    async def update(
+        self, ctx: typer.Context, resource_id: str, resource_data: Dict[str, Any], **kwargs: Any
+    ) -> Dict[str, Any]:
+        """Update an existing resource via REST API.
+
+        Args:
+            ctx: Typer context with rest_client attached
+            resource_id: Unique identifier for the resource
+            resource_data: Updated data for the resource
+            **kwargs: Additional parameters
+
+        Returns:
+            Updated resource dictionary
+        """
+        rest_client = self._get_rest_client(ctx)
+
+        response = await rest_client.put(f"{self.endpoint_path}/{resource_id}", json=resource_data)
+
+        if isinstance(response, dict):
+            return response
+
+        raise ValueError(f"Unexpected response format from update {self.resource_name}")
+
+    async def delete(self, ctx: typer.Context, resource_id: str, **kwargs: Any) -> bool:
+        """Delete a resource via REST API.
+
+        Args:
+            ctx: Typer context with rest_client attached
+            resource_id: Unique identifier for the resource
+            **kwargs: Additional parameters
+
+        Returns:
+            True if deletion was successful
+        """
+        rest_client = self._get_rest_client(ctx)
+
+        try:
+            await rest_client.delete(f"{self.endpoint_path}/{resource_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete {self.resource_name} {resource_id}: {e}")
+            return False

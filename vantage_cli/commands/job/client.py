@@ -11,12 +11,18 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """REST API client factory for job commands."""
 
-from vantage_cli.config import Settings
+import typer
+
 from vantage_cli.vantage_rest_api_client import create_vantage_rest_client
 
 
-def job_rest_client(profile: str, settings: Settings):
-    """Create a REST client configured for Jobbergate API."""
-    return create_vantage_rest_client(
-        base_url=f"{settings.get_apis_url()}/jobbergate", profile=profile
-    )
+def job_rest_client(ctx: typer.Context):
+    """Create a REST client configured for Jobbergate API.
+
+    Args:
+        ctx: Typer context containing settings and persona
+
+    Returns:
+        VantageRestApiClient configured for job/jobbergate endpoints
+    """
+    return create_vantage_rest_client(ctx, base_path="/jobbergate")

@@ -17,13 +17,17 @@ from typing import List, Optional
 
 import typer
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.job import job_submission_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def create_job_submission(
     ctx: typer.Context,
     name: str = typer.Option(..., "--name", "-n", help="Name of the job submission"),
@@ -48,9 +52,6 @@ async def create_job_submission(
     ),
 ):
     """Create a new job submission."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     if json_file:
         # Read data from JSON file
         try:
@@ -77,13 +78,12 @@ async def create_job_submission(
         if sbatch_arguments:
             submission_data["sbatch_arguments"] = sbatch_arguments
 
-    result = await client.post("/job-submissions", json=submission_data)
+    # Use SDK to create job submission
+    result = await job_submission_sdk.create(ctx, submission_data)
 
-    if ctx.obj.json_output:
-        print_json(data=result)
-    else:
-        ctx.obj.console.print(
-            f"✅ Job submission '{result.get('name')}' created successfully!", style="green"
-        )
-        ctx.obj.console.print(f"📋 Submission ID: {result.get('id')}")
-        ctx.obj.console.print(f"📝 Status: {result.get('status')}")
+    # Use UniversalOutputFormatter for consistent create rendering
+    ctx.obj.formatter.render_create(
+        data=result,
+        resource_name="Job Submission",
+        success_message=f"Job submission '{result.get('name')}' created successfully!",
+    )

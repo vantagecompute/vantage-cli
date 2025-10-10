@@ -134,9 +134,7 @@ class JupyterHubClient:
             logger.error(f"HTTP error while getting server info: {e}")
             return None
 
-    async def stop_user_server(
-        self, username: str, server_name: Optional[str] = None
-    ) -> bool:
+    async def stop_user_server(self, username: str, server_name: Optional[str] = None) -> bool:
         """Stop a user's notebook server.
 
         Args:

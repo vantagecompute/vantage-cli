@@ -15,13 +15,16 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.commands.license.client import lm_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def create_license_configuration(
     ctx: typer.Context,
     name: Annotated[str, typer.Argument(help="Name of the license configuration to create")],
@@ -37,8 +40,6 @@ async def create_license_configuration(
     ] = None,
 ):
     """Create a new license configuration."""
-    client = lm_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     # Build the request payload
     payload = {
         "name": name,
@@ -50,13 +51,11 @@ async def create_license_configuration(
     if description is not None:
         payload["description"] = description
 
-    response = await client.post("/configurations", json=config_data)
+    response = await ctx.obj.rest_client.post("/configurations", json=config_data)
 
     # Use UniversalOutputFormatter for consistent create rendering
-    from vantage_cli.render import UniversalOutputFormatter
 
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_create(
+    ctx.obj.formatter.render_create(
         data=response,
         resource_name="License Configuration",
         success_message=f"License configuration '{response.get('name')}' created successfully!",

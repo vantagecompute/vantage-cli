@@ -13,9 +13,9 @@
 
 from vantage_cli import AsyncTyper
 
-from .list import list_apps
 from .deployment import deployment_app
 from .deployment.list import list_deployments
+from .list import list_apps
 
 app_app = AsyncTyper(
     name="apps",

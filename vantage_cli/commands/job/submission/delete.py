@@ -14,32 +14,32 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.job import job_submission_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def delete_job_submission(
     ctx: typer.Context,
     submission_id: Annotated[int, typer.Argument(help="ID of the job submission to delete")],
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt"),
 ):
     """Delete a job submission."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     submission_name = str(submission_id)
 
     if not yes and not ctx.obj.json_output:
         # Get submission info for confirmation
         try:
-            response = await client.get(f"/job-submissions/{submission_id}")
-            submission_data = response
-            submission_name = submission_data.get("name", str(submission_id))
+            response = await job_submission_sdk.get(ctx, str(submission_id))
+            if response:
+                submission_name = response.get("name", str(submission_id))
         except Exception:
             submission_name = str(submission_id)
 
@@ -50,12 +50,12 @@ async def delete_job_submission(
             ctx.obj.console.print("❌ Delete operation cancelled.", style="yellow")
             raise typer.Exit(0)
 
-    await client.delete(f"/job-submissions/{submission_id}")
+    # Use SDK to delete job submission
+    await job_submission_sdk.delete(ctx, str(submission_id))
 
-    # DELETE typically returns empty response on success (204 No Content)
-    if ctx.obj.json_output:
-        print_json(data={"submission_id": submission_id, "status": "deleted"})
-    else:
-        ctx.obj.console.print(
-            f"✅ Job submission '{submission_name}' deleted successfully!", style="green"
-        )
+    # Render output
+    ctx.obj.formatter.render_delete(
+        data={"submission_id": submission_id, "status": "deleted"},
+        resource_name="Job Submission",
+        resource_id=str(submission_id),
+    )

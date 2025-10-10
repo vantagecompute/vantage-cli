@@ -17,14 +17,17 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.commands.job.client import job_rest_client
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import UniversalOutputFormatter
+from vantage_cli.sdk.job import job_script_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/jobbergate")
 async def update_job_script(
     ctx: typer.Context,
     script_id: Annotated[int, typer.Argument(help="ID of the job script to update")],
@@ -40,9 +43,6 @@ async def update_job_script(
     ),
 ):
     """Update a job script."""
-    # Create REST API client
-    client = job_rest_client(ctx.obj.profile, ctx.obj.settings)
-
     if json_file:
         # Read data from JSON file
         try:
@@ -69,11 +69,9 @@ async def update_job_script(
             )
             raise typer.Exit(1)
 
-    result = await client.put(f"/job-scripts/{script_id}", json=update_data)
+    result = await job_script_sdk.update(ctx, str(script_id), update_data)
 
-    # Use UniversalOutputFormatter for consistent update rendering
-    formatter = UniversalOutputFormatter(console=ctx.obj.console, json_output=ctx.obj.json_output)
-    formatter.render_update(
+    ctx.obj.formatter.render_update(
         data=result,
         resource_name="Job Script",
         resource_id=str(script_id),
