@@ -16,12 +16,13 @@ A reusable Textual-based dashboard class for Vantage CLI Dashboard functionality
 """
 
 import asyncio
+import inspect
 import signal
 import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, cast
 
 import typer
 from rich.text import Text
@@ -39,10 +40,17 @@ from textual.widgets import (
     TabPane,
 )
 
+from vantage_cli.apps.utils import get_available_apps
+from vantage_cli.exceptions import Abort
+from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
+from vantage_cli.sdk.cluster import cluster_sdk
 from .cluster_management_tab_pane import ClusterManagementTabPane
 from .dependency_tracker import DependencyTracker, Worker, WorkerState
 from .deployment_management_tab_pane import DeploymentManagementTabPane
 from .profile_management_tab_pane import ProfileManagementTabPane
+
+if TYPE_CHECKING:
+    from vantage_cli.sdk.cluster.schema import Cluster
 
 
 @dataclass
@@ -319,6 +327,12 @@ class DashboardApp(App):
         self.custom_handlers = custom_handlers or {}
         self.platform_info = platform_info or self._get_default_platform_info()
         self.ctx = ctx
+        self.cli_ctx = ctx
+        self.available_apps = get_available_apps()
+        self.selected_app_key: Optional[str] = None
+        self.app_table: Optional[DataTable[Any]] = None
+        self.app_row_mapping: Dict[str, int] = {}
+        self.cluster_input: Optional[Input] = None
 
         # Set app title and subtitle
         self.TITLE = self.config.title
@@ -360,10 +374,176 @@ class DashboardApp(App):
         workers = []
         for service in self.services:
             # Use custom handler if provided, otherwise use dummy handler
-            handler = self.custom_handlers.get(service.name, lambda x: {"duration": 1.0})
+            def _default_handler(worker_id: str, *, duration: float = 1.0) -> Dict[str, Any]:
+                return {"duration": duration}
+
+            handler = self.custom_handlers.get(service.name, _default_handler)
             worker = Worker(service.name, handler, WorkerState.INIT, service.dependencies)
             workers.append(worker)
         return workers
+
+    def _suggest_cluster_name(self, app_key: str) -> str:
+        base = app_key.replace("/", "-")
+        return f"{base}-cluster"
+
+    def _populate_app_table(self) -> None:
+        if not self.app_table or not self.available_apps:
+            return
+
+        if self.app_row_mapping:
+            return
+
+        rows = sorted(self.available_apps.items(), key=lambda item: item[0])
+
+        for index, (app_key, app_info) in enumerate(rows):
+            module = app_info.get("module")
+            module_name = getattr(module, "__name__", "unknown") if module else "unknown"
+            summary = "No description available"
+            create_function = app_info.get("create_function")
+            if create_function and getattr(create_function, "__doc__", None):
+                summary = create_function.__doc__.strip().split("\n")[0]
+
+            self.app_table.add_row(app_key, module_name, summary, key=app_key)
+            self.app_row_mapping[app_key] = index
+
+    def _select_default_app(self) -> None:
+        if not self.available_apps or not self.app_table:
+            return
+
+        first_key = next(iter(sorted(self.available_apps)))
+        self.selected_app_key = first_key
+
+        try:
+            self.app_table.focus()
+            select_row = getattr(self.app_table, "select_row", None)
+            if callable(select_row):
+                select_row(first_key)
+        except Exception:
+            index = self.app_row_mapping.get(first_key)
+            if index is not None:
+                try:
+                    setattr(self.app_table, "cursor_coordinate", (index, 0))
+                except Exception:
+                    pass
+
+        self._update_cluster_input(first_key, force=True)
+
+    def _update_cluster_input(self, app_key: str, force: bool = False) -> None:
+        if not self.cluster_input:
+            return
+
+        if force or not self.cluster_input.value.strip():
+            self.cluster_input.value = self._suggest_cluster_name(app_key)
+
+    def _get_cluster_name(self) -> str:
+        if self.cluster_input is None:
+            return ""
+        return self.cluster_input.value.strip()
+
+    def _build_command_invocation(
+        self,
+        command: Callable[..., Any],
+        app_key: str,
+        cluster_name: Optional[str],
+    ) -> Tuple[List[Any], Dict[str, Any]]:
+        if self.cli_ctx is None:
+            raise ValueError("CLI context is unavailable for command execution.")
+
+        signature = inspect.signature(command)
+        parameters = list(signature.parameters.values())
+        if not parameters:
+            raise ValueError("Command has no parameters to bind.")
+
+        args: List[Any] = [self.cli_ctx]
+        kwargs: Dict[str, Any] = {}
+
+        for param in parameters[1:]:
+            if param.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
+                continue
+
+            if param.name in {"cluster_name", "deployment_id"}:
+                if not cluster_name:
+                    raise ValueError(f"{param.name.replace('_', ' ')} is required.")
+                if param.kind in (
+                    inspect.Parameter.POSITIONAL_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                ):
+                    args.append(cluster_name)
+                else:
+                    kwargs[param.name] = cluster_name
+            elif param.name == "app_name":
+                if param.kind in (
+                    inspect.Parameter.POSITIONAL_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                ):
+                    args.append(app_key)
+                else:
+                    kwargs[param.name] = app_key
+            elif param.name == "dev_run":
+                kwargs[param.name] = False
+            elif param.name == "force":
+                kwargs[param.name] = True
+            elif param.default is inspect.Signature.empty:
+                raise ValueError(
+                    f"Unsupported parameter '{param.name}' for {command.__name__}."
+                )
+
+        return args, kwargs
+
+    async def _perform_app_action(
+        self,
+        action: str,
+        app_key: str,
+        cluster_name: Optional[str],
+    ) -> None:
+        app_info = self.available_apps.get(app_key)
+        if not app_info:
+            self.add_log(f"❌ Application '{app_key}' is not available", "ERROR")
+            return
+
+        module = app_info.get("module")
+        if module is None:
+            self.add_log(f"❌ Module for '{app_key}' is not loaded", "ERROR")
+            return
+
+        command_name = f"{action}_command"
+        command = getattr(module, command_name, None)
+        if command is None:
+            self.add_log(f"⚠️ {action.title()} not supported for '{app_key}'", "WARNING")
+            return
+
+        try:
+            args, kwargs = self._build_command_invocation(command, app_key, cluster_name)
+            self.add_log(f"⏳ Running {action} for '{app_key}'", "INFO")
+            await command(*args, **kwargs)
+            self.add_log(f"✅ {action.title()} completed for '{app_key}'", "SUCCESS")
+        except typer.Exit as exit_exc:
+            if exit_exc.exit_code == 0:
+                self.add_log(f"✅ {action.title()} completed for '{app_key}'", "SUCCESS")
+            else:
+                self.add_log(
+                    f"⚠️ {action.title()} exited with code {exit_exc.exit_code} for '{app_key}'",
+                    "ERROR",
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.add_log(f"💥 {action.title()} failed for '{app_key}': {exc}", "ERROR")
+
+    def _trigger_app_action(self, action: str) -> None:
+        if not self.selected_app_key:
+            self.add_log("⚠️ Select an application before performing actions", "WARNING")
+            return
+
+        cluster_name = self._get_cluster_name()
+        if action in {"create", "remove"} and not cluster_name:
+            self.add_log("⚠️ Provide a cluster name for this action", "WARNING")
+            return
+
+        asyncio.create_task(
+            self._perform_app_action(action, self.selected_app_key, cluster_name or None)
+        )
 
     def compose(self) -> ComposeResult:
         """Create the dashboard layout"""
@@ -376,7 +556,19 @@ class DashboardApp(App):
                         with Horizontal(id="main-panel"):
                             # Left side: Worker progress
                             with Vertical(id="left-content"):
-                                yield Static("📈 Worker Progress", classes="section-header")
+                                yield Static("� Applications", classes="section-header")
+                                app_table_raw = DataTable(
+                                    id="app-table",
+                                    show_header=True,
+                                    cursor_type="row",
+                                    zebra_stripes=True,
+                                )
+                                app_table_raw.add_columns("Application", "Module", "Summary")
+                                app_table = cast(DataTable[Any], app_table_raw)
+                                self.app_table = app_table
+                                yield app_table
+
+                                yield Static("�📈 Worker Progress", classes="section-header")
                                 with Vertical(id="worker-progress-group"):
                                     for service in self.services:
                                         yield Static(f"{service.emoji} {service.name}")
@@ -451,11 +643,16 @@ class DashboardApp(App):
             # Control buttons
             if self.config.enable_controls:
                 with Vertical(id="control-buttons"):
-                    yield Button("Start", id="start-btn", variant="success", classes="tab-button")
-                    yield Button("Stop", id="stop-btn", variant="error", classes="tab-button")
-                    yield Button(
-                        "Restart", id="restart-btn", variant="primary", classes="tab-button"
+                    yield Static("⚙️ Deployment Controls", classes="section-header")
+                    cluster_input = Input(
+                        placeholder="cluster-name",
+                        id="cluster-name-input",
                     )
+                    self.cluster_input = cluster_input
+                    yield cluster_input
+                    yield Button("Create", id="create-btn", variant="success", classes="tab-button")
+                    yield Button("Status", id="status-btn", variant="primary", classes="tab-button")
+                    yield Button("Remove", id="remove-btn", variant="error", classes="tab-button")
 
         # Footer
         yield Static(
@@ -469,6 +666,8 @@ class DashboardApp(App):
         self.add_log("💡 Use Ctrl+C or 'q' to quit, 'r' to restart")
 
         self.setup_tables()
+        self._populate_app_table()
+        self._select_default_app()
 
         if self.config.enable_stats:
             self.set_interval(self.config.refresh_interval, self.refresh_stats)
@@ -530,9 +729,26 @@ class DashboardApp(App):
             pass
 
     # Button event handlers
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        table = cast(DataTable[Any], event.data_table)
+
+        if table.id != "app-table":
+            return
+
+        selected_key = str(event.row_key.value)
+        self.selected_app_key = selected_key
+        self._update_cluster_input(selected_key)
+        self.add_log(f"🗂️ Selected application: {selected_key}", "INFO")
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses"""
-        if event.button.id == "start-btn":
+        if event.button.id == "create-btn":
+            self._trigger_app_action("create")
+        elif event.button.id == "status-btn":
+            self._trigger_app_action("status")
+        elif event.button.id == "remove-btn":
+            self._trigger_app_action("remove")
+        elif event.button.id == "start-btn":
             self.action_start_execution()
         elif event.button.id == "stop-btn":
             self.action_stop_execution()

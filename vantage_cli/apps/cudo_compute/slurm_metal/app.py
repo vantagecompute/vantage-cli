@@ -24,8 +24,6 @@ from typing import Any
 from loguru import logger
 import typer
 import yaml
-from juju.controller import Controller
-from juju.errors import JujuError
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
@@ -51,164 +49,19 @@ from .constants import (
 )
 from .render import success_create_message, success_destroy_message
 
-from .utils import (
-    SuppressOutput,
-    check_juju_available,
-)
 
-def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
-    return [
-        f"oidc-client-id={ctx.client_id}",
-        f"oidc-client-secret={ctx.client_secret}",
-        f"oidc-base-url={ctx.oidc_base_url}",
-        f"tunnel-api-url={ctx.tunnel_api_url}",
-        f"vantage-api-url={ctx.base_api_url}",
-        f"oidc-domain={ctx.oidc_domain}",
-        f"jupyterhub-token={ctx.jupyterhub_token}",
-    ]
+async def _deploy_slurm_metal_cudo(ctx: Any) -> None:
+    """Deploy SLURM on metal using Cudo Compute.
 
+    Args:
+        ctx: VantageClusterContext containing deployment configuration
 
-def _build_vantage_sssd_secret_args(ctx: Any) -> list[str]:
-    return [
-        f"sssd-binder-password={ctx.sssd_binder_password}",
-        f"org-id={ctx.org_id}",
-        f"ldap-url={ctx.ldap_url}",
-    ]
+    Raises:
+        Exception: If deployment fails
+    """
 
-
-def _prepare_bundle(
-    ctx: Any,
-    model_name: str,
-    vantage_jupyterhub_config_secret_id: str,
-    vantage_sssd_config_secret_id: str,
-) -> dict[str, Any]:
-    bundle_yaml = copy.deepcopy(VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML)
-    bundle_yaml["applications"]["slurmctld"]["options"]["cluster-name"] = model_name
-    va_opts = bundle_yaml["applications"]["vantage-agent"]["options"]
-    jb_opts = bundle_yaml["applications"]["jobbergate-agent"]["options"]
-    hub_opts = bundle_yaml["applications"]["vantage-jupyterhub"]["options"]
-    sssd_opts = bundle_yaml["applications"]["vantage-sssd"]["options"]
-
-    va_opts["vantage-agent-base-api-url"] = ctx.base_api_url
-    va_opts["vantage-agent-oidc-client-id"] = ctx.client_id
-    va_opts["vantage-agent-oidc-domain"] = ctx.oidc_domain
-    va_opts["vantage-agent-oidc-client-secret"] = ctx.client_secret
-    va_opts["vantage-agent-cluster-name"] = model_name
-
-    jb_opts["jobbergate-agent-base-api-url"] = ctx.base_api_url
-    jb_opts["jobbergate-agent-oidc-domain"] = ctx.oidc_domain
-    jb_opts["jobbergate-agent-oidc-client-id"] = ctx.client_id
-    jb_opts["jobbergate-agent-oidc-client-secret"] = ctx.client_secret
-
-    hub_opts["vantage-jupyterhub-config-secret-id"] = vantage_jupyterhub_config_secret_id
-    sssd_opts["vantage-sssd-config-secret-id"] = vantage_sssd_config_secret_id
-    return bundle_yaml
-
-
-async def _write_and_deploy_model_bundle(model, bundle_yaml: dict[str, Any]) -> None:
-    original_cwd = os.getcwd()
-    with tempfile.TemporaryDirectory() as td:
-        f_name = Path(td) / "bundle.yaml"
-        with open(f_name, "w") as fh:
-            fh.write(yaml.dump(bundle_yaml))
-        Path(td).chmod(0o700)
-        os.chdir(td)
-        try:
-            with SuppressOutput():
-                # Add timeout to prevent hanging indefinitely on bundle deployment
-                await asyncio.wait_for(
-                    model.deploy("./bundle.yaml"), timeout=120
-                )  # 2 minutes timeout
-        finally:
-            os.chdir(original_cwd)
-
-
-async def _run_slurmd_node_configured(model) -> None:
-    if slurmd_app := model.applications.get("slurmd"):
-        if slurmd_units := slurmd_app.units:
-            for slurmd_unit in slurmd_units:
-                action = await slurmd_unit.run_action("node-configured")
-                await action.wait()
-
-
-async def _configure_jobbergate_influxdb(model) -> None:
-    slurmctld_app = model.applications.get("slurmctld")
-    if not slurmctld_app or not slurmctld_app.units:
-        return
-    leader_unit = None
-    for unit in slurmctld_app.units:
-        if await unit.is_leader_from_status():
-            leader_unit = unit
-        break
-    if leader_unit is None:
-        return
-    action = await leader_unit.run("sudo cat /etc/slurm/acct_gather.conf")
-    await action.wait()
-    if action.results.get("return-code") != 0:
-        return
-    influxdb_conf = action.results.get("stdout", "")
-    host = user = pw = db = rp = None
-    for line in influxdb_conf.splitlines():
-        if line.startswith("profileinfluxdbhost"):
-            host = line.split("=", 1)[1].strip()
-        elif line.startswith("profileinfluxdbuser"):
-            user = line.split("=", 1)[1].strip()
-        elif line.startswith("profileinfluxdbpass"):
-            pw = line.split("=", 1)[1].strip()
-        elif line.startswith("profileinfluxdbdatabase"):
-            db = line.split("=", 1)[1].strip()
-        elif line.startswith("profileinfluxdbrtpolicy"):
-            rp = line.split("=", 1)[1].strip()
-    if not all([user, pw, host, db, rp]):
-        return
-    influxdb_uri = f"influxdb://{user}:{pw}@{host}/{db}?rp={rp}"
-    jobbergate_agent = model.applications.get("jobbergate-agent")
-    if not jobbergate_agent:
-        return
-    await jobbergate_agent.set_config({"jobbergate-agent-influx-dsn": influxdb_uri})
-
-
-async def _deploy_juju_localhost(vantage_cluster_ctx: VantageClusterContext) -> None | typer.Exit:
-    """Deploy Vantage JupyterHub Charmed HPC cluster using Juju on localhost (refactored)."""
-    controller = Controller()
-    try:
-        await controller.connect()
-
-        model = await controller.add_model(
-            vantage_cluster_ctx.client_id, cloud_name=CLOUD_LOCALHOST
-        )
-
-        vantage_jupyterhub_config_secret_id = await model.add_secret(
-            JUPYTERHUB_SECRET_NAME, _build_vantage_jupyterhub_secret_args(vantage_cluster_ctx)
-        )
-
-        vantage_sssd_config_secret_id = await model.add_secret(
-            SSSD_SECRET_NAME, _build_vantage_sssd_secret_args(vantage_cluster_ctx)
-        )
-
-        bundle_yaml = _prepare_bundle(
-            vantage_cluster_ctx,
-            model_name=vantage_cluster_ctx.client_id,
-            vantage_jupyterhub_config_secret_id=vantage_jupyterhub_config_secret_id,
-            vantage_sssd_config_secret_id=vantage_sssd_config_secret_id,
-        )
-
-        await _write_and_deploy_model_bundle(model, bundle_yaml)
-
-        await model.grant_secret(JUPYTERHUB_SECRET_NAME, JUPYTERHUB_APPLICATION_NAME)
-        await model.grant_secret(SSSD_SECRET_NAME, SSSD_APPLICATION_NAME)
-
-        await model.wait_for_idle()
-
-        await _run_slurmd_node_configured(model)
-
-        await _configure_jobbergate_influxdb(model)
-
-        await model.disconnect()
-        await controller.disconnect()
-
-    except JujuError as _:
-        return typer.Exit(code=1)
+    jupyterhub_secret_args = _build_vantage_jupyterhub_secret_args(ctx)
+    sssd_secret_args = _build_vantage_sssd_secret_args(ctx)
 
 
 async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
@@ -265,7 +118,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     deployment.write()
 
     try:
-        await _deploy_juju_localhost(vantage_cluster_ctx)
+        await _deploy_slurm_metal_cudo(vantage_cluster_ctx)
     except Exception as e:
         deployment.status = "error"
         deployment.write()
@@ -294,10 +147,7 @@ async def create_command(
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
 ) -> None:
-    """Create a Charmed HPC SLURM cluster using Juju on localhost and register it with Vantage."""
-    # Check for Juju early before doing any other work
-    check_juju_available()
-
+    """Create a SLURM on metal Cluster and register it with Vantage."""
     cluster = generate_dev_cluster_data(cluster_name)
 
     if not dev_run:
@@ -317,8 +167,8 @@ async def create_command(
     await create(ctx=ctx, cluster=cluster)
 
 
-async def _remove_juju_localhost(ctx: typer.Context, deployment: Deployment) -> None:
-    """Remove a Juju localhost deployment by destroying the model.
+async def _remove_slurm_metal_cudo(ctx: typer.Context, deployment: Deployment) -> None:
+    """Remove a SLURM metal deployment Cudo Compute deployment.
 
     Args:
         ctx: Typer context containing console object
@@ -327,25 +177,7 @@ async def _remove_juju_localhost(ctx: typer.Context, deployment: Deployment) -> 
     Raises:
         Exception: If cleanup fails
     """
-    console = ctx.obj.console
-
-    controller = Controller()
-    model_name = deployment.cluster.client_id
-
-    try:
-        await controller.connect()
-        await controller.destroy_model(model_name, destroy_storage=True, force=True)
-    except Exception as e:
-        deployment.status = "error"
-        deployment.write()
-        console.print(f"[bold red]Error:[/bold red] Failed to remove deployment: {e}")
-        raise
-    finally:
-        try:
-            await controller.disconnect()
-        except Exception as e:
-            console.print(f"[bold red]Error:[/bold red] Failed to disconnect controller: {e}")
-            pass
+    pass
 
 
 async def remove(ctx: typer.Context, deployment: Deployment) -> None:
@@ -383,7 +215,7 @@ async def remove_command(
 
 
 async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None:
-    """Internal function to remove a LXD SLURM deployment.
+    """Internal function to remove a Cudo Compute SLURM on metal deployment.
 
     Args:
         ctx: The typer context object for console access.
@@ -393,10 +225,8 @@ async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None
         Exception: If removal fails (non-critical, logged and continued)
     """
     try:
-        # Destroy the Juju model
-        await _remove_juju_localhost(ctx, deployment)
+        await _remove_slurm_metal_cudo(ctx, deployment)
     except Exception as e:
-        logger.warning(f"Juju cleanup failed: {e}")
+        logger.warning(f"Cudo Compute SLURM on metal failed: {e}")
         raise
     ctx.obj.console.print(success_destroy_message(deployment=deployment))
-

@@ -12,7 +12,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2025 Vantage Compute Corporation
 # See LICENSE file for licensing details.
-"""Cudo Compute SLURM on Metal deployment app for Vantage CLI."""
+"""Cudo Compute SLURM on K8S deployment app for Vantage CLI."""
 
 import asyncio
 import copy
@@ -47,7 +47,7 @@ from .constants import APP_NAME, SUBSTRATE
 from .constants import (
     CLOUD as CLOUD_LOCALHOST,
 )
-
+from .render import success_create_message, success_destroy_message
 
 def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
     return [
@@ -98,32 +98,6 @@ def _prepare_bundle(
     return bundle_yaml
 
 
-async def _write_and_deploy_model_bundle(model, bundle_yaml: dict[str, Any]) -> None:
-    original_cwd = os.getcwd()
-    with tempfile.TemporaryDirectory() as td:
-        f_name = Path(td) / "bundle.yaml"
-        with open(f_name, "w") as fh:
-            fh.write(yaml.dump(bundle_yaml))
-        Path(td).chmod(0o700)
-        os.chdir(td)
-        try:
-            with SuppressOutput():
-                # Add timeout to prevent hanging indefinitely on bundle deployment
-                await asyncio.wait_for(
-                    model.deploy("./bundle.yaml"), timeout=120
-                )  # 2 minutes timeout
-        finally:
-            os.chdir(original_cwd)
-
-
-async def _run_slurmd_node_configured(model) -> None:
-    if slurmd_app := model.applications.get("slurmd"):
-        if slurmd_units := slurmd_app.units:
-            for slurmd_unit in slurmd_units:
-                action = await slurmd_unit.run_action("node-configured")
-                await action.wait()
-
-
 async def _configure_jobbergate_influxdb(model) -> None:
     slurmctld_app = model.applications.get("slurmctld")
     if not slurmctld_app or not slurmctld_app.units:
@@ -159,6 +133,21 @@ async def _configure_jobbergate_influxdb(model) -> None:
     if not jobbergate_agent:
         return
     await jobbergate_agent.set_config({"jobbergate-agent-influx-dsn": influxdb_uri})
+
+
+
+async def _deploy_slurm_k8s_cudo(ctx: Any) -> None:
+    """Deploy SLURM on K8S using Cudo Compute.
+
+    Args:
+        ctx: VantageClusterContext containing deployment configuration
+
+    Raises:
+        Exception: If deployment fails
+    """
+
+    jupyterhub_secret_args = _build_vantage_jupyterhub_secret_args(ctx)
+    sssd_secret_args = _build_vantage_sssd_secret_args(ctx)
 
 
 async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
@@ -215,7 +204,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     deployment.write()
 
     try:
-        await _deploy_juju_localhost(vantage_cluster_ctx)
+        await _deploy_slurm_k8s_cudo(vantage_cluster_ctx)
     except Exception as e:
         deployment.status = "error"
         deployment.write()
@@ -244,9 +233,7 @@ async def create_command(
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
 ) -> None:
-    """Create a Charmed HPC SLURM cluster using Juju on localhost and register it with Vantage."""
-    # Check for Juju early before doing any other work
-
+    """Create a SLURM on K8S Cluster and register it with Vantage."""
     cluster = generate_dev_cluster_data(cluster_name)
 
     if not dev_run:
@@ -329,4 +316,3 @@ async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None
         logger.warning(f"Cudo Compute SLURM on K8S failed: {e}")
         raise
     ctx.obj.console.print(success_destroy_message(deployment=deployment))
-
