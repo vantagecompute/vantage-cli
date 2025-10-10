@@ -28,7 +28,7 @@ from vantage_cli.apps.common import (
     update_deployment_status,
 )
 from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
-from vantage_cli.apps.slurm_microk8s_localhost.utils import (
+from vantage_cli.apps.localhost.slurm_microk8s.utils import (
     PrerequisiteStatus,
     add_helm_repositories,
     check_prerequisites,

@@ -33,7 +33,7 @@ from vantage_cli.apps.common import (
     get_deployment_by_name,
     remove_deployment,
 )
-from vantage_cli.apps.slurm_lxd_localhost.utils import (
+from vantage_cli.apps.localhost.slurm_lxd.utils import (
     SuppressOutput,
     check_juju_available,
 )
