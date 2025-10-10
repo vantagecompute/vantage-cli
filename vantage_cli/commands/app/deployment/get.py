@@ -15,11 +15,8 @@ import typer
 from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import RenderStepOutput
+from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.deployment import deployment_sdk
-
-from .render import render_deployment_details
 
 
 @attach_settings
@@ -29,56 +26,28 @@ async def get_deployment(
     deployment_id: Annotated[str, typer.Argument(help="ID or name of the deployment to retrieve")],
 ) -> None:
     """Get detailed information about a specific deployment."""
-    # Get JSON flag from context (automatically set by AsyncTyper)
-    json_output = getattr(ctx.obj, "json_output", False)
-    verbose = getattr(ctx.obj, "verbose", False)
-
     try:
-        # Get command start time for timing
-        command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+        # Try to get deployment details
+        deployment = await deployment_sdk.get_deployment(ctx, deployment_id)
 
-        # Rich output with progress system
-        renderer = RenderStepOutput(
-            console=ctx.obj.console,
-            operation_name=f"Getting deployment '{deployment_id}'",
-            step_names=["Fetching deployment details", "Complete"],
-            verbose=verbose,
-            command_start_time=command_start_time,
+        if deployment is None:
+            raise Abort(
+                f"Deployment '{deployment_id}' not found.",
+                subject="Deployment Not Found",
+                log_message=f"Deployment not found: {deployment_id}",
+                hint="Use 'vantage app deployment list' to see available deployments.",
+            )
+        # Use the formatter to render the get response
+        ctx.obj.formatter.render_get(
+            data=deployment.model_dump(mode='json'),
+            resource_name="Deployment",
         )
 
-        with renderer:
-            # Step 1: Load deployment data
-            renderer.start_step("Fetching deployment details")
-
-            # Try to get deployment details (which includes all fields)
-            deployment_details = await deployment_sdk.get_deployment_details(ctx, deployment_id)
-
-            if deployment_details is None:
-                # Try searching by deployment name in case user provided a name instead of ID
-                deployments = await deployment_sdk.list(ctx)
-                for dep in deployments:
-                    if dep.get("deployment_name") == deployment_id:
-                        deployment_details = await deployment_sdk.get_deployment_details(
-                            ctx, dep.get("deployment_id", "")
-                        )
-                        break
-
-                if deployment_details is None:
-                    ctx.obj.console.print(f"[red]Deployment '{deployment_id}' not found.[/red]")
-                    ctx.obj.console.print(
-                        "[dim]Use 'vantage deployment list' to see available deployments.[/dim]"
-                    )
-                    raise typer.Exit(1)
-
-            # Handle JSON output first
-            if json_output:
-                renderer.json_bypass(deployment_details)
-                return
-
-            # Step 2: Render the deployment details table
-            renderer.table_step(render_deployment_details(deployment_details))
-            renderer.complete_step("Complete")
-
+    except Abort:
+        raise
     except Exception as e:
-        ctx.obj.console.print(f"[red]Error retrieving deployment: {e}[/red]")
-        raise typer.Exit(1)
+        raise Abort(
+            f"Failed to retrieve deployment: {e}",
+            subject="Get Deployment Error",
+            log_message=f"Deployment get error: {e}",
+        )

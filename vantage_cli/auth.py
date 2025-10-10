@@ -241,7 +241,7 @@ def refresh_token_if_needed(profile: str, token_set: TokenSet) -> TokenSet:
             raise Exception("Token refresh returned False")
 
     except Exception as e:
-        logger.error(f"Failed to refresh token: {e}")
+        logger.debug(f"Failed to refresh token: {e}")
         raise Abort(
             "Failed to refresh the expired access token. Please log in again.",
             subject="Token refresh failed",
@@ -347,7 +347,7 @@ def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -
             return True
 
     except Exception as e:
-        logger.error(f"Failed to refresh token: {e}")
+        logger.debug(f"Failed to refresh token: {e}")
         return False
 
 

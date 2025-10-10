@@ -205,6 +205,17 @@ class AsyncTyper(typer.Typer):
                     # Handle verbose parameter
                     verbose_flag = kwargs.pop("verbose", False)
                     ctx.obj.verbose = verbose_flag or getattr(ctx.obj, "verbose", False)
+                    
+                    # Reconfigure logging immediately based on verbose flag
+                    # This ensures logging is properly configured before any command logic runs
+                    import sys
+                    from loguru import logger
+                    
+                    logger.remove()
+                    if ctx.obj.verbose:
+                        logger.add(sys.stdout, level="DEBUG")
+                    else:
+                        logger.add(sys.stdout, level="ERROR")
 
                     # Handle profile parameter
                     profile_value = kwargs.pop("profile", "default")

@@ -12,7 +12,7 @@ We have categorized the "Deployment Applications" under their respective substra
 
 :: Note
 
-We reccomend starting with the localhost provider to get the hang of things, then move on to a public cloud, on-premises, or [Vantage Partner Cloud](/platform/).
+We reccomend starting with the localhost provider to get the hang of things, then move on to a public cloud, on-premises, or Vantage Partner Cloud.
 
 ::
 

@@ -12,6 +12,7 @@
 """Rendering utilities for CLI output."""
 
 import json
+import shutil
 import time
 from contextlib import contextmanager
 from types import TracebackType
@@ -1317,6 +1318,22 @@ class UniversalOutputFormatter:
         self.console = console
         self.json_output = json_output
 
+    def _get_terminal_width(self) -> int:
+        """Retrieve the current terminal width and update the console accordingly."""
+        fallback_width = max(getattr(self.console, "width", 80) or 80, 40)
+
+        try:
+            terminal_size = shutil.get_terminal_size(fallback=(fallback_width, 20))
+            width = max(terminal_size.columns, 40)
+        except (OSError, ValueError):  # pragma: no cover - rare environments
+            width = fallback_width
+
+        if width != getattr(self.console, "width", width):
+            # Update the console so downstream Rich components honor the latest size
+            self.console.width = width
+
+        return width
+
     def output(self, data: Any, title: str = "", empty_message: str = "No items found.") -> None:
         """Output data either as JSON or formatted table.
 
@@ -1395,7 +1412,7 @@ class UniversalOutputFormatter:
             return
 
         # Get terminal width for dynamic sizing
-        terminal_width = self.console.width
+        terminal_width = self._get_terminal_width()
 
         # Get all unique keys from items
         all_keys = set()
@@ -1432,8 +1449,8 @@ class UniversalOutputFormatter:
             box=box.ROUNDED,
             border_style="blue",
             padding=(0, 1),
-            expand=False,  # Don't force expansion, let calculated widths control size
-            width=None,  # Let Rich calculate based on column widths
+            expand=True,
+            width=terminal_width,
         )
 
         # Add columns with calculated widths and smart overflow handling
@@ -1560,7 +1577,7 @@ class UniversalOutputFormatter:
     def _get_column_config(
         self, sorted_keys: List[str], actual_widths: Dict[str, int]
     ) -> Dict[str, Dict[str, Any]]:
-        """Get column configuration with priorities and constraints."""
+        """Get column configuration with priorities and constraints based on actual content."""
         config = {}
 
         for key in sorted_keys:
@@ -1583,34 +1600,49 @@ class UniversalOutputFormatter:
             else:
                 priority = 2  # Default medium priority
 
-            # Determine optimal and maximum widths
+            # Determine optimal and maximum widths BASED ON ACTUAL CONTENT
+            # Use actual_width as the primary guide, with sensible constraints
             if key_lower == "id":
-                optimal = min(actual_width, 10)
-                max_width = 12
-                min_width = 6
-            elif key_lower in ["name", "title"]:
-                optimal = min(actual_width, 30)
+                # IDs: prefer showing full UUID (36 chars) but can compress
+                optimal = min(actual_width + 2, 38)  # +2 for padding
                 max_width = 40
                 min_width = 10
-            elif key_lower in ["description", "message", "details", "summary"]:
-                optimal = min(actual_width, 40)
-                max_width = 60
+            elif key_lower in ["name", "title"]:
+                optimal = min(actual_width + 2, 40)
+                max_width = 50
                 min_width = 15
+            elif key_lower in ["description", "message", "details", "summary"]:
+                optimal = min(actual_width + 2, 50)
+                max_width = 60
+                min_width = 20
             elif key_lower in ["status", "state"]:
-                optimal = min(actual_width, 15)
-                max_width = 20
+                # Status: fit to content (usually short)
+                optimal = min(actual_width + 2, 15)
+                max_width = 15
                 min_width = 8
             elif "_at" in key_lower or "date" in key_lower or "time" in key_lower:
-                optimal = min(actual_width, 12)
+                # Timestamps: fit to actual format
+                optimal = min(actual_width + 2, 20)
+                max_width = 22
+                min_width = 12
+            elif "email" in key_lower:
+                optimal = min(actual_width + 2, 30)
+                max_width = 40
+                min_width = 15
+            elif "_name" in key_lower or "cluster" in key_lower or "app" in key_lower:
+                # Names: fit to content, usually shorter
+                optimal = min(actual_width + 2, 25)
+                max_width = 30
+                min_width = 8
+            elif "provider" in key_lower or "substrate" in key_lower:
+                # Providers: usually short (aws, gcp, localhost, etc.)
+                optimal = min(actual_width + 2, 15)
                 max_width = 20
                 min_width = 10
-            elif "email" in key_lower:
-                optimal = min(actual_width, 25)
-                max_width = 35
-                min_width = 12
             else:
-                optimal = min(actual_width, 20)
-                max_width = 30
+                # Default: fit to content with reasonable bounds
+                optimal = min(actual_width + 2, 25)
+                max_width = 35
                 min_width = 8
 
             config[key] = {
@@ -1715,7 +1747,7 @@ class UniversalOutputFormatter:
         from rich import box
 
         # Get terminal width for dynamic sizing
-        terminal_width = self.console.width
+        terminal_width = self._get_terminal_width()
 
         # Calculate column widths (30% for field name, 70% for value)
         field_width = max(15, int(terminal_width * 0.3))

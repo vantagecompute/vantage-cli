@@ -11,7 +11,7 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Constants for SLURM LXD localhost deployment."""
 
-APP_NAME = "slurm-lxd-localhost"
+APP_NAME = "slurm-lxd"
 
 CLOUD = "localhost"
 

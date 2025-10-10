@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-APP_NAME = "slurm-multipass-localhost"
+APP_NAME = "slurm-multipass"
 
 CLOUD = "localhost"
 

@@ -10,15 +10,53 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Deployment schemas for the Vantage CLI."""
+import yaml
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field
 
-from vantage_cli.constants import PROVIDER_SUBSTRATE_MAPPINGS
+from vantage_cli.constants import PROVIDER_SUBSTRATE_MAPPINGS, VANTAGE_CLI_DEPLOYMENTS_YAML_PATH as DEPLOYMENTS_YAML
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
+
+
+def load_deployments() -> Dict[str, Any]:
+    """Load deployment tracking data from ~/.vantage-cli/deployments.yaml.
+
+    Returns:
+        Dictionary containing deployments data with 'deployments' key
+    """
+    if not DEPLOYMENTS_YAML.exists():
+        return {"deployments": {}}
+
+    try:
+
+        data = yaml.safe_load(DEPLOYMENTS_YAML.read_text()) 
+        if "deployments" not in data:
+            data["deployments"] = {}
+        return data
+    except Exception:
+        # Load deployments and return empty dict with defaults on error
+        return {"deployments": {}}
+
+
+def save_deployments(deployments_data: Dict[str, Any]) -> None:
+    """Save deployment tracking data to ~/.vantage-cli/deployments.yaml.
+
+    Args:
+        deployments_data: Dictionary containing deployments data
+    """
+    from loguru import logger
+    
+    try:
+        # Ensure the directory exists
+        DEPLOYMENTS_YAML.parent.mkdir(parents=True, exist_ok=True)
+        DEPLOYMENTS_YAML.write_text(yaml.dump(deployments_data, default_flow_style=False, indent=2))
+    except Exception as e:
+        logger.error(f"Failed to save deployments to {DEPLOYMENTS_YAML}: {e}")
+        raise RuntimeError(f"Failed to save deployments: {e}") from e
 
 
 class Deployment(BaseModel):
@@ -31,7 +69,7 @@ class Deployment(BaseModel):
 
     model_config = {"validate_assignment": True}
 
-    id: UUID = Field(default_factory=uuid4)
+    id: str = Field(default_factory=lambda: str(uuid4()))
     app_name: str
     cluster: Cluster
     vantage_cluster_ctx: VantageClusterContext
@@ -67,22 +105,14 @@ class Deployment(BaseModel):
         and saves it back to ~/.vantage-cli/deployments.yaml.
 
         """
-        # Import here to avoid circular dependencies
-        from vantage_cli.apps.common import load_deployments, save_deployments
-
-        # Load existing deployments
         deployments_data = load_deployments()
-
-        # Update this deployment's entry (using str(self.id) since YAML keys are strings)
         deployments_data["deployments"][str(self.id)] = self.model_dump()
-
-        # Save back to file
         save_deployments(deployments_data)
 
     @computed_field
     @property
     def name(self) -> str:
-        return f"{self.app_name}-{self.cluster.name}-{self.created_at.timestamp()}"
+        return f"{self.app_name}-{self.cluster.name}-{self.created_at_as_timestamp_str[:5]}"
 
     @computed_field
     @property
@@ -98,6 +128,19 @@ class Deployment(BaseModel):
             return self.created_at.strftime("%Y-%m-%d %H:%M")
         except (ValueError, AttributeError):
             return str(self.created_at)
+
+    @computed_field
+    @property
+    def created_at_as_timestamp_str(self) -> str:
+        """Get creation timestamp as a string with only numbers (no dots, dashes, or colons).
+        
+        Format: YYYYMMDDHHMMSSffffff (e.g., 20251010123045123456)
+        """
+        try:
+            return self.created_at.strftime("%Y%m%d%H%M%S%f")
+        except (ValueError, AttributeError):
+            # Fallback: use timestamp as integer string
+            return str(int(self.created_at.timestamp() * 1000000))
 
     @computed_field
     @property

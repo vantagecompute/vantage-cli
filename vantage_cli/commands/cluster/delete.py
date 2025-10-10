@@ -18,12 +18,12 @@ from loguru import logger
 from rich.console import Console
 from typing_extensions import Annotated
 
-from vantage_cli.apps.common import list_deployments_by_cluster, remove_deployment
+from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.cluster.crud import cluster_sdk
-
-from .utils import get_cluster_by_name
+from vantage_cli.sdk.deployment.crud import deployment_sdk
+from vantage_cli.sdk.deployment.schema import Deployment
 
 
 @handle_abort
@@ -36,11 +36,11 @@ async def delete_cluster(
         Optional[str],
         typer.Option(
             "--app",
-            help="Cleanup the specified app deployment (e.g., slurm-juju-localhost, slurm-multipass-localhost, slurm-microk8s-localhost)",
+            help="Cleanup the specified app deployment (e.g., slurm-lxd, slurm-multipass, slurm-microk8s)",
         ),
     ] = None,
 ):
-    """Delete a Vantage cluster."""
+    """Delete a Vantage cluster and optionally cleanup associated app deployments."""
     # Get JSON flag from context (automatically set by AsyncTyper)
     json_output = getattr(ctx.obj, "json_output", False)
     verbose = getattr(ctx.obj, "verbose", False)
@@ -64,16 +64,72 @@ async def delete_cluster(
         if verbose and not json_output:
             ctx.obj.console.print(f"[bold blue]Querying cluster '{cluster_name}'...[/bold blue]")
 
-        cluster = await get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+        cluster = await cluster_sdk.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
+        
+        # If cluster doesn't exist, check for orphaned deployments
         if not cluster:
-            ctx.obj.formatter.render_error(
-                error_message=f"No cluster found with name '{cluster_name}'."
-            )
-            raise Abort(
-                f"No cluster found with name '{cluster_name}'.",
-                subject="Cluster Not Found",
-                log_message=f"Cluster '{cluster_name}' not found",
-            )
+            if verbose and not json_output:
+                ctx.obj.console.print(f"[yellow]Cluster '{cluster_name}' not found in API.[/yellow]")
+            
+            # Check for orphaned deployments
+            deployments = await deployment_sdk.get_deployments_by_cluster(ctx, cluster_name)
+            
+            if deployments:
+                if not json_output:
+                    ctx.obj.console.print(
+                        f"\n[yellow]⚠️  Found {len(deployments)} deployment(s) for cluster '{cluster_name}'[/yellow]"
+                    )
+                    ctx.obj.console.print("[yellow]These are orphaned (cluster no longer exists).[/yellow]")
+                
+                # Ask if user wants to clean them up
+                if app:
+                    # User specified an app, clean up that specific deployment
+                    deployment = next((d for d in deployments if d.app_name == app), None)
+                    if deployment:
+                        if not json_output:
+                            ctx.obj.console.print(f"\n[blue]Cleaning up orphaned deployment for '{app}'...[/blue]")
+                        cleanup_result = await _cleanup_single_deployment_object(ctx, deployment)
+                        
+                        output_data = {
+                            "cluster_name": cluster_name,
+                            "cluster_existed": False,
+                            "deployment_cleaned": cleanup_result,
+                            "message": f"Orphaned deployment for '{app}' cleaned up",
+                        }
+                        ctx.obj.formatter.render_delete(
+                            resource_name="Orphaned Deployment",
+                            resource_id=cluster_name,
+                            data=output_data,
+                        )
+                        return
+                    else:
+                        raise Abort(
+                            f"No deployment found for app '{app}' in orphaned deployments.",
+                            subject="Deployment Not Found",
+                            log_message=f"App '{app}' not found in orphaned deployments",
+                        )
+                else:
+                    # No app specified, suggest using cleanup-orphans
+                    if not json_output:
+                        ctx.obj.console.print(
+                            "\n[dim]Use 'vantage app deployment cleanup-orphans' to clean up all orphaned deployments.[/dim]"
+                        )
+                        ctx.obj.console.print(
+                            f"[dim]Or specify --app to clean up a specific deployment.[/dim]"
+                        )
+                    raise Abort(
+                        f"Cluster '{cluster_name}' not found, but {len(deployments)} orphaned deployment(s) exist.",
+                        subject="Orphaned Deployments Found",
+                        log_message=f"Cluster not found but has orphaned deployments",
+                        hint="Use 'vantage app deployment cleanup-orphans' to clean them up.",
+                    )
+            else:
+                # No cluster, no deployments
+                raise Abort(
+                    f"No cluster found with name '{cluster_name}'.",
+                    subject="Cluster Not Found",
+                    log_message=f"Cluster '{cluster_name}' not found",
+                )
 
         if verbose and not json_output:
             ctx.obj.console.print(f"[bold blue]Deleting cluster '{cluster_name}'...[/bold blue]")
@@ -93,11 +149,10 @@ async def delete_cluster(
 
         cleanup_result = None
         if app:
-            if verbose and not json_output:
+            if verbose:
                 ctx.obj.console.print(f"[bold blue]Cleaning up {app} deployments...[/bold blue]")
-            cleanup_result = await _cleanup_app_deployments(
-                ctx, cluster_name, app, json_output, ctx.obj.console
-            )
+
+            cleanup_result = await _cleanup_single_deployment(ctx, cluster_name, app)
 
         # Output results
         output_data = {
@@ -126,106 +181,75 @@ async def delete_cluster(
         )
 
 
-async def _call_app_cleanup_function(
-    ctx: typer.Context, app: str, cluster_data: dict[str, Any]
-) -> None:
-    """Call the appropriate cleanup function based on app type."""
-    if app == "slurm-juju-localhost":
-        from vantage_cli.apps.localhost.slurm_lxd.app import cleanup_juju_localhost
+async def _call_app_remove_function(ctx: typer.Context, deployment: Deployment) -> None:
+    """Call the appropriate remove function from the app module.
+    
+    Args:
+        ctx: The typer context object
+        deployment: The deployment object to remove
+        
+    Raises:
+        ValueError: If the app is not found or doesn't have a remove function
+    """
+    # Get available apps
+    available_apps = get_available_apps()
 
-        await cleanup_juju_localhost(ctx, cluster_data)
-    elif app == "slurm-multipass-localhost":
-        from vantage_cli.apps.localhost.slurm_multipass.app import remove
+    if deployment.app_name not in available_apps:
+        raise ValueError(f"App '{deployment.app_name}' not found")
 
-        await remove(ctx, cluster_data)
-    elif app == "slurm-microk8s-localhost":
-        from vantage_cli.apps.localhost.slurm_microk8s.app import (
-            cleanup_microk8s_localhost,
-        )
-
-        await cleanup_microk8s_localhost(ctx, cluster_data)
+    app_info = available_apps[deployment.app_name]
+    
+    # Check if the app module has a remove function
+    if "module" in app_info:
+        app_module = app_info["module"]
+        
+        if hasattr(app_module, "remove"):
+            remove_function = getattr(app_module, "remove")
+            await remove_function(ctx, deployment)
+        else:
+            raise ValueError(f"App '{deployment.app_name}' does not have a 'remove' function")
     else:
-        raise ValueError(f"Unknown app type: {app}")
+        raise ValueError(f"App '{deployment.app_name}' module not loaded properly")
 
 
 async def _cleanup_single_deployment(
     ctx: typer.Context,
-    deployment_id: str,
-    deployment: dict[str, Any],
-    app: str,
-    json_output: bool,
-    console: Console,
+    cluster_name: str,
+    app_name: str,
 ) -> bool:
-    """Clean up a single deployment and return True if successful."""
-    try:
-        # Get cluster data for cleanup functions
-        cluster_data = deployment.get("cluster_data", {})
+    """Clean up a single deployment and return True if successful.
+    
+    Args:
+        ctx: The typer context object
+        cluster_name: Name of the cluster
+        app_name: Name of the app (e.g., 'slurm-multipass')
+        
+    Returns:
+        True if cleanup was successful, False otherwise
+    """
+    deployments = await deployment_sdk.get_deployments_by_cluster(ctx, cluster_name)
+    deployment = next((d for d in deployments if d.app_name == app_name), None)
 
-        # Call the appropriate cleanup function
-        try:
-            await _call_app_cleanup_function(ctx, app, cluster_data)
-        except ValueError:
-            logger.warning(f"Unknown app type '{app}', skipping cleanup")
-            return False
-
-        # Remove deployment entry from tracking file
-        if remove_deployment(deployment_id, console):
-            logger.debug(f"Cleaned up deployment '{deployment_id}'")
-            return True
-        else:
-            logger.warning(f"Could not remove deployment '{deployment_id}' from tracking")
-            return False
-
-    except Exception as e:
-        logger.warning(f"Cleanup of deployment '{deployment_id}' failed: {e}")
+    if not deployment:
+        logger.warning(f"No deployment found for app '{app_name}' in cluster '{cluster_name}'")
         return False
 
-
-async def _cleanup_app_deployments(
-    ctx: typer.Context, cluster_name: str, app: str, json_output: bool, console: Console
-) -> dict[str, Any]:
-    """Clean up all deployments of a specific app type for a cluster.
-
-    Args:
-        ctx: The typer context object for console access.
-        cluster_name: Name of the cluster to clean up
-        app: Type of app to clean up
-        json_output: Whether to output JSON or rich console messages
-        console: Console instance for output
-
-    Returns:
-        Dictionary with cleanup results
-    """
-    # Find deployments for this cluster
-    cluster_deployments = list_deployments_by_cluster(cluster_name, console)
-
-    # Filter to only the specified app type
-    app_deployments = {
-        dep_id: dep_data
-        for dep_id, dep_data in cluster_deployments.items()
-        if dep_data.get("app_name") == app
-    }
-
-    if not app_deployments:
-        return {
-            "deployments_found": 0,
-            "deployments_cleaned": 0,
-            "message": f"No '{app}' deployments found",
-        }
-
-    cleanup_count = 0
-    failed_deployments = []
-    for deployment_id, deployment in app_deployments.items():
-        if await _cleanup_single_deployment(
-            ctx, deployment_id, deployment, app, json_output, console
-        ):
-            cleanup_count += 1
+    try:
+        # Call the app's remove function
+        await _call_app_remove_function(ctx, deployment)
+        
+        # Remove deployment entry from tracking file
+        deleted = await deployment_sdk.delete(deployment.id)
+        if deleted:
+            logger.debug(f"Cleaned up deployment '{deployment.id}'")
+            return True
         else:
-            failed_deployments.append(deployment_id)
+            logger.warning(f"Could not remove deployment '{deployment.id}' from tracking")
+            return False
 
-    return {
-        "deployments_found": len(app_deployments),
-        "deployments_cleaned": cleanup_count,
-        "failed_deployments": failed_deployments,
-        "message": f"Cleaned up {cleanup_count}/{len(app_deployments)} deployments",
-    }
+    except ValueError as e:
+        logger.warning(f"App error for '{app_name}': {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"Cleanup of deployment '{deployment.id}' failed: {e}")
+        return False

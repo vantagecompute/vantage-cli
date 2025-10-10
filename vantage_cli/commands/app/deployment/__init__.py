@@ -16,6 +16,8 @@ import inspect
 from vantage_cli import AsyncTyper
 from vantage_cli.apps.utils import get_available_apps
 
+from .cleanup import cleanup_orphans
+from .delete import delete_deployment
 from .get import get_deployment
 from .list import list_deployments
 
@@ -30,6 +32,8 @@ deployment_app = AsyncTyper(
 # Register main deployment commands
 deployment_app.command("list")(list_deployments)
 deployment_app.command("get")(get_deployment)
+deployment_app.command("delete")(delete_deployment)
+deployment_app.command("cleanup-orphans")(cleanup_orphans)
 
 # Dynamically register app-specific deployment commands by discovering command functions in each app
 available_apps = get_available_apps()

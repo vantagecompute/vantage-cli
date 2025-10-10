@@ -21,6 +21,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
 import typer
 import yaml
 from juju.controller import Controller
@@ -30,19 +31,17 @@ from typing_extensions import Annotated
 from vantage_cli.apps.common import (
     create_deployment_with_init_status,
     generate_dev_cluster_data,
-    get_deployment_by_name,
-    remove_deployment,
 )
-from vantage_cli.apps.localhost.slurm_lxd.utils import (
-    SuppressOutput,
-    check_juju_available,
-)
+
 from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 from vantage_cli.sdk.deployment.schema import Deployment
+
+from vantage_cli.sdk.deployment.crud import deployment_sdk
+
 from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 from .bundle_yaml import VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML
@@ -59,6 +58,10 @@ from .constants import (
 )
 from .render import success_create_message, success_destroy_message
 
+from .utils import (
+    SuppressOutput,
+    check_juju_available,
+)
 
 def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
     return [
@@ -338,9 +341,7 @@ async def _remove_juju_localhost(ctx: typer.Context, deployment: Deployment) -> 
 
     try:
         await controller.connect()
-        await controller.destroy_model(model_name, destroy_storage=True)
-        final_success_message = success_destroy_message(cluster_name=deployment.cluster.name)
-        console.print(final_success_message)
+        await controller.destroy_model(model_name, destroy_storage=True, force=True)
     except Exception as e:
         deployment.status = "error"
         deployment.write()
@@ -354,31 +355,55 @@ async def _remove_juju_localhost(ctx: typer.Context, deployment: Deployment) -> 
             pass
 
 
-# Typer CLI commands
+async def remove(ctx: typer.Context, deployment: Deployment) -> None:
+    """Remove a Multipass SLURM deployment by deleting the instance.
+
+    Args:
+        ctx: The typer context object for console access.
+        deployment: The deployment object to remove
+
+    Raises:
+        Exception: If removal fails (non-critical, logged and continued)
+    """
+    await _remove_deployment(ctx=ctx, deployment=deployment)
+
+
 @handle_abort
 @attach_settings
-@attach_persona
-@attach_vantage_rest_client
 async def remove_command(
     ctx: typer.Context,
-    deployment_name: Annotated[
+    deployment_id: Annotated[
         str,
-        typer.Argument(help="Name of the deployment to remove"),
+        typer.Argument(help="ID of the deployment to remove"),
     ],
-    dev_run: Annotated[
-        bool,
-        typer.Option("--dev-run", help="Do not remove a cluster too"),
-    ] = False,
 ) -> None:
-    """Remove a Multipass Singlenode SLURM deployment."""
-    pass
+    """Remove a Vantage LXD SLURM cluster."""
+    deployment = await deployment_sdk.get_deployment(ctx, deployment_id)
+    if deployment is not None:
+        await remove(ctx=ctx, deployment=deployment)
+        await deployment_sdk.delete(deployment.id)
+        ctx.obj.console.print(f"[green]✓[/green] Deployment '{deployment.name}' removed successfully")
+        return
 
-    if (deployment := get_deployment_by_name(deployment_name)) is not None:
-        await _remove_juju_localhost(ctx=ctx, deployment=deployment)
-        remove_deployment(f"{deployment.id}")
-        ctx.obj.console.print(success_destroy_message(deployment=deployment))
-    else:
-        ctx.obj.console.print(
-            f"[bold red]Error:[/bold red] Deployment '{deployment_name}' not found"
-        )
-        raise typer.Exit(code=1)
+    ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment '{deployment_id}' not found.")
+    return
+
+
+async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None:
+    """Internal function to remove a LXD SLURM deployment.
+
+    Args:
+        ctx: The typer context object for console access.
+        deployment: The deployment object to remove
+
+    Raises:
+        Exception: If removal fails (non-critical, logged and continued)
+    """
+    try:
+        # Destroy the Juju model
+        await _remove_juju_localhost(ctx, deployment)
+    except Exception as e:
+        logger.warning(f"Juju cleanup failed: {e}")
+        raise
+    ctx.obj.console.print(success_destroy_message(deployment=deployment))
+

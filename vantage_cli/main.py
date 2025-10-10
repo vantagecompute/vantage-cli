@@ -25,13 +25,6 @@ from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 
-# Configure default logging behavior early to suppress DEBUG/INFO/WARNING messages
-# This will be reconfigured later in setup_logging() based on verbose flag
-logger.remove()  # Remove default handler
-logger.add(sys.stderr, level="ERROR")  # Only show ERROR and CRITICAL by default
-
-# Set terminal width for Rich error messages to match our console width
-import os
 
 from vantage_cli import AsyncTyper, __version__
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
@@ -444,7 +437,7 @@ async def whoami(ctx: typer.Context):
         )
 
     except Exception as e:
-        logger.error(f"Failed to get user information: {str(e)}")
+        logger.debug(f"Failed to get user information: {str(e)}")
 
         error_info = {
             "logged_in": False,

@@ -13,8 +13,11 @@
 
 from typing import Any, Dict, List, Optional
 
+import httpx
 import typer
 
+from vantage_cli.auth import extract_persona
+from vantage_cli.exceptions import Abort
 from vantage_cli.sdk.base import BaseGraphQLResourceSDK
 from vantage_cli.sdk.cluster.schema import Cluster
 
@@ -187,12 +190,15 @@ class ClusterSDK(BaseGraphQLResourceSDK):
             error_message = result.get("message", "Unknown error")
             raise Exception(f"Failed to create cluster: {error_message}")
 
-        # Convert to Cluster object
+        client_secret_from_api = None
+        if (client_secret := await self.get_cluster_client_secret(ctx=ctx, client_id=result["clientId"])) is not None:
+            client_secret_from_api = client_secret
+
         return Cluster(
             name=result.get("name", ""),
             status=result.get("status", "unknown"),
             client_id=result.get("clientId", ""),
-            client_secret=None,  # clientSecret not returned by API
+            client_secret=client_secret_from_api,
             description=result.get("description", ""),
             owner_email=result.get("ownerEmail", ""),
             provider=result.get("provider", "unknown"),
@@ -387,6 +393,114 @@ class ClusterSDK(BaseGraphQLResourceSDK):
             Exception: If cluster deletion fails
         """
         return await self.delete(ctx, cluster_name, **kwargs)
+
+    async def get_cluster_client_secret(self, ctx: typer.Context, client_id: str) -> Optional[str]:
+        """Get the client secret for the cluster from vantage-api using GraphQL client auth.
+
+        Args:
+            ctx: Typer context carrying settings/profile
+            client_id: The client ID of the cluster
+
+        Returns:
+            The client secret if found, None otherwise
+        """
+        try:
+            # Get user authentication using the same method as GraphQL client
+            persona = extract_persona(ctx.obj.profile)
+            access_token = persona.token_set.access_token
+
+            # Use vantage-api admin/management/clients endpoint
+            api_url = f"{ctx.obj.settings.get_apis_url()}/admin/management/clients"
+
+            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+
+            async with httpx.AsyncClient() as client:
+                # First, search for the client by clientId
+                params = {"client_id": client_id}
+                response = await client.get(api_url, headers=headers, params=params)
+
+                if response.status_code != 200:
+                    return None
+
+                response_data = response.json()
+                clients = response_data.get("clients", [])
+
+                if not clients:
+                    return None
+
+                # Get the first matching client's internal ID
+                vantage_client = clients[0]
+                internal_id = vantage_client.get("id")
+
+                if not internal_id:
+                    return None
+
+                # Get the client secret using the internal ID
+                secret_url = f"{api_url}/{internal_id}"
+                secret_response = await client.get(secret_url, headers=headers)
+
+                if secret_response.status_code != 200:
+                    return None
+
+                secret_data = secret_response.json()
+                # Try both camelCase and snake_case field names
+                client_secret = secret_data.get("client_secret")
+
+                return client_secret
+
+        except Exception:
+            return None
+
+    async def get_cluster_by_name(self, ctx: typer.Context, cluster_name: str) -> Cluster | None:
+        """Get cluster details by name with client secret populated.
+
+        This method fetches the cluster from the API and then retrieves the client
+        secret separately, populating it in the returned Cluster object.
+
+        Args:
+            ctx: Typer context carrying settings/profile
+            cluster_name: The name of the cluster to retrieve
+
+        Returns:
+            The Cluster object if found (with client_secret populated), None otherwise
+        """
+        # Ensure we have settings configured
+        if not ctx.obj or not ctx.obj.settings:
+            raise Abort(
+                "No settings configured. Please run 'vantage config set' first.",
+                subject="Configuration Required",
+                log_message="Settings not configured",
+            )
+
+        try:
+            # Use the SDK to get the cluster
+            cluster_obj = await self.get_cluster(ctx, cluster_name)
+
+            if not cluster_obj:
+                return None
+
+            # Fetch client secret from API if clientId is available and update the cluster object
+            client_id = cluster_obj.client_id
+            if client_id:
+                try:
+                    client_secret = await self.get_cluster_client_secret(ctx, client_id)
+                    if client_secret:
+                        # Update the cluster object with the fetched secret
+                        cluster_obj.client_secret = client_secret
+                except Exception:
+                    pass  # Keep the existing client_secret value (None)
+
+            return cluster_obj
+
+        except Abort:
+            # Re-raise Abort exceptions as they contain user-friendly messages
+            raise
+        except Exception as e:
+            raise Abort(
+                f"Failed to retrieve cluster '{cluster_name}' from Vantage API.",
+                subject="API Error",
+                log_message=f"Cluster get error: {e}",
+            )
 
 
 # Create a singleton instance for use in commands

@@ -12,7 +12,7 @@
 """MicroK8s application support for deploying the Slurm Operator & Slurm cluster."""
 
 import subprocess
-import time
+from copy import deepcopy
 from typing import Any, Dict, Optional
 
 import typer
@@ -21,271 +21,199 @@ from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
     create_deployment_with_init_status,
-    generate_default_deployment_name,
     generate_dev_cluster_data,
-    get_jupyterhub_token,
-    get_sssd_binder_password,
-    update_deployment_status,
 )
-from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_SSSD_BINDER_PASSWORD
-from vantage_cli.apps.utils import PrerequisiteStatus, check_prerequisites
-from vantage_cli.apps.localhost.slurm_microk8s.utils import (
-    add_helm_repositories,
-    create_complete_prerequisite_checks,
-    create_k8s_namespace,
-    get_ssh_keys,
-    install_prometheus,
-    install_slurm_cluster,
-    install_slurm_operator,
-    install_slurm_operator_crds,
-)
-from vantage_cli.config import attach_settings
-from vantage_cli.constants import CLOUD_LOCALHOST, CLOUD_TYPE_K8S
-from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import TerminalOutputManager
-from vantage_cli.sdk.cluster.schema import Cluster
-
-from .chart_values import CHART_VALUES_SLURM_CLUSTER
-from .constants import (
+from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_ORG_ID, DEV_SSSD_BINDER_PASSWORD
+from vantage_cli.apps.localhost.slurm_microk8s.chart_values import CHART_VALUES_SLURM_CLUSTER
+from vantage_cli.apps.localhost.slurm_microk8s.constants import (
     APP_NAME,
-    CHART_PROMETHEUS,
-    CHART_SLURM_CLUSTER,
-    CHART_SLURM_OPERATOR,
-    CHART_SLURM_OPERATOR_CRDS,
+    CLOUD,
     DEFAULT_NAMESPACE_CERT_MANAGER,
     DEFAULT_NAMESPACE_PROMETHEUS,
     DEFAULT_NAMESPACE_SLINKY,
     DEFAULT_NAMESPACE_SLURM,
-    DEFAULT_RELEASE_PROMETHEUS,
-    DEFAULT_RELEASE_SLURM_CLUSTER,
-    DEFAULT_RELEASE_SLURM_OPERATOR,
-    DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
-    REPO_JETSTACK_URL,
-    REPO_PROMETHEUS_URL,
-    REPO_SLURM_URL,
+    SUBSTRATE,
 )
-from .templates import sssd_conf
+from vantage_cli.apps.localhost.slurm_microk8s.render import show_getting_started_help
+from vantage_cli.apps.localhost.slurm_microk8s.templates import sssd_conf
+from vantage_cli.apps.localhost.slurm_microk8s.utils import (
+    deploy_microk8s_stack,
+    get_ssh_keys,
+)
+from vantage_cli.config import attach_settings
+from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
+from vantage_cli.sdk.cluster.crud import cluster_sdk
+from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 
 
-async def create(
-    ctx: typer.Context,
-    cluster_obj: Cluster,
-    verbose: bool = False,
-) -> None:
-    """Create SLURM cluster on MicroK8s using Helm.
+async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
+    """Deploy a SLURM cluster on MicroK8s for the provided cluster definition."""
 
-    This function is called by the Vantage cluster management system
-    when creating a new cluster with this app.
+    console = getattr(ctx.obj, "console", Console())
+    formatter = getattr(ctx.obj, "formatter", None)
+    verbose = bool(getattr(ctx.obj, "verbose", False))
+    settings = getattr(ctx.obj, "settings", None)
 
-    Args:
-        ctx: Typer context containing settings and configuration
-        cluster_obj: Cluster object containing cluster configuration
-        verbose: Whether to enable verbose output
+    if settings is None:
+        console.print("[bold red]Error:[/bold red] CLI settings are not available.")
+        return typer.Exit(code=1)
 
-    Raises:
-        typer.Exit: If deployment fails
-    """
-    console = ctx.obj.console
+    def render_error(message: str) -> None:
+        if formatter is not None:
+            formatter.render_error(message)
+        else:
+            console.print(f"[bold red]Error:[/bold red] {message}")
 
-    # Generate deployment ID and create deployment with init status
-    cluster_name = cluster_obj.name
-    deployment_id = generate_default_deployment_name(APP_NAME, cluster_name)
-    client_id = cluster_obj.client_id
+    client_secret = cluster.client_secret
+    if not client_secret:
+        render_error("Cluster is missing client secret. Please debug.")
+        return typer.Exit(code=1)
 
-    sssd_binder_password = get_sssd_binder_password(cluster_obj) or DEV_SSSD_BINDER_PASSWORD
-    jupyterhub_token = get_jupyterhub_token(cluster_obj) or DEV_JUPYTERHUB_TOKEN
+    sssd_binder_password = cluster.sssd_binder_password or DEV_SSSD_BINDER_PASSWORD
+    if not sssd_binder_password:
+        render_error("Cluster is missing SSSD binder password. Please debug.")
+        return typer.Exit(code=1)
 
-    rendered_sssd_conf = sssd_conf(
-        ldap_url=ctx.obj.settings.get_ldap_url(),
-        org_id=ctx.obj.persona.identity_data.org_id,
+    jupyterhub_token = (
+        cluster.creation_parameters.get("jupyterhub_token")
+        if cluster.creation_parameters
+        else None
+    ) or DEV_JUPYTERHUB_TOKEN
+
+    persona = getattr(ctx.obj, "persona", None)
+    persona_org_id = None
+    if persona is not None:
+        identity_data = getattr(persona, "identity_data", None)
+        persona_org_id = getattr(identity_data, "org_id", None)
+
+    org_id = (
+        cluster.creation_parameters.get("org_id")
+        if cluster.creation_parameters
+        else None
+    ) or persona_org_id or DEV_ORG_ID
+
+    ssh_keys = get_ssh_keys() or ""
+
+    vantage_cluster_ctx = VantageClusterContext(
+        cluster_name=cluster.name,
+        client_id=cluster.client_id,
+        client_secret=client_secret,
+        base_api_url=settings.get_apis_url(),
+        oidc_base_url=settings.get_auth_url(),
+        oidc_domain=settings.oidc_domain,
+        tunnel_api_url=settings.get_tunnel_url(),
+        jupyterhub_token=jupyterhub_token,
         sssd_binder_password=sssd_binder_password,
+        ldap_url=settings.get_ldap_url(),
+        org_id=org_id,
     )
 
-    create_deployment_with_init_status(
-        deployment_id=deployment_id,
+    deployment = create_deployment_with_init_status(
         app_name=APP_NAME,
-        cluster_name=cluster_name,
-        cluster=cluster_obj,
-        console=console,
-        verbose=verbose,
-        cloud=CLOUD_LOCALHOST,
-        cloud_type=CLOUD_TYPE_K8S,
+        cluster=cluster,
+        vantage_cluster_ctx=vantage_cluster_ctx,
+        cloud_provider=CLOUD,
+        substrate=SUBSTRATE,
+        additional_metadata={
+            "org_id": org_id,
+            "ssh_keys_present": bool(ssh_keys),
+        },
         k8s_namespaces=[
-            DEFAULT_NAMESPACE_CERT_MANAGER,
-            DEFAULT_NAMESPACE_PROMETHEUS,
-            DEFAULT_NAMESPACE_SLINKY,
             DEFAULT_NAMESPACE_SLURM,
+            DEFAULT_NAMESPACE_SLINKY,
+            DEFAULT_NAMESPACE_PROMETHEUS,
+            DEFAULT_NAMESPACE_CERT_MANAGER,
         ],
+        verbose=verbose,
+    )
+    deployment.write()
+
+    chart_values = deepcopy(CHART_VALUES_SLURM_CLUSTER)
+    chart_values["clusterName"] = cluster.client_id
+    loginset_values = chart_values["loginsets"]["slinky"]
+    loginset_values["rootSshAuthorizedKeys"] = ssh_keys
+    loginset_values["sssdConf"] = sssd_conf(
+        settings.get_ldap_url(), org_id, sssd_binder_password
     )
 
-    set_values = {
-        "loginsets.slinky.sssdConf": rendered_sssd_conf,
+    set_values: Dict[str, str] = {
+        "clusterName": cluster.client_id,
     }
 
-    if (ssh_keys := get_ssh_keys()) is not None and ssh_keys.strip() != "":
-        set_values["loginsets.slinky.sshAuthorizedKeys"] = ssh_keys
+    try:
+        deploy_microk8s_stack(
+            console=console,
+            verbose=verbose,
+            set_values=set_values,
+            chart_values=chart_values,
+        )
+    except Exception as exc:  # noqa: BLE001 - propagate deployment failure context
+        deployment.status = "error"
+        deployment.write()
+        render_error(f"Deployment failed: {exc}")
+        return typer.Exit(code=1)
 
-    with TerminalOutputManager(
-        console=console,
-        operation_name="🚀 SLURM MicroK8S Deployment Progress",
-        verbose=verbose,
-        json_output=False,
-        use_live_panel=True,
-    ) as output:
-        try:
-            # Step 1: Check prerequisites
-            output.status("🔍 Checking prerequisites...")
+    deployment.status = "active"
+    deployment.write()
 
-            checks = create_complete_prerequisite_checks()
-            all_met, results = check_prerequisites(
-                checks, console, verbose=verbose, show_table=False
+    success_message = (
+        f"SLURM MicroK8s deployment '{deployment.name}' created for client '{cluster.client_id}'."
+    )
+
+    if formatter is not None:
+        if getattr(formatter, "json_output", False):
+            formatter.output(
+                {
+                    "message": success_message,
+                    "deployment": deployment.model_dump(mode="json"),
+                },
+                title="Deployment Result",
             )
+        else:
+            formatter.success(success_message)
+    else:
+        console.print(f"[bold green]{success_message}[/bold green]")
 
-            if not all_met:
-                missing_tools: list[str] = []
-                for result in results:
-                    if result.status != PrerequisiteStatus.AVAILABLE:
-                        missing_tools.append(f"{result.name}: {result.error_message or 'Missing'}")
+    if not (formatter is not None and getattr(formatter, "json_output", False)):
+        show_getting_started_help(console)
 
-                error_msg = f"Missing prerequisites: {'; '.join(missing_tools)}"
-                output.set_final_content(
-                    format_deployment_failure_content(error_msg), success=False
-                )
-                update_deployment_status(deployment_id, "failed", console)
-                raise typer.Exit(1)
-
-            output.success("Prerequisites check passed")
-            time.sleep(1)
-
-            # Step 2: Setup Helm repositories
-            output.status("📦 Setting up Helm repositories...")
-            repos = [
-                ("jetstack", REPO_JETSTACK_URL),
-                ("prometheus-community", REPO_PROMETHEUS_URL),
-                ("jamesbeedy-slinky-slurm", REPO_SLURM_URL),
-            ]
-            add_helm_repositories(repos)
-            output.success("Helm repositories configured")
-            time.sleep(1)
-
-            # Step 3: Create namespaces
-            output.status("🔧 Creating Kubernetes namespaces...")
-            namespaces = [
-                DEFAULT_NAMESPACE_CERT_MANAGER,
-                DEFAULT_NAMESPACE_PROMETHEUS,
-                DEFAULT_NAMESPACE_SLINKY,
-                DEFAULT_NAMESPACE_SLURM,
-            ]
-            for namespace in namespaces:
-                if not create_k8s_namespace(namespace):
-                    error_msg = f"Failed to create namespace '{namespace}'"
-                    output.set_final_content(
-                        format_deployment_failure_content(error_msg), success=False
-                    )
-                    update_deployment_status(deployment_id, "failed", console)
-                    raise typer.Exit(1)
-            output.success("Namespaces created")
-            time.sleep(1)
-
-            # Step 4: Install cert-manager
-            output.status("🔒 Installing cert-manager...")
-            # install_cert_manager(
-            #     DEFAULT_NAMESPACE_CERT_MANAGER,
-            #     DEFAULT_RELEASE_CERT_MANAGER,
-            #     CHART_CERT_MANAGER,
-            # )
-            output.success("cert-manager installed")
-            time.sleep(1)
-
-            # Step 5: Install Prometheus
-            output.status("📊 Installing Prometheus...")
-            install_prometheus(
-                DEFAULT_NAMESPACE_PROMETHEUS,
-                DEFAULT_RELEASE_PROMETHEUS,
-                CHART_PROMETHEUS,
-            )
-            output.success("Prometheus installed")
-            time.sleep(1)
-
-            # Step 6: Install SLURM operator CRDs
-            output.status("⚙️ Installing SLURM operator CRDs...")
-            install_slurm_operator_crds(
-                DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
-                CHART_SLURM_OPERATOR_CRDS,
-            )
-            output.success("SLURM operator CRDs installed")
-            time.sleep(1)
-
-            # Step 7: Install SLURM operator
-            output.status("🎛️ Installing SLURM operator...")
-            install_slurm_operator(
-                DEFAULT_NAMESPACE_SLINKY,
-                DEFAULT_RELEASE_SLURM_OPERATOR,
-                CHART_SLURM_OPERATOR,
-            )
-            output.success("SLURM operator installed")
-            time.sleep(1)
-
-            # Step 8: Install SLURM cluster
-            output.status("🖥️ Installing SLURM cluster...")
-            install_slurm_cluster(
-                DEFAULT_NAMESPACE_SLURM,
-                DEFAULT_RELEASE_SLURM_CLUSTER,
-                CHART_SLURM_CLUSTER,
-                CHART_VALUES_SLURM_CLUSTER,
-                set_values,
-            )
-            output.success("SLURM cluster installed")
-            time.sleep(1)
-
-            # Step 9: Finalize
-            output.status("🎉 Finalizing deployment...")
-            update_deployment_status(deployment_id, "active", console)
-
-            # Set beautiful success content
-            output.set_final_content(format_deployment_success_content(client_id), success=True)
-
-        except Exception as e:
-            update_deployment_status(deployment_id, "failed", console)
-            error_msg = f"Deployment failed: {str(e)}"
-            output.set_final_content(format_deployment_failure_content(error_msg), success=False)
-            raise typer.Exit(1)
+    return typer.Exit(code=0)
 
 
 # Command functions that the deployment system will discover
 @handle_abort
 @attach_settings
-async def deploy_command(
+async def create_command(
     ctx: typer.Context,
     cluster_name: Annotated[
-        Optional[str],
+        str,
         typer.Argument(help="Name of the cluster to deploy"),
-    ] = None,
+    ],
     dev_run: Annotated[
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
-) -> None:
-    """Deploy SLURM cluster to MicroK8s."""
-    if cluster_name is None:
-        cluster_name = "unknown"
+) -> None | typer.Exit:
+    """Create a SLURM cluster on MicroK8s."""
 
-    cluster_obj = generate_dev_cluster_data(cluster_name)
+    cluster = generate_dev_cluster_data(cluster_name)
+
     if not dev_run:
-        from vantage_cli.commands.cluster import utils as cluster_utils
-
-        fetched_cluster = await cluster_utils.get_cluster_by_name(
-            ctx=ctx, cluster_name=cluster_name
-        )
+        fetched_cluster = await cluster_sdk.get_cluster_by_name(ctx, cluster_name)
         if fetched_cluster is None:
-            raise ValueError(f"Cluster '{cluster_name}' not found")
-        cluster_obj = fetched_cluster
+            raise typer.Exit(code=1)
+
+        cluster = fetched_cluster
+
+        if (extra_attrs := await get_extra_attributes(ctx)) is not None:
+            if (sssd_binder_password := extra_attrs.get("sssd_binder_password")):
+                cluster.sssd_binder_password = sssd_binder_password
     else:
         ctx.obj.console.print(
             f"[blue]Using dev run mode with dummy cluster data for '{cluster_name}'[/blue]"
         )
 
-    # Pass Cluster object directly to create function
-    await create(ctx=ctx, cluster_obj=cluster_obj)
+    await create(ctx=ctx, cluster=cluster)
 
 
 @handle_abort

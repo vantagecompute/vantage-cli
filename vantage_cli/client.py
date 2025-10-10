@@ -74,7 +74,7 @@ async def make_oauth_request(
         return response_model_cls(**response_data)
 
     except httpx.HTTPStatusError as e:
-        logger.error(
+        logger.debug(
             f"OAuth request failed with status {e.response.status_code}: {e.response.text}"
         )
         if abort_message == "IGNORE":
@@ -85,7 +85,7 @@ async def make_oauth_request(
             log_message=f"OAuth request failed: {e.response.status_code} - {e.response.text}",
         )
     except (httpx.RequestError, httpx.ConnectError, httpx.TimeoutException) as e:
-        logger.error(f"OAuth request failed: {e}")
+        logger.debug(f"OAuth request failed: {e}")
         if abort_message == "IGNORE":
             raise e
         raise Abort(

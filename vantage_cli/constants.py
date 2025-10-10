@@ -30,13 +30,25 @@ PROVIDER_SUBSTRATE_MICROK8S = "microk8s"
 
 PROVIDER_SUBSTRATE_MAPPINGS = {
     "localhost": ["multipass", "microk8s", "lxd"],
-    "aws": ["eks"],
+    "aws": ["eks", "ec2", "batch"],
     "azure": ["aks"],  # Azure Kubernetes Service
     "gcp": ["gke"],
+    "cudo_compute": ["slurm-k8s", "slurm-metal"],
+}
+
+    # Map cloud provider to GraphQL enum values
+PROVIDER_VANTAGE_MAPPING = {
+    "localhost": "on_prem",
+    "aws": "aws",
+    "gcp": "on_prem",
+    "azure": "on_prem",
+    "on-premises": "on_prem",
+    "cudo_compute": "on_prem",
 }
 
 VANTAGE_CLI_LOCAL_USER_BASE_DIR: Path = Path.home() / ".vantage-cli"
 VANTAGE_CLI_DEV_APPS_DIR: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "vantage_cli_dev_apps"
+VANTAGE_CLI_DEPLOYMENTS_YAML_PATH: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "deployments.yaml"
 VANTAGE_CLI_DEPLOYMENTS_CACHE_PATH: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "deployments"
 VANTAGE_CLI_ACTIVE_PROFILE: Path = VANTAGE_CLI_LOCAL_USER_BASE_DIR / "active_profile"
 

@@ -15,6 +15,7 @@ import os
 import subprocess
 from pathlib import Path
 from shutil import which
+from typing import Optional
 
 import typer
 from loguru import logger
@@ -24,13 +25,13 @@ from typing_extensions import Annotated
 from vantage_cli.apps.common import (
     create_deployment_with_init_status,
     generate_dev_cluster_data,
-    get_deployment_by_name,
-    remove_deployment,
 )
+
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 from vantage_cli.sdk.deployment.schema import Deployment
+from vantage_cli.sdk.deployment.crud import deployment_sdk
 
 from .constants import (
     APP_NAME,
@@ -137,7 +138,7 @@ def _launch_vm_instance(
 
 
 async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
-    """Create Juju localhost Charmed HPC cluster using cluster data.
+    """Create a singlenode slurm cluster using multipass.
 
     Args:
         ctx: Typer context containing CLI configuration
@@ -156,7 +157,8 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     check_multipass_available()
 
     client_secret = cluster.client_secret
-    sssd_binder_password = cluster.sssd_binder_password
+    #sssd_binder_password = cluster.sssd_binder_password
+    sssd_binder_password = "ratrat"
 
     if sssd_binder_password is None:
         console.print(
@@ -224,7 +226,7 @@ async def create_command(
     ] = False,
 ) -> None | typer.Exit:
     """Create a Vantage Multipass Singlenode SLURM cluster."""
-    cluster = generate_dev_cluster_data(cluster_name)
+    cluster: Optional[Cluster] = generate_dev_cluster_data(cluster_name)
 
     if not dev_run:
         from vantage_cli.commands.cluster import utils as cluster_utils
@@ -253,24 +255,27 @@ async def remove(ctx: typer.Context, deployment: Deployment) -> None:
     Raises:
         Exception: If removal fails (non-critical, logged and continued)
     """
-    await _remove_deployment(ctx=ctx, deployment=deployment)
+    await _remove_deployment(deployment=deployment)
 
 
 @handle_abort
 @attach_settings
 async def remove_command(
     ctx: typer.Context,
-    deployment_name: Annotated[
+    deployment_id: Annotated[
         str,
-        typer.Argument(help="Name of the deployment to remove"),
+        typer.Argument(help="ID of the deployment to remove"),
     ],
 ) -> None:
     """Remove a Vantage Multipass Singlenode SLURM cluster."""
-    if (deployment := get_deployment_by_name(deployment_name)) is not None:
+    deployment = await deployment_sdk.get_deployment(ctx, deployment_id)
+    if deployment is not None:
         await remove(ctx=ctx, deployment=deployment)
+        await deployment_sdk.delete(deployment.id)
+        ctx.obj.console.print(f"[green]✓[/green] Deployment '{deployment.name}' removed successfully")
         return
 
-    ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment '{deployment_name}' not found.")
+    ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment '{deployment_id}' not found.")
     return
 
 
@@ -307,4 +312,3 @@ async def _remove_deployment(deployment: Deployment) -> None:
         logger.warning(f"Multipass cleanup failed: {e}")
         raise
 
-    remove_deployment(deployment)

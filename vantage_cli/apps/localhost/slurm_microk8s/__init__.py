@@ -11,15 +11,18 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """The vantage-cli application for deploying slurm to microk8s on localhost."""
 
-from vantage_cli import AsyncTyper
-
-from .app import deploy_command
-
-microk8s_app = AsyncTyper(
-    name="microk8s",
-    help="MicroK8s application commands.",
-    invoke_without_command=True,
-    no_args_is_help=True,
+from .app import (
+    cleanup_microk8s_localhost,
+    create,
+    create_command,
+    remove_command,
+    status_command,
 )
 
-microk8s_app.command("deploy")(deploy_command)
+__all__ = [
+    "cleanup_microk8s_localhost",
+    "create",
+    "create_command",
+    "remove_command",
+    "status_command",
+]

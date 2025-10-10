@@ -21,11 +21,32 @@ from typing import Any, Dict, List, Optional
 
 import snick
 import yaml
+from rich.console import Console
 
 from vantage_cli.apps.utils import (
     PrerequisiteCheck,
+    PrerequisiteStatus,
+    check_prerequisites,
 )
 from vantage_cli.exceptions import Abort
+
+from .constants import (
+    CHART_PROMETHEUS,
+    CHART_SLURM_CLUSTER,
+    CHART_SLURM_OPERATOR,
+    CHART_SLURM_OPERATOR_CRDS,
+    DEFAULT_NAMESPACE_CERT_MANAGER,
+    DEFAULT_NAMESPACE_PROMETHEUS,
+    DEFAULT_NAMESPACE_SLINKY,
+    DEFAULT_NAMESPACE_SLURM,
+    DEFAULT_RELEASE_PROMETHEUS,
+    DEFAULT_RELEASE_SLURM_CLUSTER,
+    DEFAULT_RELEASE_SLURM_OPERATOR,
+    DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
+    REPO_JETSTACK_URL,
+    REPO_PROMETHEUS_URL,
+    REPO_SLURM_URL,
+)
 
 
 def check_microk8s_available() -> None:
@@ -426,6 +447,108 @@ def create_microk8s_addon_prerequisite_checks() -> List[PrerequisiteCheck]:
         ),
     ]
 
+
+def deploy_microk8s_stack(
+    *,
+    console: Console,
+    verbose: bool,
+    set_values: Dict[str, Any],
+    chart_values: Dict[str, Any],
+) -> None:
+    """Execute the MicroK8s deployment workflow using CLI utilities only.
+
+    Args:
+        console: Rich console for output rendering
+        verbose: Whether to display verbose output during checks
+        set_values: Additional Helm values for the SLURM cluster chart
+        chart_values: Base chart values for the SLURM cluster
+
+    Raises:
+        RuntimeError: If any deployment step fails
+    """
+
+    # Step 1: Verify prerequisites
+    console.print("🔍 Checking prerequisites...", style="bold blue")
+    checks = create_complete_prerequisite_checks()
+    all_met, results = check_prerequisites(
+        checks,
+        console,
+        verbose=verbose,
+        show_table=False,
+    )
+
+    if not all_met:
+        missing_tools = [
+            f"{result.name}: {result.error_message or 'Missing'}"
+            for result in results
+            if result.status != PrerequisiteStatus.AVAILABLE
+        ]
+        raise RuntimeError("Missing prerequisites: " + "; ".join(missing_tools))
+
+    console.print("[green]✓[/green] Prerequisites check passed")
+
+    # Step 2: Configure Helm repositories
+    console.print("📦 Setting up Helm repositories...", style="bold blue")
+    repos = [
+        ("jetstack", REPO_JETSTACK_URL),
+        ("prometheus-community", REPO_PROMETHEUS_URL),
+        ("jamesbeedy-slinky-slurm", REPO_SLURM_URL),
+    ]
+    try:
+        add_helm_repositories(repos)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f"Helm repository configuration failed: {exc}") from exc
+
+    console.print("[green]✓[/green] Helm repositories configured")
+
+    # Step 3: Ensure required namespaces exist
+    console.print("🔧 Creating Kubernetes namespaces...", style="bold blue")
+    namespaces = [
+        DEFAULT_NAMESPACE_CERT_MANAGER,
+        DEFAULT_NAMESPACE_PROMETHEUS,
+        DEFAULT_NAMESPACE_SLINKY,
+        DEFAULT_NAMESPACE_SLURM,
+    ]
+    for namespace in namespaces:
+        if not create_k8s_namespace(namespace):
+            raise RuntimeError(f"Failed to create namespace '{namespace}'")
+    console.print("[green]✓[/green] Namespaces ready")
+
+    # Step 4: Install Prometheus stack
+    console.print("📊 Installing Prometheus...", style="bold blue")
+    install_prometheus(
+        DEFAULT_NAMESPACE_PROMETHEUS,
+        DEFAULT_RELEASE_PROMETHEUS,
+        CHART_PROMETHEUS,
+    )
+    console.print("[green]✓[/green] Prometheus installed")
+
+    # Step 5: Install SLURM operator components
+    console.print("⚙️ Installing SLURM operator CRDs...", style="bold blue")
+    install_slurm_operator_crds(
+        DEFAULT_RELEASE_SLURM_OPERATOR_CRDS,
+        CHART_SLURM_OPERATOR_CRDS,
+    )
+    console.print("[green]✓[/green] SLURM operator CRDs installed")
+
+    console.print("🎛️ Installing SLURM operator...", style="bold blue")
+    install_slurm_operator(
+        DEFAULT_NAMESPACE_SLINKY,
+        DEFAULT_RELEASE_SLURM_OPERATOR,
+        CHART_SLURM_OPERATOR,
+    )
+    console.print("[green]✓[/green] SLURM operator installed")
+
+    # Step 6: Install SLURM cluster
+    console.print("🖥️ Installing SLURM cluster...", style="bold blue")
+    install_slurm_cluster(
+        DEFAULT_NAMESPACE_SLURM,
+        DEFAULT_RELEASE_SLURM_CLUSTER,
+        CHART_SLURM_CLUSTER,
+        chart_values,
+        set_values,
+    )
+    console.print("[green]✓[/green] SLURM cluster installed")
 
 def create_complete_prerequisite_checks() -> List[PrerequisiteCheck]:
     """Create complete prerequisite checks including MicroK8s addons."""

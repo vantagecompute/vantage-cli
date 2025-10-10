@@ -1,7 +1,11 @@
 """Constants for SLURM MicroK8s localhost deployment app."""
 
 # Application name
-APP_NAME = "slurm-microk8s-localhost"
+APP_NAME = "slurm-microk8s"
+
+# Cloud provider and substrate identifiers
+CLOUD = "localhost"
+SUBSTRATE = "microk8s"
 
 # Default namespaces
 DEFAULT_NAMESPACE_SLURM = "slurm"
