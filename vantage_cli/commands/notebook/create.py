@@ -11,12 +11,13 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Create notebook command."""
 
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import typer
 from loguru import logger
 from typing_extensions import Annotated
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.notebook.crud import notebook_sdk
@@ -24,6 +25,7 @@ from vantage_cli.sdk.notebook.crud import notebook_sdk
 
 @handle_abort
 @attach_settings
+@attach_persona
 async def create_notebook(
     ctx: typer.Context,
     cluster_name: Annotated[str, typer.Option("--cluster", "-c", help="Name of the cluster")],
@@ -50,34 +52,41 @@ async def create_notebook(
     """
     # Use UniversalOutputFormatter for consistent output
 
+    persona = getattr(ctx.obj, "persona", None)
+
     try:
         # Get username from token if not provided
-        if not username:
+        if username is None:
             # Extract username from the authenticated user's email
-            if hasattr(ctx.obj, "persona") and ctx.obj.persona:
-                username = ctx.obj.persona.identity_data.email
-                if username:
-                    # Use email prefix as username
-                    username = username.split("@")[0]
-                    logger.debug(f"Using username from authenticated user: {username}")
-                else:
-                    raise Abort(
-                        "Could not determine username. Please provide --username option.",
-                        subject="Username Required",
-                        log_message="No username provided and no email in persona",
-                    )
+            if persona and persona.identity_data and persona.identity_data.email:
+                username_to_use = persona.identity_data.email.split("@")[0]
+                logger.debug(f"Using username from authenticated user: {username_to_use}")
             else:
                 raise Abort(
                     "Could not determine username. Please provide --username option.",
                     subject="Username Required",
-                    log_message="No persona data available",
+                    log_message="Missing persona email for username derivation",
                 )
+        else:
+            username_to_use = username
+
+        if server_name is None:
+            raise Abort(
+                "Notebook creation now requires a server name. Provide one with --name.",
+                subject="Server Name Required",
+                log_message="Notebook create invoked without server_name",
+            )
+
+        if partition is None:
+            raise Abort(
+                "Notebook creation requires a partition. Provide one with --partition.",
+                subject="Partition Required",
+                log_message="Notebook create invoked without partition",
+            )
 
         # Build server options from resource specifications
-        server_options = {}
+        server_options: Dict[str, Any] = {"partition": partition}
 
-        if partition:
-            server_options["partition"] = partition
         if cpu_cores:
             server_options["cpu_cores"] = cpu_cores
         if memory:
@@ -87,37 +96,53 @@ async def create_notebook(
         if node:
             server_options["node"] = node
 
-        # Use SDK to create notebook server
-        logger.debug(f"Creating notebook server for user '{username}' on cluster '{cluster_name}'")
+        # Use SDK to create notebook server via GraphQL
+        logger.debug(
+            f"Requesting notebook server '{server_name}' via GraphQL for user '{username_to_use}'"
+        )
         result = await notebook_sdk.create_notebook(
             ctx=ctx,
             cluster_name=cluster_name,
-            username=username,
+            username=username_to_use,
             server_name=server_name,
-            server_options=server_options if server_options else None,
+            server_options=server_options,
         )
 
         # Format the result for display
-        result_data = {
+        result_data: Dict[str, Any] = {
             "cluster": result.get("cluster_name"),
-            "username": result.get("username"),
+            "username": result.get("username") or username_to_use,
             "server_name": result.get("server_name"),
             "status": result.get("status"),
+            "partition": result.get("partition"),
         }
+
+        if result.get("server_url"):
+            result_data["server_url"] = result["server_url"]
+        if result.get("slurm_job_id"):
+            result_data["slurm_job_id"] = result["slurm_job_id"]
+        if persona and persona.identity_data and persona.identity_data.email:
+            result_data.setdefault("owner_email", persona.identity_data.email)
 
         # Add resource specs if they were provided
         if server_options:
-            result_data["resources"] = server_options
+            result_data["resources"] = {k: v for k, v in server_options.items() if k != "partition"}
+
+        # Include partition information separately for clarity
+        result_data["resources"] = {
+            "partition": partition,
+            **(result_data.get("resources") or {}),
+        }
 
         # Use formatter to render the created notebook
         ctx.obj.formatter.render_get(
             data=result_data,
             resource_name="Notebook Server",
-            resource_id=result.get("server_name", "default"),
+            resource_id=result.get("server_name", server_name),
         )
 
         if not ctx.obj.json_output:
-            status_msg = result.get("message", "Server created successfully")
+            status_msg = result.get("message", "Notebook server creation requested")
             ctx.obj.console.print(f"\n✅ {status_msg}", style="bold green")
 
     except Abort:

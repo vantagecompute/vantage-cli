@@ -80,18 +80,38 @@ class JupyterHubClient:
             if response.status_code == 201:
                 logger.info(f"Successfully created server for user '{username}'")
                 return response.json() if response.text else {"status": "created"}
-            elif response.status_code == 202:
+
+            if response.status_code == 202:
                 # Server is being spawned
                 logger.info(f"Server spawn initiated for user '{username}'")
                 return {"status": "pending", "message": "Server is being spawned"}
-            else:
-                error_msg = f"Failed to create server: {response.status_code} - {response.text}"
+
+            if response.status_code == 404:
+                hint_message = (
+                    "JupyterHub returned 404 for the requested server."
+                    "\n• Confirm the cluster's JupyterHub endpoint is reachable."
+                    "\n• Ensure the named server '"
+                    f"{server_name or 'default'}" "' exists or can be created for user '"
+                    f"{username}'" "'."
+                    "\n• If this is a fresh deployment, verify the JupyterHub chart finished installing."
+                )
+                error_msg = (
+                    f"Failed to create server: {response.status_code} - {response.text}\n{hint_message}"
+                )
                 logger.error(error_msg)
                 raise Abort(
                     error_msg,
                     subject="JupyterHub Server Creation Failed",
                     log_message=f"JupyterHub API error: {response.status_code}",
                 )
+
+            error_msg = f"Failed to create server: {response.status_code} - {response.text}"
+            logger.error(error_msg)
+            raise Abort(
+                error_msg,
+                subject="JupyterHub Server Creation Failed",
+                log_message=f"JupyterHub API error: {response.status_code}",
+            )
 
         except httpx.HTTPError as e:
             logger.error(f"HTTP error while creating server: {e}")

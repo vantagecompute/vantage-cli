@@ -24,6 +24,8 @@ from typing import Any
 from loguru import logger
 import typer
 import yaml
+from juju.controller import Controller
+from juju.errors import JujuError
 from typing_extensions import Annotated
 
 from vantage_cli.apps.common import (
@@ -47,7 +49,12 @@ from .constants import APP_NAME, SUBSTRATE
 from .constants import (
     CLOUD as CLOUD_LOCALHOST,
 )
+from .render import success_create_message, success_destroy_message
 
+from .utils import (
+    SuppressOutput,
+    check_juju_available,
+)
 
 def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
     return [
@@ -161,6 +168,49 @@ async def _configure_jobbergate_influxdb(model) -> None:
     await jobbergate_agent.set_config({"jobbergate-agent-influx-dsn": influxdb_uri})
 
 
+async def _deploy_juju_localhost(vantage_cluster_ctx: VantageClusterContext) -> None | typer.Exit:
+    """Deploy Vantage JupyterHub Charmed HPC cluster using Juju on localhost (refactored)."""
+    controller = Controller()
+    try:
+        await controller.connect()
+
+        model = await controller.add_model(
+            vantage_cluster_ctx.client_id, cloud_name=CLOUD_LOCALHOST
+        )
+
+        vantage_jupyterhub_config_secret_id = await model.add_secret(
+            JUPYTERHUB_SECRET_NAME, _build_vantage_jupyterhub_secret_args(vantage_cluster_ctx)
+        )
+
+        vantage_sssd_config_secret_id = await model.add_secret(
+            SSSD_SECRET_NAME, _build_vantage_sssd_secret_args(vantage_cluster_ctx)
+        )
+
+        bundle_yaml = _prepare_bundle(
+            vantage_cluster_ctx,
+            model_name=vantage_cluster_ctx.client_id,
+            vantage_jupyterhub_config_secret_id=vantage_jupyterhub_config_secret_id,
+            vantage_sssd_config_secret_id=vantage_sssd_config_secret_id,
+        )
+
+        await _write_and_deploy_model_bundle(model, bundle_yaml)
+
+        await model.grant_secret(JUPYTERHUB_SECRET_NAME, JUPYTERHUB_APPLICATION_NAME)
+        await model.grant_secret(SSSD_SECRET_NAME, SSSD_APPLICATION_NAME)
+
+        await model.wait_for_idle()
+
+        await _run_slurmd_node_configured(model)
+
+        await _configure_jobbergate_influxdb(model)
+
+        await model.disconnect()
+        await controller.disconnect()
+
+    except JujuError as _:
+        return typer.Exit(code=1)
+
+
 async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     """Create Juju localhost Charmed HPC cluster using cluster data.
 
@@ -246,6 +296,7 @@ async def create_command(
 ) -> None:
     """Create a Charmed HPC SLURM cluster using Juju on localhost and register it with Vantage."""
     # Check for Juju early before doing any other work
+    check_juju_available()
 
     cluster = generate_dev_cluster_data(cluster_name)
 
@@ -266,8 +317,8 @@ async def create_command(
     await create(ctx=ctx, cluster=cluster)
 
 
-async def _remove_slurm_k8s_cudo(ctx: typer.Context, deployment: Deployment) -> None:
-    """Remove a SLURM K8S deployment Cudo Compute deployment.
+async def _remove_juju_localhost(ctx: typer.Context, deployment: Deployment) -> None:
+    """Remove a Juju localhost deployment by destroying the model.
 
     Args:
         ctx: Typer context containing console object
@@ -276,7 +327,25 @@ async def _remove_slurm_k8s_cudo(ctx: typer.Context, deployment: Deployment) -> 
     Raises:
         Exception: If cleanup fails
     """
-    pass
+    console = ctx.obj.console
+
+    controller = Controller()
+    model_name = deployment.cluster.client_id
+
+    try:
+        await controller.connect()
+        await controller.destroy_model(model_name, destroy_storage=True, force=True)
+    except Exception as e:
+        deployment.status = "error"
+        deployment.write()
+        console.print(f"[bold red]Error:[/bold red] Failed to remove deployment: {e}")
+        raise
+    finally:
+        try:
+            await controller.disconnect()
+        except Exception as e:
+            console.print(f"[bold red]Error:[/bold red] Failed to disconnect controller: {e}")
+            pass
 
 
 async def remove(ctx: typer.Context, deployment: Deployment) -> None:
@@ -314,7 +383,7 @@ async def remove_command(
 
 
 async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None:
-    """Internal function to remove a Cudo Compute SLURM on K8s deployment.
+    """Internal function to remove a LXD SLURM deployment.
 
     Args:
         ctx: The typer context object for console access.
@@ -324,9 +393,10 @@ async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None
         Exception: If removal fails (non-critical, logged and continued)
     """
     try:
-        await _remove_slurm_k8s_cudo(ctx, deployment)
+        # Destroy the Juju model
+        await _remove_juju_localhost(ctx, deployment)
     except Exception as e:
-        logger.warning(f"Cudo Compute SLURM on K8S failed: {e}")
+        logger.warning(f"Juju cleanup failed: {e}")
         raise
     ctx.obj.console.print(success_destroy_message(deployment=deployment))
 
