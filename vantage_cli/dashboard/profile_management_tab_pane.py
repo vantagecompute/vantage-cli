@@ -29,6 +29,7 @@ from textual.widgets import Button, DataTable, Input, Label, Static, TabPane
 from vantage_cli.exceptions import Abort
 from vantage_cli.sdk.profile import profile_sdk
 from vantage_cli.sdk.profile.schema import Profile
+from vantage_cli.utils import get_dev_apps_gh_url
 
 
 class ProfileManagementTabPane(TabPane):
@@ -132,7 +133,7 @@ class ProfileManagementTabPane(TabPane):
             logger.debug("Starting profile refresh...")
 
             # Get profiles as Profile objects
-            profiles_data = await profile_sdk.list_profiles(self.ctx)
+            profiles_data = await profile_sdk.get_profiles(self.ctx)
             logger.debug(f"Fetched {len(profiles_data)} profiles")
 
             self.profiles = profiles_data
@@ -216,7 +217,7 @@ class ProfileManagementTabPane(TabPane):
             ("OIDC Base URL", profile.oidc_base_url),
             ("OIDC Client ID", profile.oidc_client_id),
             ("Is Active", "Yes" if profile.is_active else "No"),
-            ("Dev Apps GitHub URL", profile.get_dev_apps_gh_url() or "Not configured"),
+            ("Dev Apps GitHub URL", get_dev_apps_gh_url() or "Not configured"),
         ]
 
         for key, value in details:

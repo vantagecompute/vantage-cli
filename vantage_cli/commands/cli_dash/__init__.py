@@ -9,7 +9,33 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Vantage `cli-dash` command for the Vantage CLI."""
+"""Vantage `cli-dash` command for the Vantage CLI.
+
+This command provides an interactive terminal dashboard for managing and monitoring
+Vantage resources using the SDK.
+
+SDK Integration:
+---------------
+The dashboard uses the following SDK modules:
+- `vantage_cli.sdk.cluster` - For fetching and managing clusters
+- `vantage_cli.sdk.deployment` - For fetching and managing deployments
+- `vantage_cli.sdk.profile` - For managing authentication profiles
+
+The command automatically:
+1. Fetches clusters using `cluster_sdk.list_clusters()`
+2. Fetches deployments using `deployment_sdk.list()`
+3. Converts SDK objects to dashboard ServiceConfig using `ServiceConfig.from_cluster()` 
+   and `ServiceConfig.from_deployment()`
+4. Creates the dashboard using `DashboardApp.from_sdk_data()` factory method
+
+Example Usage:
+-------------
+```bash
+uv run vantage cli-dash
+```
+
+This will launch the interactive dashboard with all your clusters and deployments.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +45,7 @@ import typer
 from loguru import logger
 
 from vantage_cli.config import attach_settings
-from vantage_cli.dashboard import DashboardApp, DashboardConfig, ServiceConfig
+from vantage_cli.dashboard import DashboardApp, DashboardConfig
 from vantage_cli.exceptions import Abort
 from vantage_cli.exceptions import handle_abort as _handle_abort  # pyright: ignore[reportUnknownVariableType]
 from vantage_cli.sdk.cluster import cluster_sdk
@@ -34,32 +60,11 @@ def handle_abort(func: F) -> F:
     return cast(F, _handle_abort(func))
 
 
-def _cluster_emoji(cluster: Cluster) -> str:
-    """Return an emoji representing the cluster provider."""
-
-    provider_map = {
-        "aws": "☁️",
-        "gcp": "☁️",
-        "azure": "☁️",
-        "localhost": "💻",
-        "maas": "🛠️",
-        "on_prem": "🏢",
-    }
-    return provider_map.get(cluster.provider.lower(), "🖥️")
-
-
-def _deployment_emoji(deployment: Deployment) -> str:
-    """Return an emoji representing the deployment substrate."""
-
-    substrate_map = {
-        "k8s": "🚢",
-        "metal": "🔩",
-        "vm": "🧱",
-    }
-    return substrate_map.get(deployment.substrate.lower(), "🚀")
-
-
 def _cluster_handler(cluster: Cluster):  # pragma: no cover - trivial closure
+    """Create a worker handler for a cluster.
+    
+    This handler returns cluster status information when the worker is executed.
+    """
     def handler(worker_id: str) -> Dict[str, str]:
         return {
             "worker": worker_id,
@@ -73,6 +78,10 @@ def _cluster_handler(cluster: Cluster):  # pragma: no cover - trivial closure
 
 
 def _deployment_handler(deployment: Deployment):  # pragma: no cover - trivial closure
+    """Create a worker handler for a deployment.
+    
+    This handler returns deployment status information when the worker is executed.
+    """
     def handler(worker_id: str) -> Dict[str, str]:
         return {
             "worker": worker_id,
@@ -85,40 +94,13 @@ def _deployment_handler(deployment: Deployment):  # pragma: no cover - trivial c
     return handler
 
 
-def _build_cluster_services(clusters: Iterable[Cluster]) -> List[ServiceConfig]:
-    return [
-        ServiceConfig(
-            name=cluster.name,
-            url=cluster.jupyterhub_url,
-            emoji=_cluster_emoji(cluster),
-            dependencies=[],
-        )
-        for cluster in clusters
-    ]
-
-
-def _build_deployment_services(deployments: Iterable[Deployment]) -> List[ServiceConfig]:
-    services: List[ServiceConfig] = []
-    for deployment in deployments:
-        dependencies: List[str] = []
-        if deployment.cluster:
-            dependencies.append(deployment.cluster.name)
-
-        services.append(
-            ServiceConfig(
-                name=deployment.name,
-                url=deployment.vantage_cluster_ctx.base_api_url,
-                emoji=_deployment_emoji(deployment),
-                dependencies=dependencies,
-            )
-        )
-
-    return services
-
-
 def _build_custom_handlers(
     clusters: Iterable[Cluster], deployments: Iterable[Deployment]
 ) -> Dict[str, Callable[[str], Dict[str, str]]]:
+    """Build custom worker handlers for clusters and deployments.
+    
+    These handlers are called when workers are executed to gather status information.
+    """
     handlers: Dict[str, Callable[[str], Dict[str, str]]] = {}
 
     for cluster in clusters:
@@ -162,7 +144,12 @@ def _build_platform_info(
 async def cli_dash(
     ctx: typer.Context,
 ) -> None:
-    """Vantage CLI Dashboard - Interactive terminal dashboard."""
+    """Vantage CLI Dashboard - Interactive terminal dashboard.
+    
+    This command creates an interactive dashboard using the Vantage SDK to display
+    and manage clusters, deployments, and profiles. The dashboard automatically
+    fetches data using the SDK and provides real-time monitoring and management.
+    """
 
     clusters: List[Cluster] = []
     deployments: List[Deployment] = []
@@ -185,7 +172,7 @@ async def cli_dash(
         logger.exception("Unexpected error loading deployments")
         typer.echo(f"⚠️ Unexpected error loading deployments: {exc}")
 
-    services = _build_cluster_services(clusters) + _build_deployment_services(deployments)
+    # Build custom handlers for worker execution
     custom_handlers = _build_custom_handlers(clusters, deployments)
 
     subtitle = (
@@ -206,9 +193,11 @@ async def cli_dash(
 
     typer.echo(f"🚀 Launching {config.title}...")
 
-    app_instance = DashboardApp(
+    # Use the new from_sdk_data factory method to create the dashboard
+    app_instance = DashboardApp.from_sdk_data(
+        clusters=clusters,
+        deployments=deployments,
         config=config,
-        services=services or None,
         custom_handlers=custom_handlers or None,
         platform_info=platform_info,
         ctx=ctx,

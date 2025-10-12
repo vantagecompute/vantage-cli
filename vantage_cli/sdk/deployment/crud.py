@@ -191,6 +191,8 @@ class DeploymentSDK:
     async def list_deployments(self, ctx: typer.Context, **kwargs: Any) -> List[Deployment]:
         """List deployments as Deployment objects for the dashboard.
 
+        This is an alias for list() that returns Deployment objects directly.
+
         Args:
             ctx: Typer context
             **kwargs: Additional filtering parameters
@@ -198,28 +200,8 @@ class DeploymentSDK:
         Returns:
             List of Deployment objects
         """
-        # Get raw deployment data from the base list method
-        deployments_raw = await self.list(ctx, **kwargs)
-
-        deployments: List[Deployment] = []
-        for deployment_data in deployments_raw:
-            try:
-                deployment = Deployment(
-                    deployment_id=deployment_data.get("deployment_id", ""),
-                    deployment_name=deployment_data.get("deployment_name", "unknown"),
-                    app_name=deployment_data.get("app_name", "unknown"),
-                    cluster_name=deployment_data.get("cluster_name", "unknown"),
-                    cluster_id=deployment_data.get("cluster_id", "unknown"),
-                    cloud=deployment_data.get("cloud", "unknown"),
-                    created_at=deployment_data.get("created_at", "unknown"),
-                    status=deployment_data.get("status", "unknown"),
-                )
-                deployments.append(deployment)
-            except Exception as e:
-                logger.warning(f"Failed to parse deployment data: {e}")
-                continue
-
-        return deployments
+        # Simply return the list() result - it already returns Deployment objects
+        return await self.list(ctx, **kwargs)
 
     async def get_deployment(
         self, ctx: typer.Context, deployment_id: str, **kwargs: Any

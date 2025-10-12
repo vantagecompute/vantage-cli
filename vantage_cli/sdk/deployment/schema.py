@@ -116,6 +116,36 @@ class Deployment(BaseModel):
 
     @computed_field
     @property
+    def deployment_id(self) -> str:
+        """Get the deployment ID (alias for id)."""
+        return self.id
+
+    @computed_field
+    @property
+    def deployment_name(self) -> str:
+        """Get the deployment name (alias for name)."""
+        return self.name
+
+    @computed_field
+    @property
+    def cluster_name(self) -> str:
+        """Get the cluster name from the cluster object."""
+        return self.cluster.name
+
+    @computed_field
+    @property
+    def cluster_id(self) -> str:
+        """Get the cluster ID (client_id) from the cluster object."""
+        return self.cluster.client_id
+
+    @computed_field
+    @property
+    def cloud(self) -> str:
+        """Get the cloud provider (alias for cloud_provider)."""
+        return self.cloud_provider
+
+    @computed_field
+    @property
     def is_active(self) -> bool:
         """Check if the deployment is active."""
         return self.status.lower() == "active"

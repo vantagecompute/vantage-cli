@@ -13,16 +13,64 @@
 """Modular CLI Dashboard Package
 
 A reusable Textual-based dashboard class for Vantage CLI Dashboard functionality.
+
+This dashboard integrates with the Vantage CLI SDK to provide real-time monitoring
+and management of Vantage resources:
+
+SDK Integration:
+---------------
+- **Clusters**: Uses `vantage_cli.sdk.cluster.schema.Cluster` for cluster data
+- **Deployments**: Uses `vantage_cli.sdk.deployment.schema.Deployment` for deployment data  
+- **Profiles**: Uses `vantage_cli.sdk.profile.schema.Profile` for profile management
+- **Context**: Uses `vantage_cli.schemas.CliContext` for CLI execution context
+
+Architecture:
+------------
+The dashboard uses a Worker/Service model for tracking deployment progress:
+- `ServiceConfig`: Configuration for a tracked service (can be created from SDK objects)
+- `Worker`: Execution unit that tracks state and dependencies
+- `DependencyTracker`: Manages worker execution order based on dependencies
+
+Tab Panes:
+---------
+- `ClusterManagementTabPane`: Manages clusters using cluster SDK
+- `DeploymentManagementTabPane`: Manages deployments using deployment SDK
+- `ProfileManagementTabPane`: Manages profiles using profile SDK
+
+Example Usage:
+-------------
+```python
+from vantage_cli.sdk.cluster import cluster_sdk
+from vantage_cli.sdk.deployment import deployment_sdk
+from vantage_cli.dashboard import DashboardConfig, ServiceConfig, run_dashboard
+
+# Load data from SDK
+clusters = await cluster_sdk.list_clusters(ctx)
+deployments = await deployment_sdk.list(ctx)
+
+# Convert SDK objects to services
+services = [ServiceConfig.from_cluster(c) for c in clusters]
+services += [ServiceConfig.from_deployment(d) for d in deployments]
+
+# Configure and run dashboard
+config = DashboardConfig(
+    title="Vantage Dashboard",
+    enable_stats=True,
+    enable_logs=True,
+    enable_clusters=True,
+)
+
+run_dashboard(config=config, services=services, ctx=ctx)
+```
 """
 
 import asyncio
-import inspect
 import signal
 import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional
 
 import typer
 from rich.text import Text
@@ -40,22 +88,43 @@ from textual.widgets import (
     TabPane,
 )
 
-from vantage_cli.apps.utils import get_available_apps
-from vantage_cli.exceptions import Abort
-from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
-from vantage_cli.sdk.cluster import cluster_sdk
+from vantage_cli.schemas import CliContext
+from vantage_cli.sdk.cluster.schema import Cluster
+from vantage_cli.sdk.deployment.schema import Deployment
+from vantage_cli.sdk.profile.schema import Profile
+
 from .cluster_management_tab_pane import ClusterManagementTabPane
 from .dependency_tracker import DependencyTracker, Worker, WorkerState
 from .deployment_management_tab_pane import DeploymentManagementTabPane
 from .profile_management_tab_pane import ProfileManagementTabPane
 
-if TYPE_CHECKING:
-    from vantage_cli.sdk.cluster.schema import Cluster
-
 
 @dataclass
 class DashboardConfig:
-    """Configuration for the dashboard"""
+    """Configuration for the dashboard.
+    
+    This configures the dashboard behavior and which features are enabled.
+    All tab panes that are enabled will use the SDK to fetch and display data.
+    
+    Attributes:
+        title: Main title displayed in the header
+        subtitle: Subtitle text for the header
+        enable_stats: Enable the system statistics tab
+        enable_logs: Enable the full logs tab
+        enable_controls: Enable Create/Status/Remove control buttons
+        enable_clusters: Enable cluster management tab (uses cluster SDK)
+        refresh_interval: How often to refresh stats (in seconds)
+        
+    Example:
+        ```python
+        config = DashboardConfig(
+            title="Production Clusters",
+            enable_stats=True,
+            enable_clusters=True,
+            refresh_interval=1.0
+        )
+        ```
+    """
 
     title: str = "Production Dashboard"
     subtitle: str = "Real-time worker execution with scrollable logs"
@@ -68,7 +137,11 @@ class DashboardConfig:
 
 @dataclass
 class ServiceConfig:
-    """Configuration for a service in the dashboard"""
+    """Configuration for a service in the dashboard.
+    
+    This represents a deployment service that can be tracked and monitored.
+    Can be constructed from Cluster or Deployment SDK objects.
+    """
 
     name: str
     url: str
@@ -79,6 +152,47 @@ class ServiceConfig:
         if self.dependencies is None:
             self.dependencies = []
 
+    @classmethod
+    def from_cluster(cls, cluster: Cluster) -> "ServiceConfig":
+        """Create a ServiceConfig from a Cluster schema object."""
+        provider_emoji_map = {
+            "aws": "☁️",
+            "gcp": "☁️",
+            "azure": "☁️",
+            "localhost": "💻",
+            "maas": "🛠️",
+            "on_prem": "🏢",
+        }
+        emoji = provider_emoji_map.get(cluster.provider.lower(), "🖥️")
+        
+        return cls(
+            name=cluster.name,
+            url=cluster.jupyterhub_url,
+            emoji=emoji,
+            dependencies=[],
+        )
+
+    @classmethod
+    def from_deployment(cls, deployment: Deployment) -> "ServiceConfig":
+        """Create a ServiceConfig from a Deployment schema object."""
+        substrate_emoji_map = {
+            "k8s": "🚢",
+            "metal": "🔩",
+            "vm": "🧱",
+        }
+        emoji = substrate_emoji_map.get(deployment.substrate.lower(), "🚀")
+        
+        dependencies = []
+        if deployment.cluster:
+            dependencies.append(deployment.cluster.name)
+        
+        return cls(
+            name=f"{deployment.app_name}-{deployment.cluster.name}",
+            url=deployment.vantage_cluster_ctx.base_api_url,
+            emoji=emoji,
+            dependencies=dependencies,
+        )
+
 
 class CustomHeader(Header):
     """Custom header that extends the built-in Header."""
@@ -87,7 +201,24 @@ class CustomHeader(Header):
 
 
 class DashboardApp(App):
-    """Modular production dashboard that can be configured and reused"""
+    """Modular production dashboard that can be configured and reused.
+    
+    This dashboard integrates with the Vantage CLI SDK to display and manage:
+    - Clusters (via vantage_cli.sdk.cluster)
+    - Deployments (via vantage_cli.sdk.deployment)
+    - Profiles (via vantage_cli.sdk.profile)
+    
+    The dashboard uses Worker objects for tracking progress of service deployments
+    and dependencies. Services can be created from Cluster or Deployment SDK objects
+    using ServiceConfig.from_cluster() and ServiceConfig.from_deployment().
+    
+    Args:
+        config: Dashboard configuration settings
+        services: List of services to track (can be created from SDK objects)
+        custom_handlers: Optional custom handlers for worker functions
+        platform_info: Platform-specific information to display
+        ctx: Typer context containing CLI context with SDK client configuration
+    """
 
     BINDINGS = [
         ("ctrl+c,q", "quit", "Quit"),
@@ -327,12 +458,6 @@ class DashboardApp(App):
         self.custom_handlers = custom_handlers or {}
         self.platform_info = platform_info or self._get_default_platform_info()
         self.ctx = ctx
-        self.cli_ctx = ctx
-        self.available_apps = get_available_apps()
-        self.selected_app_key: Optional[str] = None
-        self.app_table: Optional[DataTable[Any]] = None
-        self.app_row_mapping: Dict[str, int] = {}
-        self.cluster_input: Optional[Input] = None
 
         # Set app title and subtitle
         self.TITLE = self.config.title
@@ -346,6 +471,64 @@ class DashboardApp(App):
         self.start_time = time.time()
         self.execution_complete = False
         self.execution_running = False
+
+    @classmethod
+    def from_sdk_data(
+        cls,
+        clusters: Optional[List[Cluster]] = None,
+        deployments: Optional[List[Deployment]] = None,
+        config: Optional[DashboardConfig] = None,
+        custom_handlers: Optional[Dict[str, Callable[..., Any]]] = None,
+        platform_info: Optional[Dict[str, str]] = None,
+        ctx: Optional[typer.Context] = None,
+    ) -> "DashboardApp":
+        """Create a DashboardApp from SDK cluster and deployment objects.
+        
+        This is a convenience method that converts SDK schemas into ServiceConfig
+        objects and initializes the dashboard.
+        
+        Args:
+            clusters: List of Cluster objects from cluster SDK
+            deployments: List of Deployment objects from deployment SDK
+            config: Dashboard configuration
+            custom_handlers: Optional custom worker handlers
+            platform_info: Platform information to display
+            ctx: Typer context with SDK configuration
+            
+        Returns:
+            Configured DashboardApp instance
+            
+        Example:
+            ```python
+            from vantage_cli.sdk.cluster import cluster_sdk
+            from vantage_cli.sdk.deployment import deployment_sdk
+            
+            clusters = await cluster_sdk.list_clusters(ctx)
+            deployments = await deployment_sdk.list(ctx)
+            
+            app = DashboardApp.from_sdk_data(
+                clusters=clusters,
+                deployments=deployments,
+                ctx=ctx
+            )
+            app.run()
+            ```
+        """
+        services = []
+        
+        if clusters:
+            services.extend([ServiceConfig.from_cluster(c) for c in clusters])
+            
+        if deployments:
+            services.extend([ServiceConfig.from_deployment(d) for d in deployments])
+        
+        return cls(
+            config=config,
+            services=services,
+            custom_handlers=custom_handlers,
+            platform_info=platform_info,
+            ctx=ctx,
+        )
 
     def _get_default_services(self) -> List[ServiceConfig]:
         """Get default service configuration"""
@@ -374,176 +557,10 @@ class DashboardApp(App):
         workers = []
         for service in self.services:
             # Use custom handler if provided, otherwise use dummy handler
-            def _default_handler(worker_id: str, *, duration: float = 1.0) -> Dict[str, Any]:
-                return {"duration": duration}
-
-            handler = self.custom_handlers.get(service.name, _default_handler)
+            handler = self.custom_handlers.get(service.name, lambda x: {"duration": 1.0})
             worker = Worker(service.name, handler, WorkerState.INIT, service.dependencies)
             workers.append(worker)
         return workers
-
-    def _suggest_cluster_name(self, app_key: str) -> str:
-        base = app_key.replace("/", "-")
-        return f"{base}-cluster"
-
-    def _populate_app_table(self) -> None:
-        if not self.app_table or not self.available_apps:
-            return
-
-        if self.app_row_mapping:
-            return
-
-        rows = sorted(self.available_apps.items(), key=lambda item: item[0])
-
-        for index, (app_key, app_info) in enumerate(rows):
-            module = app_info.get("module")
-            module_name = getattr(module, "__name__", "unknown") if module else "unknown"
-            summary = "No description available"
-            create_function = app_info.get("create_function")
-            if create_function and getattr(create_function, "__doc__", None):
-                summary = create_function.__doc__.strip().split("\n")[0]
-
-            self.app_table.add_row(app_key, module_name, summary, key=app_key)
-            self.app_row_mapping[app_key] = index
-
-    def _select_default_app(self) -> None:
-        if not self.available_apps or not self.app_table:
-            return
-
-        first_key = next(iter(sorted(self.available_apps)))
-        self.selected_app_key = first_key
-
-        try:
-            self.app_table.focus()
-            select_row = getattr(self.app_table, "select_row", None)
-            if callable(select_row):
-                select_row(first_key)
-        except Exception:
-            index = self.app_row_mapping.get(first_key)
-            if index is not None:
-                try:
-                    setattr(self.app_table, "cursor_coordinate", (index, 0))
-                except Exception:
-                    pass
-
-        self._update_cluster_input(first_key, force=True)
-
-    def _update_cluster_input(self, app_key: str, force: bool = False) -> None:
-        if not self.cluster_input:
-            return
-
-        if force or not self.cluster_input.value.strip():
-            self.cluster_input.value = self._suggest_cluster_name(app_key)
-
-    def _get_cluster_name(self) -> str:
-        if self.cluster_input is None:
-            return ""
-        return self.cluster_input.value.strip()
-
-    def _build_command_invocation(
-        self,
-        command: Callable[..., Any],
-        app_key: str,
-        cluster_name: Optional[str],
-    ) -> Tuple[List[Any], Dict[str, Any]]:
-        if self.cli_ctx is None:
-            raise ValueError("CLI context is unavailable for command execution.")
-
-        signature = inspect.signature(command)
-        parameters = list(signature.parameters.values())
-        if not parameters:
-            raise ValueError("Command has no parameters to bind.")
-
-        args: List[Any] = [self.cli_ctx]
-        kwargs: Dict[str, Any] = {}
-
-        for param in parameters[1:]:
-            if param.kind in (
-                inspect.Parameter.VAR_POSITIONAL,
-                inspect.Parameter.VAR_KEYWORD,
-            ):
-                continue
-
-            if param.name in {"cluster_name", "deployment_id"}:
-                if not cluster_name:
-                    raise ValueError(f"{param.name.replace('_', ' ')} is required.")
-                if param.kind in (
-                    inspect.Parameter.POSITIONAL_ONLY,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                ):
-                    args.append(cluster_name)
-                else:
-                    kwargs[param.name] = cluster_name
-            elif param.name == "app_name":
-                if param.kind in (
-                    inspect.Parameter.POSITIONAL_ONLY,
-                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                ):
-                    args.append(app_key)
-                else:
-                    kwargs[param.name] = app_key
-            elif param.name == "dev_run":
-                kwargs[param.name] = False
-            elif param.name == "force":
-                kwargs[param.name] = True
-            elif param.default is inspect.Signature.empty:
-                raise ValueError(
-                    f"Unsupported parameter '{param.name}' for {command.__name__}."
-                )
-
-        return args, kwargs
-
-    async def _perform_app_action(
-        self,
-        action: str,
-        app_key: str,
-        cluster_name: Optional[str],
-    ) -> None:
-        app_info = self.available_apps.get(app_key)
-        if not app_info:
-            self.add_log(f"❌ Application '{app_key}' is not available", "ERROR")
-            return
-
-        module = app_info.get("module")
-        if module is None:
-            self.add_log(f"❌ Module for '{app_key}' is not loaded", "ERROR")
-            return
-
-        command_name = f"{action}_command"
-        command = getattr(module, command_name, None)
-        if command is None:
-            self.add_log(f"⚠️ {action.title()} not supported for '{app_key}'", "WARNING")
-            return
-
-        try:
-            args, kwargs = self._build_command_invocation(command, app_key, cluster_name)
-            self.add_log(f"⏳ Running {action} for '{app_key}'", "INFO")
-            await command(*args, **kwargs)
-            self.add_log(f"✅ {action.title()} completed for '{app_key}'", "SUCCESS")
-        except typer.Exit as exit_exc:
-            if exit_exc.exit_code == 0:
-                self.add_log(f"✅ {action.title()} completed for '{app_key}'", "SUCCESS")
-            else:
-                self.add_log(
-                    f"⚠️ {action.title()} exited with code {exit_exc.exit_code} for '{app_key}'",
-                    "ERROR",
-                )
-        except Exception as exc:  # pragma: no cover - defensive
-            self.add_log(f"💥 {action.title()} failed for '{app_key}': {exc}", "ERROR")
-
-    def _trigger_app_action(self, action: str) -> None:
-        if not self.selected_app_key:
-            self.add_log("⚠️ Select an application before performing actions", "WARNING")
-            return
-
-        cluster_name = self._get_cluster_name()
-        if action in {"create", "remove"} and not cluster_name:
-            self.add_log("⚠️ Provide a cluster name for this action", "WARNING")
-            return
-
-        asyncio.create_task(
-            self._perform_app_action(action, self.selected_app_key, cluster_name or None)
-        )
 
     def compose(self) -> ComposeResult:
         """Create the dashboard layout"""
@@ -556,19 +573,7 @@ class DashboardApp(App):
                         with Horizontal(id="main-panel"):
                             # Left side: Worker progress
                             with Vertical(id="left-content"):
-                                yield Static("� Applications", classes="section-header")
-                                app_table_raw = DataTable(
-                                    id="app-table",
-                                    show_header=True,
-                                    cursor_type="row",
-                                    zebra_stripes=True,
-                                )
-                                app_table_raw.add_columns("Application", "Module", "Summary")
-                                app_table = cast(DataTable[Any], app_table_raw)
-                                self.app_table = app_table
-                                yield app_table
-
-                                yield Static("�📈 Worker Progress", classes="section-header")
+                                yield Static("📈 Worker Progress", classes="section-header")
                                 with Vertical(id="worker-progress-group"):
                                     for service in self.services:
                                         yield Static(f"{service.emoji} {service.name}")
@@ -643,16 +648,11 @@ class DashboardApp(App):
             # Control buttons
             if self.config.enable_controls:
                 with Vertical(id="control-buttons"):
-                    yield Static("⚙️ Deployment Controls", classes="section-header")
-                    cluster_input = Input(
-                        placeholder="cluster-name",
-                        id="cluster-name-input",
+                    yield Button("Create", id="start-btn", variant="success", classes="tab-button")
+                    yield Button("Status", id="stop-btn", variant="error", classes="tab-button")
+                    yield Button(
+                        "Remove", id="restart-btn", variant="primary", classes="tab-button"
                     )
-                    self.cluster_input = cluster_input
-                    yield cluster_input
-                    yield Button("Create", id="create-btn", variant="success", classes="tab-button")
-                    yield Button("Status", id="status-btn", variant="primary", classes="tab-button")
-                    yield Button("Remove", id="remove-btn", variant="error", classes="tab-button")
 
         # Footer
         yield Static(
@@ -666,8 +666,6 @@ class DashboardApp(App):
         self.add_log("💡 Use Ctrl+C or 'q' to quit, 'r' to restart")
 
         self.setup_tables()
-        self._populate_app_table()
-        self._select_default_app()
 
         if self.config.enable_stats:
             self.set_interval(self.config.refresh_interval, self.refresh_stats)
@@ -729,26 +727,9 @@ class DashboardApp(App):
             pass
 
     # Button event handlers
-    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
-        table = cast(DataTable[Any], event.data_table)
-
-        if table.id != "app-table":
-            return
-
-        selected_key = str(event.row_key.value)
-        self.selected_app_key = selected_key
-        self._update_cluster_input(selected_key)
-        self.add_log(f"🗂️ Selected application: {selected_key}", "INFO")
-
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses"""
-        if event.button.id == "create-btn":
-            self._trigger_app_action("create")
-        elif event.button.id == "status-btn":
-            self._trigger_app_action("status")
-        elif event.button.id == "remove-btn":
-            self._trigger_app_action("remove")
-        elif event.button.id == "start-btn":
+        if event.button.id == "start-btn":
             self.action_start_execution()
         elif event.button.id == "stop-btn":
             self.action_stop_execution()
@@ -872,7 +853,41 @@ def run_dashboard(
     setup_signals: bool = True,
 ) -> None:
     """Run the dashboard with optional configuration.
+    
     This is the main entry point for using the dashboard in your applications.
+    
+    The dashboard integrates with the Vantage CLI SDK to provide real-time
+    monitoring and management of:
+    - Clusters (vantage_cli.sdk.cluster)
+    - Deployments (vantage_cli.sdk.deployment)
+    - Profiles (vantage_cli.sdk.profile)
+    
+    Example:
+        ```python
+        from vantage_cli.sdk.cluster import cluster_sdk
+        from vantage_cli.sdk.deployment import deployment_sdk
+        from vantage_cli.dashboard import DashboardConfig, ServiceConfig, run_dashboard
+        
+        # Load data from SDK
+        clusters = await cluster_sdk.list_clusters(ctx)
+        deployments = await deployment_sdk.list(ctx)
+        
+        # Convert to services
+        services = [ServiceConfig.from_cluster(c) for c in clusters]
+        services += [ServiceConfig.from_deployment(d) for d in deployments]
+        
+        # Run dashboard
+        config = DashboardConfig(title="My Dashboard")
+        run_dashboard(config=config, services=services, ctx=ctx)
+        ```
+    
+    Args:
+        config: Dashboard configuration settings
+        services: List of services to display (can use ServiceConfig.from_cluster/from_deployment)
+        custom_handlers: Optional custom worker handler functions
+        platform_info: Platform-specific URLs and information
+        ctx: Typer context containing SDK client configuration
+        setup_signals: Whether to setup signal handlers for graceful shutdown
     """
 
     def signal_handler(signum: int, frame: Any) -> None:
@@ -902,3 +917,26 @@ def run_dashboard(
     except Exception as e:
         print(f"\\n💥 Dashboard error: {e}")
         sys.exit(1)
+
+
+# Export main dashboard classes and SDK schemas for convenience
+__all__ = [
+    # Dashboard classes
+    "DashboardApp",
+    "DashboardConfig",
+    "ServiceConfig",
+    "run_dashboard",
+    # SDK schemas (re-exported for convenience)
+    "Cluster",
+    "Deployment",
+    "Profile",
+    "CliContext",
+    # Tab panes
+    "ClusterManagementTabPane",
+    "DeploymentManagementTabPane",
+    "ProfileManagementTabPane",
+    # Worker tracking
+    "Worker",
+    "WorkerState",
+    "DependencyTracker",
+]
