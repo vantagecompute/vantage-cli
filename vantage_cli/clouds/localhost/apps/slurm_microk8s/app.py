@@ -24,8 +24,8 @@ from vantage_cli.clouds.common import (
     generate_dev_cluster_data,
 )
 from vantage_cli.clouds.constants import DEV_JUPYTERHUB_TOKEN, DEV_ORG_ID, DEV_SSSD_BINDER_PASSWORD
-from vantage_cli.clouds.localhost.slurm_microk8s.chart_values import CHART_VALUES_SLURM_CLUSTER
-from vantage_cli.clouds.localhost.slurm_microk8s.constants import (
+from vantage_cli.clouds.localhost.apps.slurm_microk8s.chart_values import CHART_VALUES_SLURM_CLUSTER
+from vantage_cli.clouds.localhost.apps.slurm_microk8s.constants import (
     APP_NAME,
     DEFAULT_NAMESPACE_CERT_MANAGER,
     DEFAULT_NAMESPACE_PROMETHEUS,
@@ -33,9 +33,9 @@ from vantage_cli.clouds.localhost.slurm_microk8s.constants import (
     DEFAULT_NAMESPACE_SLURM,
     SUBSTRATE,
 )
-from vantage_cli.clouds.localhost.slurm_microk8s.render import show_getting_started_help
-from vantage_cli.clouds.localhost.slurm_microk8s.templates import sssd_conf
-from vantage_cli.clouds.localhost.slurm_microk8s.utils import (
+from vantage_cli.clouds.localhost.apps.slurm_microk8s.render import show_getting_started_help
+from vantage_cli.clouds.localhost.apps.slurm_microk8s.templates import sssd_conf
+from vantage_cli.clouds.localhost.apps.slurm_microk8s.utils import (
     deploy_microk8s_stack,
     get_ssh_keys,
 )

@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 import logging
 
-from vantage_cli.clouds.cudo_compute.slurm_metal.constants import CLOUD
+from vantage_cli.clouds.cudo_compute.apps.slurm_metal.constants import CLOUD
 from vantage_cli.sdk.cloud.crud import cloud_sdk
 from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
 from vantage_cli.sdk.cloud_credential.schema import CloudCredential

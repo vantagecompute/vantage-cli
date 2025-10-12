@@ -285,14 +285,14 @@ async def get_cluster_data(
     return cluster_obj
 
 
-def _load_dev_app_as_package(app_path: Path, app_name: str):
+def _load_dev_app_as_package(app_path: Path, app_name: str, cloud: str = "localhost"):
     """Load a dev app as a proper Python package with support for relative imports."""
     import types
 
-    vantage_cli_module_name = f"vantage_cli.apps.{app_name}"
+    vantage_cli_module_name = f"vantage_cli.clouds.{cloud}.apps.{app_name}"
 
     # Ensure parent package exists for relative imports
-    parent_package = "vantage_cli.apps"
+    parent_package = f"vantage_cli.clouds.{cloud}.apps"
     if parent_package not in sys.modules:
         parent_mod = types.ModuleType(parent_package)
         parent_mod.__path__ = []

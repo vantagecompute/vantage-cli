@@ -3,7 +3,7 @@
 from textwrap import dedent
 from typing import Any, Dict
 
-from vantage_cli.clouds.localhost.slurm_microk8s.constants import LOGINSET_IMAGE, LOGINSET_IMAGE_TAG
+from vantage_cli.clouds.localhost.apps.slurm_microk8s.constants import LOGINSET_IMAGE, LOGINSET_IMAGE_TAG
 
 EXTRA_SSHD_CONF = dedent(
     """\

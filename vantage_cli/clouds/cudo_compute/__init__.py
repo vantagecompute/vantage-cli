@@ -9,7 +9,4 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Cudo Compute deployment applications package.
-This package contains deployment applications for Cudo Compute:
-- slurm_cudo_compute: Deploy Slurm cluster using Juju on Cudo Compute
-"""
+"""Cudo Compute cloud provider module t."""

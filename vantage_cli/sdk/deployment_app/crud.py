@@ -223,17 +223,17 @@ class DeploymentAppSDK:
             if is_builtin:
                 # Import built-in app - handle nested structure
                 parent_dir = app_path.parent
-                apps_dir = app_path.parent.parent
+                cloud_dir = app_path.parent.parent
 
-                if parent_dir.name != "apps" and apps_dir.name == "apps":
-                    # Nested app (e.g., localhost/slurm_lxd)
-                    category = parent_dir.name
+                if parent_dir.name == "apps" and cloud_dir.name in ["localhost", "cudo_compute"]:
+                    # Nested app (e.g., clouds/localhost/apps/slurm_lxd)
+                    cloud = cloud_dir.name
                     app_module = importlib.import_module(
-                        f"vantage_cli.apps.{category}.{app_name}.app"
+                        f"vantage_cli.clouds.{cloud}.apps.{app_name}.app"
                     )
                 else:
-                    # Top-level app
-                    app_module = importlib.import_module(f"vantage_cli.apps.{app_name}.app")
+                    # Fallback for top-level apps (if any exist)
+                    app_module = importlib.import_module(f"vantage_cli.clouds.localhost.apps.{app_name}.app")
                 
                 return app_module
             else:
@@ -264,18 +264,18 @@ class DeploymentAppSDK:
             if is_builtin:
                 # Import built-in app - handle nested structure
                 parent_dir = app_path.parent
-                apps_dir = app_path.parent.parent
+                cloud_dir = app_path.parent.parent
 
-                if parent_dir.name != "apps" and apps_dir.name == "apps":
-                    # Nested app (e.g., localhost/slurm_lxd)
-                    category = parent_dir.name
+                if parent_dir.name == "apps" and cloud_dir.name in ["localhost", "cudo_compute"]:
+                    # Nested app (e.g., clouds/localhost/apps/slurm_lxd)
+                    cloud = cloud_dir.name
                     constants_module = importlib.import_module(
-                        f"vantage_cli.apps.{category}.{app_name}.constants"
+                        f"vantage_cli.clouds.{cloud}.apps.{app_name}.constants"
                     )
                 else:
-                    # Top-level app
+                    # Fallback for top-level apps (if any exist)
                     constants_module = importlib.import_module(
-                        f"vantage_cli.apps.{app_name}.constants"
+                        f"vantage_cli.clouds.localhost.apps.{app_name}.constants"
                     )
 
             return constants_module

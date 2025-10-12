@@ -27,6 +27,7 @@ import httpx
 from pydantic import BaseModel
 from rich.console import Console
 
+from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
 from vantage_cli.config import Settings
 
 if TYPE_CHECKING:
@@ -82,8 +83,10 @@ class DeviceCodeData(BaseModel):
     interval: int
 
 
-class CliContext(BaseModel, arbitrary_types_allowed=True):
+class CliContext(BaseModel):
     """CLI context for command execution."""
+
+    model_config = {"arbitrary_types_allowed": True, "extra": "allow"}
 
     profile: str = "default"
     verbose: bool = False
@@ -96,3 +99,4 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
     console: Optional[Console] = None
     command_start_time: Optional[float] = None
     rest_client: Optional[Any] = None  # VantageRestApiClient (avoid circular import)
+    cudo_sdk: Optional[CudoComputeSDK] = None  # CudoComputeClient (avoid circular import)
