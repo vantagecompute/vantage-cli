@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get Cudo Compute project command."""
+"""Delete Cudo Compute NFS volume command."""
 
 import logging
 
@@ -26,19 +26,24 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def get_project(
+async def delete_volume(
     ctx: typer.Context,
-    project_id: str = typer.Argument(..., help="Project ID"),
+    project_id: str = typer.Option(..., "--project-id", help="Project ID"),
+    volume_id: str = typer.Argument(..., help="Volume ID"),
 ) -> None:
-    """Get details of a specific Cudo Compute project."""
+    """Delete a Cudo Compute NFS volume."""
 
     try:
-        project = await ctx.obj.cudo_sdk.get_project(project_id=project_id)
+        await ctx.obj.cudo_sdk.delete_volume(
+            project_id=project_id,
+            volume_id=volume_id,
+        )
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to get project: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to delete volume: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_get(
-        data=project,
-        resource_name=f"Project: {project_id}",
+    logger.info(f"Volume '{volume_id}' deleted successfully.")
+    ctx.obj.formatter.render_single(
+        data={"status": "deleted", "volumeId": volume_id},
+        resource_name="Cudo Compute Volume",
     )

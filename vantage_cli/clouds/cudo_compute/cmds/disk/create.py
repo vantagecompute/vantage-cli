@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get Cudo Compute project command."""
+"""Create Cudo Compute disk command."""
 
 import logging
 
@@ -26,19 +26,30 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def get_project(
+async def create_disk(
     ctx: typer.Context,
-    project_id: str = typer.Argument(..., help="Project ID"),
+    project_id: str = typer.Option(..., "--project-id", help="Project ID"),
+    disk_id: str = typer.Option(..., "--disk-id", help="Unique disk ID"),
+    data_center_id: str = typer.Option(..., "--data-center-id", help="Data center ID"),
+    size_gib: int = typer.Option(..., "--size-gib", help="Disk size in GiB"),
+    disk_type: str = typer.Option(None, "--disk-type", help="Disk type"),
 ) -> None:
-    """Get details of a specific Cudo Compute project."""
+    """Create a new Cudo Compute disk."""
 
     try:
-        project = await ctx.obj.cudo_sdk.get_project(project_id=project_id)
+        disk = await ctx.obj.cudo_sdk.create_disk(
+            project_id=project_id,
+            disk_id=disk_id,
+            data_center_id=data_center_id,
+            size_gib=size_gib,
+            disk_type=disk_type,
+        )
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to get project: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to create disk: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_get(
-        data=project,
-        resource_name=f"Project: {project_id}",
+    logger.info(f"Disk '{disk_id}' created successfully.")
+    ctx.obj.formatter.render_single(
+        data=disk,
+        resource_name="Cudo Compute Disk",
     )

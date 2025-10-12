@@ -32,11 +32,11 @@ from .cmds.vm.create import create_vm
 from .cmds.vm.update import update_vm
 from .cmds.vm.delete import delete_vm
 
-from .cmds.metal.list import list_metal
-from .cmds.metal.get import get_metal
-from .cmds.metal.create import create_metal
-from .cmds.metal.update import update_metal
-from .cmds.metal.delete import delete_metal
+from .cmds.machine.list import list_machines
+from .cmds.machine.get import get_machine
+from .cmds.machine.create import create_machine
+from .cmds.machine.update import update_machine
+from .cmds.machine.delete import delete_machine
 
 from .cmds.network.list import list_networks
 from .cmds.network.get import get_network
@@ -50,11 +50,40 @@ from .cmds.security_group.create import create_security_group
 from .cmds.security_group.update import update_security_group
 from .cmds.security_group.delete import delete_security_group
 
+from .cmds.security_group_rule.list import list_security_group_rules
+from .cmds.security_group_rule.get import get_security_group_rule
+from .cmds.security_group_rule.create import create_security_group_rule
+from .cmds.security_group_rule.update import update_security_group_rule
+from .cmds.security_group_rule.delete import delete_security_group_rule
+
+from .cmds.vm_data_center.list import list_vm_data_centers
+from .cmds.vm_data_center.get import get_vm_data_center
+
+from .cmds.machine_type.list import list_machine_types
+from .cmds.machine_type.get import get_machine_type
+
 from .cmds.data_center.list import list_data_centers
 from .cmds.data_center.get import get_data_center
 
 from .cmds.image.list import list_images
 from .cmds.image.get import get_image
+
+from .cmds.disk.list import list_disks
+from .cmds.disk.get import get_disk
+from .cmds.disk.create import create_disk
+from .cmds.disk.update import update_disk
+from .cmds.disk.delete import delete_disk
+
+from .cmds.volume.list import list_volumes
+from .cmds.volume.get import get_volume
+from .cmds.volume.create import create_volume
+from .cmds.volume.update import update_volume
+from .cmds.volume.delete import delete_volume
+
+from .cmds.sshkey.list import list_ssh_keys
+from .cmds.sshkey.get import get_ssh_key
+from .cmds.sshkey.create import create_ssh_key
+from .cmds.sshkey.delete import delete_ssh_key
 
 # Create main app
 app = AsyncTyper(
@@ -67,11 +96,17 @@ app = AsyncTyper(
 project_app = AsyncTyper(name="project", help="Manage Cudo Compute projects", no_args_is_help=True)
 cluster_app = AsyncTyper(name="cluster", help="Manage Cudo Compute clusters", no_args_is_help=True)
 vm_app = AsyncTyper(name="vm", help="Manage Cudo Compute virtual machines", no_args_is_help=True)
-metal_app = AsyncTyper(name="metal", help="Manage Cudo Compute bare-metal machines", no_args_is_help=True)
+machine_app = AsyncTyper(name="machine", help="Manage Cudo Compute bare-metal machines", no_args_is_help=True)
 network_app = AsyncTyper(name="network", help="Manage Cudo Compute networks", no_args_is_help=True)
 security_group_app = AsyncTyper(name="security-group", help="Manage Cudo Compute security groups", no_args_is_help=True)
+security_group_rule_app = AsyncTyper(name="sg-rule", help="Manage Cudo Compute security group rules", no_args_is_help=True)
+vm_data_center_app = AsyncTyper(name="vm-data-center", help="Query VM data centers", no_args_is_help=True)
+machine_type_app = AsyncTyper(name="machine-type", help="Query VM machine types", no_args_is_help=True)
 data_center_app = AsyncTyper(name="data-center", help="Query Cudo Compute data centers", no_args_is_help=True)
 image_app = AsyncTyper(name="image", help="Query Cudo Compute VM images", no_args_is_help=True)
+disk_app = AsyncTyper(name="disk", help="Manage Cudo Compute storage disks", no_args_is_help=True)
+volume_app = AsyncTyper(name="volume", help="Manage Cudo Compute NFS volumes", no_args_is_help=True)
+sshkey_app = AsyncTyper(name="sshkey", help="Manage Cudo Compute SSH keys", no_args_is_help=True)
 
 # Register project commands
 project_app.command("list")(list_projects)
@@ -94,12 +129,12 @@ vm_app.command("create")(create_vm)
 vm_app.command("update")(update_vm)
 vm_app.command("delete")(delete_vm)
 
-# Register metal commands
-metal_app.command("list")(list_metal)
-metal_app.command("get")(get_metal)
-metal_app.command("create")(create_metal)
-metal_app.command("update")(update_metal)
-metal_app.command("delete")(delete_metal)
+# Register machine commands
+machine_app.command("list")(list_machines)
+machine_app.command("get")(get_machine)
+machine_app.command("create")(create_machine)
+machine_app.command("update")(update_machine)
+machine_app.command("delete")(delete_machine)
 
 # Register network commands
 network_app.command("list")(list_networks)
@@ -115,6 +150,21 @@ security_group_app.command("create")(create_security_group)
 security_group_app.command("update")(update_security_group)
 security_group_app.command("delete")(delete_security_group)
 
+# Register security group rule commands
+security_group_rule_app.command("list")(list_security_group_rules)
+security_group_rule_app.command("get")(get_security_group_rule)
+security_group_rule_app.command("create")(create_security_group_rule)
+security_group_rule_app.command("update")(update_security_group_rule)
+security_group_rule_app.command("delete")(delete_security_group_rule)
+
+# Register VM data center commands
+vm_data_center_app.command("list")(list_vm_data_centers)
+vm_data_center_app.command("get")(get_vm_data_center)
+
+# Register machine type commands
+machine_type_app.command("list")(list_machine_types)
+machine_type_app.command("get")(get_machine_type)
+
 # Register data center commands
 data_center_app.command("list")(list_data_centers)
 data_center_app.command("get")(get_data_center)
@@ -123,22 +173,51 @@ data_center_app.command("get")(get_data_center)
 image_app.command("list")(list_images)
 image_app.command("get")(get_image)
 
+# Register disk commands
+disk_app.command("list")(list_disks)
+disk_app.command("get")(get_disk)
+disk_app.command("create")(create_disk)
+disk_app.command("update")(update_disk)
+disk_app.command("delete")(delete_disk)
+
+# Register volume commands
+volume_app.command("list")(list_volumes)
+volume_app.command("get")(get_volume)
+volume_app.command("create")(create_volume)
+volume_app.command("update")(update_volume)
+volume_app.command("delete")(delete_volume)
+
+# Register sshkey commands
+sshkey_app.command("list")(list_ssh_keys)
+sshkey_app.command("get")(get_ssh_key)
+sshkey_app.command("create")(create_ssh_key)
+sshkey_app.command("delete")(delete_ssh_key)
+
 # Add sub-apps to main app (singular)
 app.add_typer(project_app)
 app.add_typer(cluster_app)
 app.add_typer(vm_app)
-app.add_typer(metal_app)
+app.add_typer(machine_app)
 app.add_typer(network_app)
 app.add_typer(security_group_app)
+app.add_typer(security_group_rule_app)
+app.add_typer(vm_data_center_app)
+app.add_typer(machine_type_app)
 app.add_typer(data_center_app)
 app.add_typer(image_app)
+app.add_typer(disk_app)
+app.add_typer(volume_app)
+app.add_typer(sshkey_app)
 
 # Add plural aliases for list commands (so users can type `vantage cloud cudo-compute projects` instead of `vantage cloud cudo-compute project list`)
-app.command("projects", help="List Cudo Compute projects (alias for 'project list')")(list_projects)
-app.command("clusters", help="List Cudo Compute clusters (alias for 'cluster list')")(list_clusters)
-app.command("vms", help="List Cudo Compute VMs (alias for 'vm list')")(list_vms)
-app.command("metals", help="List Cudo Compute bare-metal machines (alias for 'metal list')")(list_metal)
-app.command("networks", help="List Cudo Compute networks (alias for 'network list')")(list_networks)
-app.command("security-groups", help="List Cudo Compute security groups (alias for 'security-group list')")(list_security_groups)
-app.command("data-centers", help="List Cudo Compute data centers (alias for 'data-center list')")(list_data_centers)
-app.command("images", help="List Cudo Compute VM images (alias for 'image list')")(list_images)
+app.command("projects", help="List Cudo Compute projects (alias for 'project list')", hidden=True)(list_projects)
+app.command("clusters", help="List Cudo Compute clusters (alias for 'cluster list')", hidden=True)(list_clusters)
+app.command("vms", help="List Cudo Compute VMs (alias for 'vm list')", hidden=True)(list_vms)
+app.command("machines", help="List Cudo Compute bare-metal machines (alias for 'machine list')", hidden=True)(list_machines)
+app.command("networks", help="List Cudo Compute networks (alias for 'network list')", hidden=True)(list_networks)
+app.command("security-groups", help="List Cudo Compute security groups (alias for 'security-group list')", hidden=True)(list_security_groups)
+app.command("data-centers", help="List Cudo Compute data centers (alias for 'data-center list')", hidden=True)(list_data_centers)
+app.command("images", help="List Cudo Compute VM images (alias for 'image list')", hidden=True)(list_images)
+app.command("disks", help="List Cudo Compute storage disks (alias for 'disk list')", hidden=True)(list_disks)
+app.command("volumes", help="List Cudo Compute NFS volumes (alias for 'volume list')", hidden=True)(list_volumes)
+app.command("sshkeys", help="List Cudo Compute SSH keys (alias for 'sshkey list')", hidden=True)(list_ssh_keys)

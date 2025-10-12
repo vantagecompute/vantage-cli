@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""List Cudo Compute bare-metal machines command."""
+"""List Cudo Compute NFS volumes command."""
 
 import logging
 
@@ -26,30 +26,29 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def list_metal(
+async def list_volumes(
     ctx: typer.Context,
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
     page_number: int = typer.Option(None, "--page-number", help="Page number (min 1)"),
     page_size: int = typer.Option(None, "--page-size", help="Results per page (min 1, max 100)"),
 ) -> None:
-    """List bare-metal machines within a Cudo Compute project."""
+    """List NFS volumes within a Cudo Compute project."""
 
     try:
-        result = await ctx.obj.cudo_sdk.list_machines(
+        volumes = await ctx.obj.cudo_sdk.list_volumes(
             project_id=project_id,
             page_number=page_number,
             page_size=page_size,
         )
-        machines = result.get("machines", [])
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to list bare-metal machines: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to list volumes: {e}")
         raise typer.Exit(code=1)
 
-    if not machines:
-        logger.debug(f"No bare-metal machines found in project '{project_id}'.")
+    if not volumes:
+        logger.debug(f"No volumes found in project '{project_id}'.")
         return
     
     ctx.obj.formatter.render_list(
-        data=machines,
-        resource_name="Cudo Compute Bare-Metal Machines",
+        data=volumes,
+        resource_name="Cudo Compute Volumes",
     )

@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get Cudo Compute project command."""
+"""Delete Cudo Compute disk command."""
 
 import logging
 
@@ -26,19 +26,20 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def get_project(
+async def delete_disk(
     ctx: typer.Context,
-    project_id: str = typer.Argument(..., help="Project ID"),
+    project_id: str = typer.Option(..., "--project-id", help="Project ID"),
+    disk_id: str = typer.Argument(..., help="Disk ID"),
 ) -> None:
-    """Get details of a specific Cudo Compute project."""
+    """Delete a Cudo Compute disk. The disk must be detached first."""
 
     try:
-        project = await ctx.obj.cudo_sdk.get_project(project_id=project_id)
+        await ctx.obj.cudo_sdk.delete_disk(
+            project_id=project_id,
+            disk_id=disk_id,
+        )
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to get project: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to delete disk: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_get(
-        data=project,
-        resource_name=f"Project: {project_id}",
-    )
+    logger.info(f"Disk '{disk_id}' deleted successfully.")

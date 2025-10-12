@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get Cudo Compute project command."""
+"""Create Cudo Compute NFS volume command."""
 
 import logging
 
@@ -26,19 +26,28 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def get_project(
+async def create_volume(
     ctx: typer.Context,
-    project_id: str = typer.Argument(..., help="Project ID"),
+    project_id: str = typer.Option(..., "--project-id", help="Project ID"),
+    volume_id: str = typer.Option(..., "--volume-id", help="Unique volume ID"),
+    data_center_id: str = typer.Option(..., "--data-center-id", help="Data center ID"),
+    size_gib: int = typer.Option(..., "--size-gib", help="Volume size in GiB"),
 ) -> None:
-    """Get details of a specific Cudo Compute project."""
+    """Create a new Cudo Compute NFS volume."""
 
     try:
-        project = await ctx.obj.cudo_sdk.get_project(project_id=project_id)
+        volume = await ctx.obj.cudo_sdk.create_volume(
+            project_id=project_id,
+            volume_id=volume_id,
+            data_center_id=data_center_id,
+            size_gib=size_gib,
+        )
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to get project: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to create volume: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_get(
-        data=project,
-        resource_name=f"Project: {project_id}",
+    logger.info(f"Volume '{volume_id}' created successfully.")
+    ctx.obj.formatter.render_single(
+        data=volume,
+        resource_name="Cudo Compute Volume",
     )

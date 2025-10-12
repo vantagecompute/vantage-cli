@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""List Cudo Compute VMs command."""
+"""Delete Cudo Compute bare-metal machine command."""
 
 import logging
 
@@ -26,27 +26,28 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def list_vms(
+async def delete_machine(
     ctx: typer.Context,
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
-    network_id: str = typer.Option(None, "--network-id", help="Filter by network ID"),
+    machine_id: str = typer.Argument(..., help="Machine ID"),
+    force: bool = typer.Option(False, "--force", help="Skip confirmation prompt"),
 ) -> None:
-    """List virtual machines within a Cudo Compute project."""
+    """Delete a Cudo Compute bare-metal machine. All data will be lost."""
+
+    if not force:
+        confirm = typer.confirm(
+            f"Are you sure you want to delete bare-metal machine '{machine_id}'? All data will be lost. This action cannot be undone."
+        )
+        if not confirm:
+            logger.debug("Operation cancelled.")
+            raise typer.Exit(code=0)
 
     try:
-        vms = await ctx.obj.cudo_sdk.list_vms(
+        await ctx.obj.cudo_sdk.delete_machine(
             project_id=project_id,
-            network_id=network_id,
+            machine_id=machine_id,
         )
+        logger.debug(f"[bold green]Success:[/bold green] Deleted bare-metal machine '{machine_id}'")
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to list VMs: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to delete bare-metal machine: {e}")
         raise typer.Exit(code=1)
-
-    if not vms:
-        logger.debug(f"No VMs found in project '{project_id}'.")
-        return
-    
-    ctx.obj.formatter.render_list(
-        data=vms,
-        resource_name="Cudo Compute VMs",
-    )

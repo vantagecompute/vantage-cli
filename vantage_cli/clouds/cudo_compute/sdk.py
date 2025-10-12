@@ -58,6 +58,25 @@ class CudoComputeSDK:
         await self.client.aclose()
     
     # ========================================================================
+    # Credential Helper Methods
+    # ========================================================================
+    
+    @staticmethod
+    def get_datacenter_id_from_credentials() -> Optional[str]:
+        """Get datacenter_id from the default Cudo Compute credentials.
+        
+        Returns:
+            datacenter_id from credentials if set, None otherwise
+        """
+        from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
+        
+        cudo_credential = cloud_credential_sdk.get_default(cloud_name="cudo-compute")
+        if cudo_credential is None:
+            return None
+        
+        return cudo_credential.credentials_data.get("datacenter_id")
+    
+    # ========================================================================
     # Virtual Machines
     # ========================================================================
     
@@ -698,6 +717,216 @@ class CudoComputeSDK:
         response.raise_for_status()
         return response.json()
     
+    async def get_disk(
+        self,
+        project_id: str,
+        disk_id: str,
+    ) -> Dict[str, Any]:
+        """Get details of a specific disk.
+        
+        Args:
+            project_id: Project ID
+            disk_id: Disk ID
+            
+        Returns:
+            Disk details
+        """
+        response = await self.client.get(
+            f"/v1/projects/{project_id}/disks/{disk_id}"
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    async def update_disk(
+        self,
+        project_id: str,
+        disk_id: str,
+        size_gib: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Update a disk (e.g., resize).
+        
+        Args:
+            project_id: Project ID
+            disk_id: Disk ID
+            size_gib: New disk size in GiB
+            
+        Returns:
+            Updated disk details
+        """
+        body = {}
+        if size_gib is not None:
+            body["sizeGib"] = size_gib
+        
+        response = await self.client.patch(
+            f"/v1/projects/{project_id}/disks/{disk_id}",
+            json=body,
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    # ========================================================================
+    # Volumes (NFS Volumes)
+    # ========================================================================
+    
+    async def list_volumes(
+        self,
+        project_id: str,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """List NFS volumes in a project.
+        
+        Args:
+            project_id: Project ID
+            page_number: Page number for pagination
+            page_size: Results per page
+            
+        Returns:
+            List of volumes
+        """
+        params = {}
+        if page_number is not None:
+            params["pageNumber"] = page_number
+        if page_size is not None:
+            params["pageSize"] = page_size
+        
+        response = await self.client.get(
+            f"/v1/projects/{project_id}/volumes",
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    async def get_volume(
+        self,
+        project_id: str,
+        volume_id: str,
+    ) -> Dict[str, Any]:
+        """Get details of an NFS volume.
+        
+        Args:
+            project_id: Project ID
+            volume_id: Volume ID
+            
+        Returns:
+            Volume details
+        """
+        response = await self.client.get(
+            f"/v1/projects/{project_id}/volumes/{volume_id}",
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    async def create_volume(
+        self,
+        project_id: str,
+        volume_id: str,
+        data_center_id: str,
+        size_gib: int,
+    ) -> Dict[str, Any]:
+        """Create a new NFS volume.
+        
+        Args:
+            project_id: Project ID
+            volume_id: Unique volume ID
+            data_center_id: Data center ID
+            size_gib: Size in GiB
+            
+        Returns:
+            Created volume details
+        """
+        body = {
+            "id": volume_id,
+            "dataCenterId": data_center_id,
+            "sizeGib": size_gib,
+        }
+        
+        response = await self.client.post(
+            f"/v1/projects/{project_id}/volumes",
+            json=body,
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    async def update_volume(
+        self,
+        project_id: str,
+        volume_id: str,
+        size_gib: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Update an NFS volume (resize).
+        
+        Args:
+            project_id: Project ID
+            volume_id: Volume ID
+            size_gib: New size in GiB
+            
+        Returns:
+            Updated volume details
+        """
+        body = {}
+        if size_gib is not None:
+            body["sizeGib"] = size_gib
+        
+        response = await self.client.patch(
+            f"/v1/projects/{project_id}/volumes/{volume_id}",
+            json=body,
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    async def delete_volume(
+        self,
+        project_id: str,
+        volume_id: str,
+    ) -> Dict[str, Any]:
+        """Delete an NFS volume.
+        
+        Args:
+            project_id: Project ID
+            volume_id: Volume ID
+            
+        Returns:
+            Response confirming deletion
+        """
+        response = await self.client.delete(
+            f"/v1/projects/{project_id}/volumes/{volume_id}",
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    # ========================================================================
+    # Billing Accounts
+    # ========================================================================
+    
+    async def list_billing_accounts(
+        self,
+        page_token: Optional[str] = None,
+        page_size: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """List billing accounts accessible by the current user.
+        
+        Args:
+            page_token: Page token for pagination
+            page_size: Results per page
+            
+        Returns:
+            List of billing account dictionaries
+        """
+        params = {}
+        if page_token:
+            params["pageToken"] = page_token
+        if page_size is not None:
+            params["pageSize"] = page_size
+        
+        response = await self.client.get(
+            "/v1/billing-accounts",
+            params=params,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data.get("billingAccounts", [])
+    
     # ========================================================================
     # Projects
     # ========================================================================
@@ -820,6 +1049,19 @@ class CudoComputeSDK:
         data = response.json()
         return data.get("sshKeys", [])
     
+    async def get_ssh_key(self, ssh_key_id: str) -> Dict[str, Any]:
+        """Get details of a specific SSH key.
+        
+        Args:
+            ssh_key_id: SSH key ID
+            
+        Returns:
+            SSH key details
+        """
+        response = await self.client.get(f"/v1/ssh-keys/{ssh_key_id}")
+        response.raise_for_status()
+        return response.json()
+    
     async def create_ssh_key(
         self,
         public_key: str,
@@ -851,6 +1093,7 @@ class CudoComputeSDK:
         response = await self.client.delete(f"/v1/ssh-keys/{ssh_key_id}")
         response.raise_for_status()
         return response.json()
+
     
     # ========================================================================
     # Security Groups
@@ -889,6 +1132,42 @@ class CudoComputeSDK:
         response.raise_for_status()
         data = response.json()
         return data.get("securityGroups", [])
+    
+    async def create_security_group(
+        self,
+        project_id: str,
+        security_group_id: str,
+        data_center_id: str,
+        description: Optional[str] = None,
+        rules: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Create a new security group.
+        
+        Args:
+            project_id: Project ID
+            security_group_id: Unique security group identifier
+            data_center_id: Data center ID where the security group will be created
+            description: Optional security group description
+            rules: Optional list of security rules
+            
+        Returns:
+            Created security group details
+        """
+        body = {
+            "id": security_group_id,
+            "dataCenterId": data_center_id,
+        }
+        if description:
+            body["description"] = description
+        if rules:
+            body["rules"] = rules
+        
+        response = await self.client.post(
+            f"/v1/projects/{project_id}/security-groups",
+            json=body,
+        )
+        response.raise_for_status()
+        return response.json()
     
     # ========================================================================
     # Networks
@@ -1357,6 +1636,186 @@ class CudoComputeSDK:
         )
         response.raise_for_status()
         return response.json()
+    
+    async def list_security_group_rules(
+        self,
+        project_id: str,
+        security_group_id: str,
+    ) -> List[Dict[str, Any]]:
+        """List all rules in a security group.
+        
+        Args:
+            project_id: Project ID
+            security_group_id: Security group ID
+            
+        Returns:
+            List of security group rules
+        """
+        sg = await self.get_security_group(project_id, security_group_id)
+        return sg.get("rules", [])
+    
+    async def get_security_group_rule(
+        self,
+        project_id: str,
+        security_group_id: str,
+        rule_id: str,
+    ) -> Dict[str, Any]:
+        """Get a specific rule from a security group.
+        
+        Args:
+            project_id: Project ID
+            security_group_id: Security group ID
+            rule_id: Rule ID
+            
+        Returns:
+            Security group rule details
+            
+        Raises:
+            ValueError: If rule not found
+        """
+        rules = await self.list_security_group_rules(project_id, security_group_id)
+        for rule in rules:
+            if rule.get("id") == rule_id:
+                return rule
+        raise ValueError(f"Rule {rule_id} not found in security group {security_group_id}")
+    
+    async def create_security_group_rule(
+        self,
+        project_id: str,
+        security_group_id: str,
+        protocol: str,
+        rule_type: str,
+        ip_range_cidr: str,
+        ports: Optional[str] = None,
+        icmp_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a new rule in a security group.
+        
+        Args:
+            project_id: Project ID
+            security_group_id: Security group ID
+            protocol: Protocol (PROTOCOL_TCP, PROTOCOL_UDP, PROTOCOL_ICMP, etc.)
+            rule_type: Rule type (RULE_TYPE_INBOUND, RULE_TYPE_OUTBOUND)
+            ip_range_cidr: IP range in CIDR format
+            ports: Port range (e.g., "80", "80-443")
+            icmp_type: ICMP type (for ICMP protocol)
+            
+        Returns:
+            Updated security group with new rule
+        """
+        sg = await self.get_security_group(project_id, security_group_id)
+        rules = sg.get("rules", [])
+        
+        # Create new rule
+        new_rule = {
+            "protocol": protocol,
+            "ruleType": rule_type,
+            "ipRangeCidr": ip_range_cidr,
+        }
+        if ports:
+            new_rule["ports"] = ports
+        if icmp_type:
+            new_rule["icmpType"] = icmp_type
+        
+        rules.append(new_rule)
+        
+        # Update security group with new rules
+        return await self.update_security_group(
+            project_id,
+            security_group_id,
+            rules=rules,
+            dataCenterId=sg["dataCenterId"],
+        )
+    
+    async def delete_security_group_rule(
+        self,
+        project_id: str,
+        security_group_id: str,
+        rule_id: str,
+    ) -> Dict[str, Any]:
+        """Delete a rule from a security group.
+        
+        Args:
+            project_id: Project ID
+            security_group_id: Security group ID
+            rule_id: Rule ID to delete
+            
+        Returns:
+            Updated security group without the deleted rule
+        """
+        sg = await self.get_security_group(project_id, security_group_id)
+        rules = sg.get("rules", [])
+        
+        # Filter out the rule to delete
+        updated_rules = [r for r in rules if r.get("id") != rule_id]
+        
+        if len(updated_rules) == len(rules):
+            raise ValueError(f"Rule {rule_id} not found in security group {security_group_id}")
+        
+        # Update security group with filtered rules
+        return await self.update_security_group(
+            project_id,
+            security_group_id,
+            rules=updated_rules,
+            dataCenterId=sg["dataCenterId"],
+        )
+    
+    async def update_security_group_rule(
+        self,
+        project_id: str,
+        security_group_id: str,
+        rule_id: str,
+        protocol: Optional[str] = None,
+        rule_type: Optional[str] = None,
+        ip_range_cidr: Optional[str] = None,
+        ports: Optional[str] = None,
+        icmp_type: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Update a rule in a security group.
+        
+        Args:
+            project_id: Project ID
+            security_group_id: Security group ID
+            rule_id: Rule ID to update
+            protocol: New protocol value
+            rule_type: New rule type value
+            ip_range_cidr: New IP range in CIDR format
+            ports: New port range
+            icmp_type: New ICMP type
+            
+        Returns:
+            Updated security group with modified rule
+        """
+        sg = await self.get_security_group(project_id, security_group_id)
+        rules = sg.get("rules", [])
+        
+        # Find and update the rule
+        updated = False
+        for rule in rules:
+            if rule.get("id") == rule_id:
+                if protocol is not None:
+                    rule["protocol"] = protocol
+                if rule_type is not None:
+                    rule["ruleType"] = rule_type
+                if ip_range_cidr is not None:
+                    rule["ipRangeCidr"] = ip_range_cidr
+                if ports is not None:
+                    rule["ports"] = ports
+                if icmp_type is not None:
+                    rule["icmpType"] = icmp_type
+                updated = True
+                break
+        
+        if not updated:
+            raise ValueError(f"Rule {rule_id} not found in security group {security_group_id}")
+        
+        # Update security group with modified rules
+        return await self.update_security_group(
+            project_id,
+            security_group_id,
+            rules=rules,
+            dataCenterId=sg["dataCenterId"],
+        )
     
     async def update_project(
         self,

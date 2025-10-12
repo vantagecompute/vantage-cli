@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get Cudo Compute project command."""
+"""List Cudo Compute bare-metal machines command."""
 
 import logging
 
@@ -26,19 +26,30 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def get_project(
+async def list_machines(
     ctx: typer.Context,
-    project_id: str = typer.Argument(..., help="Project ID"),
+    project_id: str = typer.Option(..., "--project-id", help="Project ID"),
+    page_number: int = typer.Option(None, "--page-number", help="Page number (min 1)"),
+    page_size: int = typer.Option(None, "--page-size", help="Results per page (min 1, max 100)"),
 ) -> None:
-    """Get details of a specific Cudo Compute project."""
+    """List bare-metal machines within a Cudo Compute project."""
 
     try:
-        project = await ctx.obj.cudo_sdk.get_project(project_id=project_id)
+        result = await ctx.obj.cudo_sdk.list_machines(
+            project_id=project_id,
+            page_number=page_number,
+            page_size=page_size,
+        )
+        machines = result.get("machines", [])
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to get project: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to list bare-metal machines: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_get(
-        data=project,
-        resource_name=f"Project: {project_id}",
+    if not machines:
+        logger.debug(f"No bare-metal machines found in project '{project_id}'.")
+        return
+    
+    ctx.obj.formatter.render_list(
+        data=machines,
+        resource_name="Cudo Compute Bare-Metal Machines",
     )

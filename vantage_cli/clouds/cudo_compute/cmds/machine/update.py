@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Create Cudo Compute bare-metal machine command."""
+"""Update Cudo Compute bare-metal machine command."""
 
 import logging
 
@@ -26,39 +26,34 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def create_metal(
+async def update_machine(
     ctx: typer.Context,
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
-    machine_id: str = typer.Argument(..., help="Unique machine identifier"),
-    data_center_id: str = typer.Option(..., "--data-center-id", help="Data center ID"),
-    machine_type_id: str = typer.Option(..., "--machine-type-id", help="Machine type ID"),
-    os: str = typer.Option(..., "--os", help="Operating system"),
+    machine_id: str = typer.Argument(..., help="Machine ID"),
     custom_ssh_keys: str = typer.Option(None, "--custom-ssh-keys", help="Comma-separated SSH keys"),
-    start_script: str = typer.Option(None, "--start-script", help="Start script"),
 ) -> None:
-    """Create a new Cudo Compute bare-metal machine."""
+    """Update a Cudo Compute bare-metal machine."""
 
     try:
         kwargs = {}
         if custom_ssh_keys:
             kwargs["customSshKeys"] = custom_ssh_keys.split(",")
-        if start_script:
-            kwargs["startScript"] = start_script
         
-        machine = await ctx.obj.cudo_sdk.create_machine(
+        if not kwargs:
+            logger.debug("[bold yellow]Warning:[/bold yellow] No update parameters provided")
+            raise typer.Exit(code=1)
+        
+        machine = await ctx.obj.cudo_sdk.update_machine(
             project_id=project_id,
             machine_id=machine_id,
-            data_center_id=data_center_id,
-            machine_type_id=machine_type_id,
-            os=os,
             **kwargs,
         )
-        logger.debug(f"[bold green]Success:[/bold green] Created bare-metal machine '{machine_id}'")
+        logger.debug(f"[bold green]Success:[/bold green] Updated bare-metal machine '{machine_id}'")
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to create bare-metal machine: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to update bare-metal machine: {e}")
         raise typer.Exit(code=1)
 
     ctx.obj.formatter.render_single(
         data=machine,
-        resource_name=f"Created Bare-Metal Machine: {machine_id}",
+        resource_name=f"Updated Bare-Metal Machine: {machine_id}",
     )

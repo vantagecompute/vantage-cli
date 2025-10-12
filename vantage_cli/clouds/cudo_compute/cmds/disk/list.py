@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get Cudo Compute bare-metal machine command."""
+"""List Cudo Compute disks command."""
 
 import logging
 
@@ -26,23 +26,31 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def get_metal(
+async def list_disks(
     ctx: typer.Context,
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
-    machine_id: str = typer.Argument(..., help="Machine ID"),
+    data_center_id: str = typer.Option(None, "--data-center-id", help="Filter by data center ID"),
+    page_number: int = typer.Option(None, "--page-number", help="Page number (min 1)"),
+    page_size: int = typer.Option(None, "--page-size", help="Results per page (min 1, max 100)"),
 ) -> None:
-    """Get details of a specific Cudo Compute bare-metal machine."""
+    """List disks within a Cudo Compute project."""
 
     try:
-        machine = await ctx.obj.cudo_sdk.get_machine(
+        disks = await ctx.obj.cudo_sdk.list_disks(
             project_id=project_id,
-            machine_id=machine_id,
+            data_center_id=data_center_id,
+            page_number=page_number,
+            page_size=page_size,
         )
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to get bare-metal machine: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to list disks: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
-        data=machine,
-        resource_name=f"Bare-Metal Machine: {machine_id}",
+    if not disks:
+        logger.debug(f"No disks found in project '{project_id}'.")
+        return
+    
+    ctx.obj.formatter.render_list(
+        data=disks,
+        resource_name="Cudo Compute Disks",
     )

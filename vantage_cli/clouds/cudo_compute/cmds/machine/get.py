@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Delete Cudo Compute bare-metal machine command."""
+"""Get Cudo Compute bare-metal machine command."""
 
 import logging
 
@@ -26,28 +26,23 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def delete_metal(
+async def get_machine(
     ctx: typer.Context,
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
     machine_id: str = typer.Argument(..., help="Machine ID"),
-    force: bool = typer.Option(False, "--force", help="Skip confirmation prompt"),
 ) -> None:
-    """Delete a Cudo Compute bare-metal machine. All data will be lost."""
-
-    if not force:
-        confirm = typer.confirm(
-            f"Are you sure you want to delete bare-metal machine '{machine_id}'? All data will be lost. This action cannot be undone."
-        )
-        if not confirm:
-            logger.debug("Operation cancelled.")
-            raise typer.Exit(code=0)
+    """Get details of a specific Cudo Compute bare-metal machine."""
 
     try:
-        await ctx.obj.cudo_sdk.delete_machine(
+        machine = await ctx.obj.cudo_sdk.get_machine(
             project_id=project_id,
             machine_id=machine_id,
         )
-        logger.debug(f"[bold green]Success:[/bold green] Deleted bare-metal machine '{machine_id}'")
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to delete bare-metal machine: {e}")
+        logger.debug(f"[bold red]Error:[/bold red] Failed to get bare-metal machine: {e}")
         raise typer.Exit(code=1)
+
+    ctx.obj.formatter.render_single(
+        data=machine,
+        resource_name=f"Bare-Metal Machine: {machine_id}",
+    )
