@@ -9,7 +9,7 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Get details of a specific virtual machine type for Cudo Compute."""
+"""Get details of a specific VM machine type for Cudo Compute."""
 
 import logging
 from typing import Optional
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def get_machine_type(
+async def get_vm_machine_type(
     ctx: typer.Context,
     datacenter_id: str = typer.Argument(
         ...,
@@ -43,13 +43,13 @@ async def get_machine_type(
         help="Project ID for custom pricing (optional)",
     ),
 ) -> None:
-    """Get details of a specific bare-metal machine type.
+    """Get details of a specific VM machine type.
     
-    Retrieves detailed information about a bare-metal machine type including pricing,
+    Retrieves detailed information about a VM machine type including pricing,
     CPU/GPU models, and resource limits for a specific data center.
     """
     try:
-        machine_type_details = await ctx.obj.cudo_sdk.get_machine_type(
+        machine_type_details = await ctx.obj.cudo_sdk.get_vm_machine_type(
             data_center_id=datacenter_id,
             machine_type_id=machine_type,
             project_id=project_id,
@@ -57,13 +57,13 @@ async def get_machine_type(
         
         ctx.obj.formatter.render_get(
             data=machine_type_details,
-            resource_name=f"Bare-Metal Machine Type: {machine_type}",
+            resource_name=f"VM Machine Type: {machine_type}",
         )
     except Exception as e:
         error_msg = str(e)
         if "404" in error_msg or "not found" in error_msg.lower():
             typer.echo(
-                f"Bare-metal machine type '{machine_type}' not found in data center '{datacenter_id}'",
+                f"VM machine type '{machine_type}' not found in data center '{datacenter_id}'",
                 err=True,
             )
         else:

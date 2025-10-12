@@ -9,4 +9,9 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Cudo Compute cloud provider module."""
+"""VM machine type commands for Cudo Compute."""
+
+from .get import get_vm_machine_type
+from .list import list_vm_machine_types
+
+__all__ = ["list_vm_machine_types", "get_vm_machine_type"]

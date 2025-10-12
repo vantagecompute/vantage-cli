@@ -14,7 +14,10 @@
 
 import typer
 
+from vantage_cli.clouds.cudo_compute.utils import get_datacenter_id_from_credentials
+
 from .templates import INIT_SCRIPT
+
 
 async def init_project_and_head_node(
     ctx,
@@ -37,7 +40,7 @@ async def init_project_and_head_node(
     
     # Get datacenter_id from credentials, or use first available
     from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
-    data_center_id = CudoComputeSDK.get_datacenter_id_from_credentials()
+    data_center_id = get_datacenter_id_from_credentials()
     
     if not data_center_id:
         # Fall back to first available data center

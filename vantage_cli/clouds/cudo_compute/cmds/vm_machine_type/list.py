@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 @attach_settings
 @attach_persona
 @attach_cudo_compute_client
-async def list_machine_types(
+async def list_vm_machine_types(
     ctx: typer.Context,
     datacenter_id: Optional[str] = typer.Option(
         None,
@@ -40,12 +40,12 @@ async def list_machine_types(
         help="Project ID for custom pricing (optional)",
     ),
 ) -> None:
-    """List all bare-metal machine types available.
+    """List all VM machine types available.
     
     If --datacenter-id is not provided, returns machine types for all data centers.
     """
     try:
-        all_machine_types = await ctx.obj.cudo_sdk.list_machine_types(project_id=project_id)
+        all_machine_types = await ctx.obj.cudo_sdk.list_vm_machine_types(project_id=project_id)
         
         if datacenter_id:
             # Filter for specific data center
@@ -63,21 +63,21 @@ async def list_machine_types(
             
             ctx.obj.formatter.render_list(
                 data=machine_types,
-                resource_name=f"Bare-Metal Machine Types for {datacenter_id}",
+                resource_name=f"VM Machine Types for {datacenter_id}",
             )
         else:
             # Show all machine types
             if not all_machine_types:
-                typer.echo("No bare-metal machine types found", err=True)
+                typer.echo("No VM machine types found", err=True)
                 raise typer.Exit(1)
             
             ctx.obj.formatter.render_list(
                 data=all_machine_types,
-                resource_name="Bare-Metal Machine Types",
+                resource_name="VM Machine Types",
             )
     except typer.Exit:
         raise
     except Exception as e:
-        logger.debug(f"Failed to list bare-metal machine types: {e}")
-        typer.echo(f"Error listing bare-metal machine types: {e}", err=True)
+        logger.debug(f"Failed to list VM machine types: {e}")
+        typer.echo(f"Error listing VM machine types: {e}", err=True)
         raise typer.Exit(code=1)

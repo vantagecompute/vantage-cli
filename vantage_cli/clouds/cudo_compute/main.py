@@ -62,6 +62,9 @@ from .cmds.vm_data_center.get import get_vm_data_center
 from .cmds.machine_type.list import list_machine_types
 from .cmds.machine_type.get import get_machine_type
 
+from .cmds.vm_machine_type.list import list_vm_machine_types
+from .cmds.vm_machine_type.get import get_vm_machine_type
+
 from .cmds.data_center.list import list_data_centers
 from .cmds.data_center.get import get_data_center
 
@@ -101,7 +104,8 @@ network_app = AsyncTyper(name="network", help="Manage Cudo Compute networks", no
 security_group_app = AsyncTyper(name="security-group", help="Manage Cudo Compute security groups", no_args_is_help=True)
 security_group_rule_app = AsyncTyper(name="sg-rule", help="Manage Cudo Compute security group rules", no_args_is_help=True)
 vm_data_center_app = AsyncTyper(name="vm-data-center", help="Query VM data centers", no_args_is_help=True)
-machine_type_app = AsyncTyper(name="machine-type", help="Query VM machine types", no_args_is_help=True)
+machine_type_app = AsyncTyper(name="machine-type", help="Query bare-metal machine types", no_args_is_help=True)
+vm_machine_type_app = AsyncTyper(name="vm-machine-type", help="Query VM machine types", no_args_is_help=True)
 data_center_app = AsyncTyper(name="data-center", help="Query Cudo Compute data centers", no_args_is_help=True)
 image_app = AsyncTyper(name="image", help="Query Cudo Compute VM images", no_args_is_help=True)
 disk_app = AsyncTyper(name="disk", help="Manage Cudo Compute storage disks", no_args_is_help=True)
@@ -165,6 +169,10 @@ vm_data_center_app.command("get")(get_vm_data_center)
 machine_type_app.command("list")(list_machine_types)
 machine_type_app.command("get")(get_machine_type)
 
+# Register VM machine type commands (alias)
+vm_machine_type_app.command("list")(list_vm_machine_types)
+vm_machine_type_app.command("get")(get_vm_machine_type)
+
 # Register data center commands
 data_center_app.command("list")(list_data_centers)
 data_center_app.command("get")(get_data_center)
@@ -203,6 +211,7 @@ app.add_typer(security_group_app)
 app.add_typer(security_group_rule_app)
 app.add_typer(vm_data_center_app)
 app.add_typer(machine_type_app)
+app.add_typer(vm_machine_type_app)
 app.add_typer(data_center_app)
 app.add_typer(image_app)
 app.add_typer(disk_app)
@@ -216,6 +225,9 @@ app.command("vms", help="List Cudo Compute VMs (alias for 'vm list')", hidden=Tr
 app.command("machines", help="List Cudo Compute bare-metal machines (alias for 'machine list')", hidden=True)(list_machines)
 app.command("networks", help="List Cudo Compute networks (alias for 'network list')", hidden=True)(list_networks)
 app.command("security-groups", help="List Cudo Compute security groups (alias for 'security-group list')", hidden=True)(list_security_groups)
+app.command("vm-data-centers", help="List VM data centers (alias for 'vm-data-center list')", hidden=True)(list_vm_data_centers)
+app.command("machine-types", help="List bare-metal machine types (alias for 'machine-type list')", hidden=True)(list_machine_types)
+app.command("vm-machine-types", help="List VM machine types (alias for 'vm-machine-type list')", hidden=True)(list_vm_machine_types)
 app.command("data-centers", help="List Cudo Compute data centers (alias for 'data-center list')", hidden=True)(list_data_centers)
 app.command("images", help="List Cudo Compute VM images (alias for 'image list')", hidden=True)(list_images)
 app.command("disks", help="List Cudo Compute storage disks (alias for 'disk list')", hidden=True)(list_disks)

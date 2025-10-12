@@ -39,7 +39,7 @@ async def delete_security_group(
             f"Are you sure you want to delete security group '{security_group_id}'? This action cannot be undone."
         )
         if not confirm:
-            logger.debug("Operation cancelled.")
+            typer.echo("Operation cancelled.")
             raise typer.Exit(code=0)
 
     try:
@@ -47,7 +47,7 @@ async def delete_security_group(
             project_id=project_id,
             security_group_id=security_group_id,
         )
-        logger.debug(f"[bold green]Success:[/bold green] Deleted security group '{security_group_id}'")
+        typer.echo(f"✓ Successfully deleted security group '{security_group_id}'")
     except Exception as e:
-        logger.debug(f"[bold red]Error:[/bold red] Failed to delete security group: {e}")
+        typer.echo(f"Error deleting security group: {e}", err=True)
         raise typer.Exit(code=1)
