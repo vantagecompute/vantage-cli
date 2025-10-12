@@ -12,5 +12,5 @@
 """Constants for Cudo Compute SLURM on metal deployment."""
 
 APP_NAME = "slurm-metal"
-CLOUD = "cudo_compute"
+CLOUD = "cudo-compute"
 SUBSTRATE = "metal"

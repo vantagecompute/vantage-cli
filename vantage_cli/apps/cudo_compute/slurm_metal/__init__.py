@@ -13,3 +13,5 @@
 Slurm on Metal deployment applications package.
 This package contains deployment instructions to deploy Slurm on Metal on Cudo Compute.
 """
+
+__all__ = []

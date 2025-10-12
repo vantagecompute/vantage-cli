@@ -15,7 +15,8 @@ import re
 from typing import Any, Dict, List, Optional
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
 from vantage_cli.gql_client import GraphQLError, create_async_graphql_client

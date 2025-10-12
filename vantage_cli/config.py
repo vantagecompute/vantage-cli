@@ -40,6 +40,7 @@ class Settings(BaseModel):
         "azure",
         "on-premises",
         "k8s",
+        "cudo-compute",
     ]
     vantage_url: str = "https://app.vantagecompute.ai"
     oidc_client_id: str = "default"

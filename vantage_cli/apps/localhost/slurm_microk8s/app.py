@@ -27,7 +27,6 @@ from vantage_cli.apps.constants import DEV_JUPYTERHUB_TOKEN, DEV_ORG_ID, DEV_SSS
 from vantage_cli.apps.localhost.slurm_microk8s.chart_values import CHART_VALUES_SLURM_CLUSTER
 from vantage_cli.apps.localhost.slurm_microk8s.constants import (
     APP_NAME,
-    CLOUD,
     DEFAULT_NAMESPACE_CERT_MANAGER,
     DEFAULT_NAMESPACE_PROMETHEUS,
     DEFAULT_NAMESPACE_SLINKY,
@@ -113,7 +112,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         app_name=APP_NAME,
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
-        cloud_provider=CLOUD,
+        cloud_name="localhost",
         substrate=SUBSTRATE,
         additional_metadata={
             "org_id": org_id,

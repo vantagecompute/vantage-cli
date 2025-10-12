@@ -141,7 +141,7 @@ class TableViewerApp(App):
         elif value == "":
             return "N/A"
         elif isinstance(value, bool):
-            return "Yes" if value else "No"
+            return "✓" if value else "✗"
         elif isinstance(value, (list, dict)):
             # For complex nested data, show a summary
             if isinstance(value, list):
@@ -2014,7 +2014,7 @@ class UniversalOutputFormatter:
         elif value == "":
             return "N/A"
         elif isinstance(value, bool):
-            return "Yes" if value else "No"
+            return "[green]✓[/green]" if value else "[red]✗[/red]"
         elif isinstance(value, (list, dict)):
             # For complex nested data, show a summary
             if isinstance(value, list):

@@ -7,7 +7,8 @@ from typing import Any, Callable, Dict, Optional
 
 import httpx
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.json import JSON
 

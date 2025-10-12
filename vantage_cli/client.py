@@ -19,7 +19,8 @@ from typing import Any, Callable, TypeVar
 import httpx
 import pydantic
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
 

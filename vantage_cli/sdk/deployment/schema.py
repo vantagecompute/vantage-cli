@@ -18,7 +18,9 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, computed_field
 
-from vantage_cli.constants import PROVIDER_SUBSTRATE_MAPPINGS, VANTAGE_CLI_DEPLOYMENTS_YAML_PATH as DEPLOYMENTS_YAML
+from vantage_cli.constants import VANTAGE_CLI_DEPLOYMENTS_YAML_PATH as DEPLOYMENTS_YAML
+from vantage_cli.sdk.cloud.schema import Cloud
+from vantage_cli.sdk.cloud_credential.schema import CloudCredential
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 
 
@@ -48,7 +50,9 @@ def save_deployments(deployments_data: Dict[str, Any]) -> None:
     Args:
         deployments_data: Dictionary containing deployments data
     """
-    from loguru import logger
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     try:
         # Ensure the directory exists
@@ -73,7 +77,8 @@ class Deployment(BaseModel):
     app_name: str
     cluster: Cluster
     vantage_cluster_ctx: VantageClusterContext
-    cloud_provider: str
+    cloud: Cloud
+    credential: Optional[CloudCredential] = None
     substrate: str
     status: str
     created_at: datetime = Field(default_factory=datetime.now)
@@ -105,26 +110,25 @@ class Deployment(BaseModel):
         and saves it back to ~/.vantage-cli/deployments.yaml.
 
         """
+        from vantage_cli.sdk.cloud.schema import CloudType
+        
         deployments_data = load_deployments()
-        deployments_data["deployments"][str(self.id)] = self.model_dump()
+        # Use mode='python' to serialize properly
+        deployment_dict = self.model_dump(mode='python')
+        
+        # Ensure CloudType enums are serialized as strings
+        if 'credential' in deployment_dict and deployment_dict['credential']:
+            cred = deployment_dict['credential']
+            if isinstance(cred.get('credential_type'), CloudType):
+                cred['credential_type'] = cred['credential_type'].value
+        
+        deployments_data["deployments"][str(self.id)] = deployment_dict
         save_deployments(deployments_data)
 
     @computed_field
     @property
     def name(self) -> str:
         return f"{self.app_name}-{self.cluster.name}-{self.created_at_as_timestamp_str[:5]}"
-
-    @computed_field
-    @property
-    def deployment_id(self) -> str:
-        """Get the deployment ID (alias for id)."""
-        return self.id
-
-    @computed_field
-    @property
-    def deployment_name(self) -> str:
-        """Get the deployment name (alias for name)."""
-        return self.name
 
     @computed_field
     @property
@@ -137,12 +141,6 @@ class Deployment(BaseModel):
     def cluster_id(self) -> str:
         """Get the cluster ID (client_id) from the cluster object."""
         return self.cluster.client_id
-
-    @computed_field
-    @property
-    def cloud(self) -> str:
-        """Get the cloud provider (alias for cloud_provider)."""
-        return self.cloud_provider
 
     @computed_field
     @property
@@ -176,4 +174,4 @@ class Deployment(BaseModel):
     @property
     def compatible_integrations(self) -> list[str]:
         """Get a list of compatible integration types based on the cloud type."""
-        return PROVIDER_SUBSTRATE_MAPPINGS.get(self.cloud_provider, [])
+        return self.cloud.substrates

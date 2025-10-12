@@ -16,17 +16,17 @@ import datetime
 import logging
 import shutil
 import subprocess
-import sys
 from typing import Optional
 
 import typer
 from jose import jwt
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.panel import Panel
 
 
-from vantage_cli import AsyncTyper, __version__
+from vantage_cli import AsyncTyper, __version__, setup_logging
 from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
 from vantage_cli.cache import clear_token_cache, load_tokens_from_cache, with_cache
 from vantage_cli.client import attach_client
@@ -103,44 +103,6 @@ app.add_typer(storage_app, name="storage")
 app.add_typer(support_ticket_app, name="support-ticket")
 
 
-def setup_logging(verbose: bool = False):
-    """Configure logging based on verbosity level."""
-    import logging
-
-    logger.remove()
-
-    if verbose:
-        logger.add(sys.stdout, level="DEBUG")
-        # Enable rich tracebacks only in verbose mode
-        from rich import traceback
-
-        traceback.install()
-        logging.getLogger("httpx").disabled = False
-        logging.getLogger("httpcore").disabled = False
-
-    else:
-        # In non-verbose mode, only show ERROR and CRITICAL messages
-        # This suppresses DEBUG, INFO, and WARNING messages
-        logger.add(sys.stdout, level="ERROR")
-
-        # Disable rich tracebacks in normal mode
-        # Reset exception handler to default
-        sys.excepthook = sys.__excepthook__
-
-        # Completely suppress HTTP logs by setting them to CRITICAL level
-        # This prevents HTTP request/response logs from cluttering the user interface
-        # logging.getLogger("httpx").setLevel(logging.CRITICAL)
-        # logging.getLogger("httpcore").setLevel(logging.CRITICAL)
-        # logging.getLogger("urllib3").setLevel(logging.CRITICAL)
-        # ogging.getLogger("requests").setLevel(logging.CRITICAL)
-
-        # Also suppress any potential root logger or httpx._client logs
-        # logging.getLogger("httpx._client").setLevel(logging.CRITICAL)
-        # logging.getLogger().setLevel(logging.WARNING)  # Set root logger to WARNING
-
-    logger.debug("Logging initialized")
-
-
 @app.callback(invoke_without_command=True)
 @handle_abort
 def main(ctx: typer.Context):
@@ -155,6 +117,7 @@ def main(ctx: typer.Context):
     # Get injected parameters from context object if they exist
     profile = getattr(ctx.obj, "profile", None) if hasattr(ctx, "obj") and ctx.obj else None
     verbose = getattr(ctx.obj, "verbose", False) if hasattr(ctx, "obj") and ctx.obj else False
+    log_file = getattr(ctx.obj, "log_file", False) if hasattr(ctx, "obj") and ctx.obj else False
     json_output = (
         getattr(ctx.obj, "json_output", False) if hasattr(ctx, "obj") and ctx.obj else False
     )
@@ -162,7 +125,7 @@ def main(ctx: typer.Context):
     # Use explicit profile if provided, otherwise get the active profile
     active_profile = profile if profile is not None else get_active_profile()
 
-    setup_logging(verbose=verbose)
+    setup_logging(verbose=verbose, log_file=log_file)
 
     # Create a single console instance for the entire application
     # console = Console(width=200)

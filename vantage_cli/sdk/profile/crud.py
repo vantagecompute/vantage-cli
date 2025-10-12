@@ -15,7 +15,8 @@ import json
 from typing import Any, Dict, List, Optional
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from vantage_cli.cache import clear_token_cache
 from vantage_cli.config import (

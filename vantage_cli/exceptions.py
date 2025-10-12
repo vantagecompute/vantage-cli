@@ -19,7 +19,8 @@ from typing import TYPE_CHECKING
 import buzz
 import snick
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.panel import Panel
 

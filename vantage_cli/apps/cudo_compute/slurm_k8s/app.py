@@ -21,7 +21,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 import typer
 import yaml
 from typing_extensions import Annotated
@@ -43,10 +44,6 @@ from vantage_cli.sdk.deployment.crud import deployment_sdk
 from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 from .constants import APP_NAME, SUBSTRATE
-
-from .constants import (
-    CLOUD as CLOUD_LOCALHOST,
-)
 from .render import success_create_message, success_destroy_message
 
 def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
@@ -198,7 +195,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
         verbose=verbose,
-        cloud_provider=CLOUD_LOCALHOST,
+        cloud_name="localhost",
         substrate=SUBSTRATE,
     )
     deployment.write()

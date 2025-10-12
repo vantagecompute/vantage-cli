@@ -42,7 +42,8 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Iterable, List, TypeVar, cast
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from vantage_cli.config import attach_settings
 from vantage_cli.dashboard import DashboardApp, DashboardConfig
@@ -87,7 +88,7 @@ def _deployment_handler(deployment: Deployment):  # pragma: no cover - trivial c
             "worker": worker_id,
             "status": deployment.status,
             "cluster": deployment.cluster.name,
-            "cloud": deployment.cloud_provider,
+            "cloud": deployment.cloud.name,
             "substrate": deployment.substrate,
         }
 

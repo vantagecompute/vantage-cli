@@ -16,7 +16,12 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import typer
 import yaml
-from loguru import logger
+import logging
+
+from vantage_cli.commands.cloud import credential
+from vantage_cli.sdk.cloud.schema import Cloud
+from vantage_cli.sdk.cloud_credential.schema import CloudCredential
+logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
 from vantage_cli.sdk.deployment.schema import Deployment
@@ -132,13 +137,35 @@ class DeploymentSDK:
                 logger.warning(f"Missing or invalid vantage_cluster_ctx data for deployment {deployment_id}")
                 return None
 
+            # Handle cloud field - can be Cloud object or cloud name string (for backward compatibility)
+            cloud_data = deployment_data.get("cloud")
+            if cloud_data is None:
+                # Backward compatibility: try cloud_provider
+                cloud_data = deployment_data.get("cloud_provider", "unknown")
+            
+            # Convert cloud data to Cloud object
+            from vantage_cli.sdk.cloud import cloud_sdk
+            if isinstance(cloud_data, str):
+                # If it's a string, get the Cloud object from SDK
+                cloud = cloud_sdk.get(cloud_data)
+                if not cloud:
+                    logger.warning(f"Cloud '{cloud_data}' not found for deployment {deployment_id}, using localhost")
+                    cloud = cloud_sdk.get("localhost")
+            elif isinstance(cloud_data, dict):
+                # If it's a dict (from YAML), reconstruct Cloud object
+                from vantage_cli.sdk.cloud.schema import Cloud as CloudModel
+                cloud = CloudModel(**cloud_data)
+            else:
+                # Already a Cloud object
+                cloud = cloud_data
+
             # Create Deployment object (id is a string)
             return Deployment(
                 id=deployment_id,
                 app_name=deployment_data.get("app_name", "unknown"),
                 cluster=cluster,
                 vantage_cluster_ctx=vantage_cluster_ctx,
-                cloud_provider=deployment_data.get("cloud_provider", deployment_data.get("cloud", "unknown")),
+                cloud=cloud,
                 substrate=deployment_data.get("substrate", "unknown"),
                 status=deployment_data.get("status", "unknown"),
                 created_at=created_at,
@@ -178,7 +205,7 @@ class DeploymentSDK:
         cloud_filter = kwargs.get("cloud")
         if cloud_filter and cloud_filter != "all":
             deployments = [
-                d for d in deployments if d.cloud_provider.lower() == cloud_filter.lower()
+                d for d in deployments if d.cloud.name.lower() == cloud_filter.lower()
             ]
 
         status_filter = kwargs.get("status")
@@ -276,8 +303,9 @@ class DeploymentSDK:
         app_name: str,
         cluster: "Cluster",
         vantage_cluster_ctx: "VantageClusterContext",
-        cloud_provider: str,
+        cloud: Cloud,
         substrate: str,
+        credential: Optional[CloudCredential] = None,
         status: str = "init",
         additional_metadata: Optional[Dict[str, Any]] = None,
         k8s_namespaces: Optional[List[str]] = None,
@@ -289,7 +317,8 @@ class DeploymentSDK:
             app_name: Name of the app being deployed (e.g., 'slurm-multipass')
             cluster: Cluster object
             vantage_cluster_ctx: VantageClusterContext object
-            cloud_provider: Cloud provider type (e.g., 'localhost', 'aws', 'gcp')
+            cloud: Cloud object
+            credential: Optional CloudCredential object
             substrate: Cloud infrastructure type (e.g., 'k8s', 'vm', 'container')
             status: Initial status (default: 'init')
             additional_metadata: Additional app-specific metadata to store
@@ -299,13 +328,12 @@ class DeploymentSDK:
         Returns:
             Deployment object
         """
-
-        # Create the Deployment object (it will auto-generate an ID)
         deployment = Deployment(
             app_name=app_name,
             cluster=cluster,
             vantage_cluster_ctx=vantage_cluster_ctx,
-            cloud_provider=cloud_provider,
+            cloud=cloud,
+            credential=credential,
             substrate=substrate,
             status=status,
             k8s_namespaces=k8s_namespaces or [],

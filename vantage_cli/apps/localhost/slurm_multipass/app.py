@@ -18,7 +18,8 @@ from shutil import which
 from typing import Optional
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from typing_extensions import Annotated
 
@@ -39,9 +40,6 @@ from .constants import (
     MULTIPASS_CLOUD_IMAGE_LOCAL,
     MULTIPASS_CLOUD_IMAGE_URL,
     SUBSTRATE,
-)
-from .constants import (
-    CLOUD as CLOUD_LOCALHOST,
 )
 from .render import success_create_message
 from .templates import CloudInitTemplate
@@ -189,7 +187,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
         verbose=verbose,
-        cloud_provider=CLOUD_LOCALHOST,
+        cloud_name="localhost",
         substrate=SUBSTRATE,
     )
     deployment.write()

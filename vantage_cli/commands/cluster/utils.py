@@ -11,7 +11,6 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Shared utilities for cluster commands."""
 
-from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import Settings
 
 
@@ -25,8 +24,10 @@ def get_cloud_choices() -> list[str]:
 def get_app_choices() -> list[str]:
     """Get the list of available deployment apps."""
     try:
-        apps = get_available_apps()
-        choices = list(apps.keys())
+        # Import SDK here to avoid module-level initialization
+        from vantage_cli.sdk.deployment_app import deployment_app_sdk
+        apps = deployment_app_sdk.list()
+        choices = [app.name for app in apps]
         return choices
     except Exception:
         return []

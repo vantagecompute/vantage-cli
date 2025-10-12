@@ -19,6 +19,8 @@ from vantage_cli.apps.constants import (
     DEV_JUPYTERHUB_TOKEN,
     DEV_SSSD_BINDER_PASSWORD,
 )
+from vantage_cli.sdk.cloud.schema import Cloud
+from vantage_cli.sdk.cloud_credential.schema import CloudCredential
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 from vantage_cli.sdk.deployment.schema import Deployment
 from vantage_cli.sdk.deployment.crud import deployment_sdk
@@ -49,11 +51,14 @@ def generate_dev_cluster_data(cluster_name: Optional[str] = None) -> Cluster:
     )
 
 
+
+
 def create_deployment_with_init_status(
     app_name: str,
     cluster: Cluster,
     vantage_cluster_ctx: VantageClusterContext,
-    cloud_provider: str,
+    cloud: Cloud,
+    credential: Optional[CloudCredential],
     substrate: str,
     additional_metadata: Optional[Dict[str, Any]] = None,
     k8s_namespaces: Optional[List[str]] = None,
@@ -64,7 +69,7 @@ def create_deployment_with_init_status(
     Args:
         app_name: Name of the app being deployed (e.g., 'slurm-microk8s-localhost')
         cluster: Cluster object
-        cloud_provider: Cloud provider type (e.g., 'localhost', 'aws', 'gcp')
+        cloud_name: Cloud name (e.g., 'localhost', 'aws', 'gcp')
         substrate: Cloud infrastructure type (e.g., 'k8s', 'vm', 'container')
         additional_metadata: Additional app-specific metadata to store
         k8s_namespaces: List of Kubernetes namespaces created by this deployment
@@ -74,7 +79,8 @@ def create_deployment_with_init_status(
         app_name=app_name,
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
-        cloud_provider=cloud_provider,
+        cloud=cloud,
+        credential=credential,
         substrate=substrate,
         status="init",
         additional_metadata=additional_metadata or {},

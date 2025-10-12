@@ -12,7 +12,8 @@
 """Get notebook command."""
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from typing_extensions import Annotated
 
 from vantage_cli.config import attach_settings

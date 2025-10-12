@@ -40,7 +40,8 @@ from graphql import DocumentNode
 from graphql.language.ast import OperationDefinitionNode
 from jose import exceptions as jwt_exceptions
 from jose import jwt
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from requests.exceptions import ConnectionError, Timeout
 
 from .auth import extract_persona, refresh_access_token_standalone

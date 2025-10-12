@@ -21,7 +21,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 import typer
 import yaml
 from juju.controller import Controller
@@ -266,7 +267,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
         verbose=verbose,
-        cloud_provider=CLOUD_LOCALHOST,
+        cloud_name="localhost",
         substrate=SUBSTRATE,
     )
     deployment.write()

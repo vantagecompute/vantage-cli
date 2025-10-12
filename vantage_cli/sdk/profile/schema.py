@@ -11,9 +11,12 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Profile schemas for the Vantage CLI."""
 
+from typing import List, Optional
+
 from pydantic import BaseModel, computed_field
 
 from vantage_cli.config import Settings
+from vantage_cli.sdk.cloud_credential.schema import CloudCredential
 
 
 class Profile(BaseModel):
@@ -22,6 +25,7 @@ class Profile(BaseModel):
     name: str
     settings: Settings
     is_active: bool = False
+    cloud_credentials: Optional[List[CloudCredential]] = None
 
     @computed_field
     @property

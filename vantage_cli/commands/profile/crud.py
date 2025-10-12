@@ -12,7 +12,8 @@
 """Profile management CRUD operations for Vantage CLI."""
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from typing_extensions import Annotated
 
 from vantage_cli.exceptions import Abort, handle_abort

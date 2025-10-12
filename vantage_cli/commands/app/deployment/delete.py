@@ -14,7 +14,6 @@
 import typer
 from typing_extensions import Annotated
 
-from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.deployment.crud import deployment_sdk
@@ -73,7 +72,11 @@ async def delete_deployment(
                 return
 
         # Get the app's remove function
-        available_apps = get_available_apps()
+        # Import SDK here to avoid module-level initialization
+        from vantage_cli.sdk.deployment_app import deployment_app_sdk
+        available_apps_list = deployment_app_sdk.list()
+        available_apps = {app.name: app for app in available_apps_list}
+        
         app_name = deployment.app_name
         
         cleanup_success = False
@@ -81,11 +84,11 @@ async def delete_deployment(
 
         # Try to call the app's remove function to clean up resources
         if app_name in available_apps:
-            app_info = available_apps[app_name]
+            app = available_apps[app_name]
             
-            if "module" in app_info and hasattr(app_info["module"], "remove"):
+            if app.module and hasattr(app.module, "remove"):
                 try:
-                    remove_function = getattr(app_info["module"], "remove")
+                    remove_function = getattr(app.module, "remove")
                     await remove_function(ctx, deployment)
                     cleanup_success = True
                 except Exception as e:

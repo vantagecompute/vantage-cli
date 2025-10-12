@@ -14,7 +14,8 @@
 from typing import Any, Dict, Optional
 
 import httpx
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
 

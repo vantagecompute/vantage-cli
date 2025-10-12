@@ -14,6 +14,8 @@
 import asyncio
 import importlib.metadata
 import inspect
+import logging
+import sys
 import time
 from typing import Any, Callable, List, Optional  # noqa: F401
 
@@ -22,6 +24,104 @@ from pydantic import BaseModel, ConfigDict
 from typing_extensions import Annotated
 
 __version__ = importlib.metadata.version("vantage-cli")
+
+# Global variable to track the file logging handler
+_file_handler: Optional[logging.Handler] = None
+_logging_initialized: bool = False
+
+# Add a null handler at import time to prevent logs from being lost
+# This handler will be replaced by setup_logging()
+logging.getLogger().addHandler(logging.NullHandler())
+
+def setup_logging(verbose: bool = False, log_file: bool = False) -> None:
+    """Configure logging based on verbosity and file logging flags.
+    
+    Args:
+        verbose: If True, enable DEBUG level logging to console
+        log_file: If True, enable logging to ~/.vantage-cli/debug.log
+    """
+    global _file_handler, _logging_initialized
+    
+    # Get the root logger
+    root_logger = logging.getLogger()
+    
+    # Only remove handlers if we've already configured logging before
+    # On first call, there shouldn't be any handlers
+    if _logging_initialized:
+        # Remove existing handlers except file handler
+        handlers_to_remove = [h for h in root_logger.handlers if h != _file_handler]
+        for handler in handlers_to_remove:
+            root_logger.removeHandler(handler)
+    
+    # Set console logging level based on verbosity
+    if verbose:
+        console_level = logging.DEBUG
+        # Enable rich tracebacks only in verbose mode
+        from rich import traceback
+        traceback.install()
+        logging.getLogger("httpx").disabled = False
+        logging.getLogger("httpcore").disabled = False
+    else:
+        console_level = logging.ERROR
+        # Disable rich tracebacks in normal mode
+        sys.excepthook = sys.__excepthook__
+    
+    # Add console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(console_level)
+    console_formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+    
+    # Set root logger level (should be the minimum of all handlers)
+    # This ensures child loggers inherit the correct level
+    root_logger.setLevel(min(console_level, logging.DEBUG if log_file else logging.ERROR))
+    
+    # IMPORTANT: Reset all existing loggers to ensure they pick up the new level
+    # This is necessary because loggers created before setup_logging() may have
+    # cached their effective level
+    for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+        logger_instance = logging.getLogger(logger_name)
+        # Only reset level for loggers in our namespace
+        if logger_name.startswith('vantage_cli'):
+            logger_instance.setLevel(logging.NOTSET)  # Inherit from root
+    
+    _logging_initialized = True
+
+    # Add file logging if requested and not already added
+    if log_file and _file_handler is None:
+        from pathlib import Path
+        from logging.handlers import RotatingFileHandler
+        
+        home_dir = Path.home()
+        log_path = home_dir / ".vantage-cli" / "debug.log"
+        
+        # Ensure the directory exists
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Add rotating file handler
+        _file_handler = RotatingFileHandler(
+            log_path,
+            maxBytes=10 * 1024 * 1024,  # 10 MB
+            backupCount=7,
+        )
+        _file_handler.setLevel(logging.DEBUG)
+        file_formatter = logging.Formatter(
+            "%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        _file_handler.setFormatter(file_formatter)
+        root_logger.addHandler(_file_handler)
+    
+    logger = logging.getLogger(__name__)
+    logger.debug(
+        "Logging configured (verbose=%s, file_logging=%s)",
+        verbose,
+        log_file,
+    )
 
 
 class TyperCommandParameter(BaseModel):
@@ -49,6 +149,14 @@ inherited_command_parameters = [
         default=False,
         annotation=Annotated[
             bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
+        ],
+    ),
+    TyperCommandParameter(
+        name="log_file",
+        type=inspect.Parameter.KEYWORD_ONLY,
+        default=False,
+        annotation=Annotated[
+            bool, typer.Option("--log-file", help="Enable logging to ~/.vantage-cli/debug.log")
         ],
     ),
     TyperCommandParameter(
@@ -206,16 +314,14 @@ class AsyncTyper(typer.Typer):
                     verbose_flag = kwargs.pop("verbose", False)
                     ctx.obj.verbose = verbose_flag or getattr(ctx.obj, "verbose", False)
                     
-                    # Reconfigure logging immediately based on verbose flag
-                    # This ensures logging is properly configured before any command logic runs
-                    import sys
-                    from loguru import logger
+                    # Handle log_file parameter
+                    log_file_flag = kwargs.pop("log_file", False)
+                    ctx.obj.log_file = log_file_flag or getattr(ctx.obj, "log_file", False)
                     
-                    logger.remove()
-                    if ctx.obj.verbose:
-                        logger.add(sys.stdout, level="DEBUG")
-                    else:
-                        logger.add(sys.stdout, level="ERROR")
+                    # Reconfigure logging immediately based on verbose and log_file flags
+                    # This ensures logging is properly configured before any command logic runs
+                    # The setup_logging function will preserve the file handler if it was enabled
+                    setup_logging(verbose=ctx.obj.verbose, log_file=ctx.obj.log_file)
 
                     # Handle profile parameter
                     profile_value = kwargs.pop("profile", "default")

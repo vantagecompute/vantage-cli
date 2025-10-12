@@ -14,11 +14,11 @@
 from typing import Any, Optional
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from typing_extensions import Annotated
 
-from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.cluster.crud import cluster_sdk
@@ -191,25 +191,22 @@ async def _call_app_remove_function(ctx: typer.Context, deployment: Deployment) 
     Raises:
         ValueError: If the app is not found or doesn't have a remove function
     """
-    # Get available apps
-    available_apps = get_available_apps()
+    # Import SDK here to avoid module-level initialization
+    from vantage_cli.sdk.deployment_app import deployment_app_sdk
+    available_apps_list = deployment_app_sdk.list()
+    available_apps = {app.name: app for app in available_apps_list}
 
     if deployment.app_name not in available_apps:
         raise ValueError(f"App '{deployment.app_name}' not found")
 
-    app_info = available_apps[deployment.app_name]
+    app = available_apps[deployment.app_name]
     
     # Check if the app module has a remove function
-    if "module" in app_info:
-        app_module = app_info["module"]
-        
-        if hasattr(app_module, "remove"):
-            remove_function = getattr(app_module, "remove")
-            await remove_function(ctx, deployment)
-        else:
-            raise ValueError(f"App '{deployment.app_name}' does not have a 'remove' function")
+    if app.module and hasattr(app.module, "remove"):
+        remove_function = getattr(app.module, "remove")
+        await remove_function(ctx, deployment)
     else:
-        raise ValueError(f"App '{deployment.app_name}' module not loaded properly")
+        raise ValueError(f"App '{deployment.app_name}' does not have a 'remove' function")
 
 
 async def _cleanup_single_deployment(

@@ -441,29 +441,6 @@ def _process_app(app_path: Path, is_builtin: bool, apps: Dict[str, Dict[str, Any
         pass
 
 
-def get_available_apps() -> Dict[str, Dict[str, Any]]:
-    """Dynamically discover available deployment apps."""
-    apps: Dict[str, Dict[str, Any]] = {}
-
-    # Register the apps maintained with the vantage cli
-    built_in_apps_dir = Path(__file__).parent
-
-    if not built_in_apps_dir.exists():
-        logging.warning(f"Apps directory not found: {built_in_apps_dir}")
-        return apps
-
-    # Discover built-in and dev apps
-    built_in_apps = _discover_builtin_apps(built_in_apps_dir)
-    dev_apps = _discover_dev_apps()
-
-    # Combine and process all apps
-    all_apps = built_in_apps + dev_apps
-    for app_path, is_builtin in all_apps:
-        _process_app(app_path, is_builtin, apps)
-
-    return apps
-
-
 def get_jupyterhub_token(cluster_data: Dict[str, Any]) -> Optional[str]:
     """Return Jupyterhub Token if exists in cluster_data or None."""
     jupyterhub_token = None

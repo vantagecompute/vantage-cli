@@ -20,7 +20,7 @@ Domain-specific schemas have been moved to their respective SDK modules:
 - Support ticket schemas: vantage_cli.sdk.support_ticket.schema
 """
 
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import httpx
 from pydantic import BaseModel
@@ -35,6 +35,7 @@ __all__ = [
     "Persona",
     "DeviceCodeData",
     "CliContext",
+    "DeploymentApp",
 ]
 
 
@@ -73,6 +74,7 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
 
     profile: str = "default"
     verbose: bool = False
+    log_file: bool = False
     json_output: bool = False
     formatter: Optional[Any] = None  # UniversalOutputFormatter (avoid circular import)
     persona: Optional[Persona] = None
@@ -81,3 +83,19 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
     console: Optional[Console] = None
     command_start_time: Optional[float] = None
     rest_client: Optional[Any] = None  # VantageRestApiClient (avoid circular import)
+
+
+class DeploymentApp(BaseModel, arbitrary_types_allowed=True):
+    """Schema for a deployment application."""
+
+    name: str
+    """The app command name (e.g., 'slurm-lxd', 'slurm-metal')"""
+
+    providers: List[str]
+    """List of providers this app supports (e.g., ['localhost'], ['cudo-compute'])"""
+
+    substrate: str
+    """The substrate/platform type (e.g., 'lxd', 'metal', 'k8s', 'multipass', 'microk8s')"""
+
+    module: Optional[Any] = None
+    """The Python module containing the app implementation (if loaded)"""

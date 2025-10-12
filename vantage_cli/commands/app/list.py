@@ -13,7 +13,6 @@
 
 import typer
 
-from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 
@@ -24,24 +23,24 @@ async def list_apps(
     ctx: typer.Context,
 ) -> None:
     """List all available applications for deployment."""
-    # Get available apps
-
-    # Get available apps
-    available_apps = get_available_apps()
-
+    # Import SDK here to avoid module-level initialization
+    from vantage_cli.sdk.deployment_app import deployment_app_sdk
+    
+    # Get available apps from SDK
+    available_apps = deployment_app_sdk.list()
     # Prepare apps data for output
     apps_data = []
-    for app_name, app_info in available_apps.items():
+    for app in available_apps:
         app_data = {
-            "name": app_name,
-            "module": app_info["module"].__name__
-            if "module" in app_info and hasattr(app_info["module"], "__name__")
-            else "unknown",
+            "name": app.name,
+            "providers": ", ".join(app.providers),
+            "substrate": app.substrate,
+            "module": app.module.__name__ if app.module and hasattr(app.module, "__name__") else "unknown",
         }
 
-        # Try to get description from docstring if available
-        if "create_function" in app_info:
-            func = app_info["create_function"]
+        # Try to get description from create function docstring if module is available
+        if app.module and hasattr(app.module, "create"):
+            func = getattr(app.module, "create")
             if hasattr(func, "__doc__") and func.__doc__:
                 app_data["description"] = func.__doc__.strip().split("\n")[0]
             else:
@@ -52,7 +51,6 @@ async def list_apps(
         apps_data.append(app_data)
 
     # Use UniversalOutputFormatter for consistent list rendering
-
     ctx.obj.formatter.render_list(
         data=apps_data, resource_name="Applications", empty_message="No applications found."
     )

@@ -14,7 +14,8 @@
 from typing import Any, Dict, Optional
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
 from vantage_cli.jupyterhub_client import JupyterHubClient

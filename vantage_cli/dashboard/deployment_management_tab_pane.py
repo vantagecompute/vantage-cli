@@ -19,7 +19,8 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
@@ -409,7 +410,7 @@ class DeploymentManagementTabPane(TabPane):
 
         try:
             # Delete the deployment using the SDK
-            success = await deployment_sdk.delete(self.ctx, deployment_id)
+            success = await deployment_sdk.delete(deployment_id)
 
             if success:
                 # Remove from our list

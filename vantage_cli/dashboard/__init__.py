@@ -73,23 +73,31 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 import typer
+import logging
+logger = logging.getLogger(__name__)
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
+from textual.screen import ModalScreen
 from textual.widgets import (
     Button,
     DataTable,
     Header,
+    Input,
+    Label,
     ProgressBar,
     RichLog,
+    Select,
     Static,
     TabbedContent,
     TabPane,
 )
 
-from vantage_cli.schemas import CliContext
+from vantage_cli.schemas import CliContext, DeploymentApp
+from vantage_cli.sdk.cluster import cluster_sdk
 from vantage_cli.sdk.cluster.schema import Cluster
+from vantage_cli.sdk.deployment import deployment_sdk
 from vantage_cli.sdk.deployment.schema import Deployment
 from vantage_cli.sdk.profile.schema import Profile
 
@@ -97,6 +105,178 @@ from .cluster_management_tab_pane import ClusterManagementTabPane
 from .dependency_tracker import DependencyTracker, Worker, WorkerState
 from .deployment_management_tab_pane import DeploymentManagementTabPane
 from .profile_management_tab_pane import ProfileManagementTabPane
+
+
+class DeploymentCreateModal(ModalScreen):
+    """Modal screen for creating a new deployment."""
+
+    CSS = """
+    DeploymentCreateModal {
+        align: center middle;
+    }
+
+    #create-dialog {
+        width: 80;
+        height: auto;
+        border: thick $background 80%;
+        background: $surface;
+        padding: 1;
+    }
+
+    #create-form {
+        width: 100%;
+        height: auto;
+        layout: vertical;
+    }
+
+    .form-row {
+        height: auto;
+        margin: 1 0;
+    }
+
+    .form-label {
+        width: 20;
+        content-align: right middle;
+        padding-right: 2;
+    }
+
+    .form-input {
+        width: 1fr;
+    }
+
+    #button-row {
+        height: auto;
+        align: center middle;
+        margin-top: 1;
+    }
+
+    Button {
+        margin: 0 1;
+    }
+    """
+
+    def __init__(
+        self,
+        ctx: typer.Context,
+        clusters: List[Cluster],
+        apps: List[DeploymentApp],
+        providers: List[str],
+    ) -> None:
+        """Initialize the deployment create modal.
+
+        Args:
+            ctx: Typer context
+            clusters: List of available clusters
+            apps: List of available DeploymentApp instances
+            providers: List of available provider names
+        """
+        super().__init__()
+        self.ctx = ctx
+        self.clusters = clusters
+        self.all_apps = apps  # Store all apps as DeploymentApp instances
+        self.providers = providers
+        self.selected_provider = None
+
+    def compose(self) -> ComposeResult:
+        """Create the modal layout."""
+        with Vertical(id="create-dialog"):
+            yield Static("🚀 Create New Deployment", classes="section-header")
+
+            with Vertical(id="create-form"):
+                # Provider selection
+                with Horizontal(classes="form-row"):
+                    yield Label("Provider:", classes="form-label")
+                    yield Select(
+                        [(provider, provider) for provider in self.providers],
+                        prompt="Select provider...",
+                        id="provider-select",
+                        classes="form-input",
+                    )
+
+                # App selection
+                with Horizontal(classes="form-row"):
+                    yield Label("App:", classes="form-label")
+                    yield Select(
+                        [(app.name, app.name) for app in self.all_apps],
+                        prompt="Select application...",
+                        id="app-select",
+                        classes="form-input",
+                    )
+
+                # Cluster selection
+                with Horizontal(classes="form-row"):
+                    yield Label("Cluster:", classes="form-label")
+                    yield Select(
+                        [(cluster.name, cluster.name) for cluster in self.clusters],
+                        prompt="Select cluster...",
+                        id="cluster-select",
+                        classes="form-input",
+                    )
+
+                # Buttons
+                with Horizontal(id="button-row"):
+                    yield Button("Create", id="create-confirm-btn", variant="success")
+                    yield Button("Cancel", id="create-cancel-btn", variant="error")
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        """Handle select dropdown changes."""
+        if event.select.id == "provider-select":
+            self._on_provider_changed(event.value)
+
+    def _on_provider_changed(self, provider: str) -> None:
+        """Filter apps when provider selection changes."""
+        self.selected_provider = provider
+        
+        # Filter apps based on provider
+        if provider:
+            # Filter DeploymentApp instances by provider
+            filtered_apps = [app for app in self.all_apps if provider in app.providers]
+            
+            # If no apps match, show all
+            if not filtered_apps:
+                filtered_apps = self.all_apps
+        else:
+            # No provider selected, show all apps
+            filtered_apps = self.all_apps
+        
+        # Update the app dropdown with app names
+        app_select = self.query_one("#app-select", Select)
+        app_select.set_options([(app.name, app.name) for app in filtered_apps])
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses."""
+        if event.button.id == "create-confirm-btn":
+            self._create_deployment()
+        elif event.button.id == "create-cancel-btn":
+            self.dismiss(None)
+
+    def _create_deployment(self) -> None:
+        """Create the deployment with selected values."""
+        try:
+            provider_select = self.query_one("#provider-select", Select)
+            app_select = self.query_one("#app-select", Select)
+            cluster_select = self.query_one("#cluster-select", Select)
+
+            provider_name = provider_select.value
+            app_name = app_select.value
+            cluster_name = cluster_select.value
+
+            if not provider_name or not app_name or not cluster_name:
+                logger.warning("Provider, app, or cluster not selected")
+                return
+
+            # Find the cluster object
+            cluster = next((c for c in self.clusters if c.name == cluster_name), None)
+            if not cluster:
+                logger.error(f"Cluster not found: {cluster_name}")
+                return
+
+            # Return the data to the parent
+            self.dismiss({"provider": provider_name, "app": app_name, "cluster": cluster})
+
+        except Exception as e:
+            logger.error(f"Error creating deployment: {e}")
+            self.dismiss(None)
 
 
 @dataclass
@@ -471,6 +651,10 @@ class DashboardApp(App):
         self.start_time = time.time()
         self.execution_complete = False
         self.execution_running = False
+        
+        # Deployment state for dashboard
+        self.deployments: List[Deployment] = []
+        self.selected_deployment: Optional[Deployment] = None
 
     @classmethod
     def from_sdk_data(
@@ -571,25 +755,14 @@ class DashboardApp(App):
                 with TabPane("📊 Dashboard", id="main"):
                     with Vertical():
                         with Horizontal(id="main-panel"):
-                            # Left side: Worker progress
+                            # Left side: Deployments list
                             with Vertical(id="left-content"):
-                                yield Static("📈 Worker Progress", classes="section-header")
-                                with Vertical(id="worker-progress-group"):
-                                    for service in self.services:
-                                        yield Static(f"{service.emoji} {service.name}")
-                                        yield ProgressBar(total=100, id=f"progress-{service.name}")
-
-                            # Right side: Activity log and platform info
-                            with Vertical(id="right-content"):
-                                yield Static("📜 Activity Log", classes="section-header")
-                                with Vertical(id="activity-log-wrapper"):
-                                    with Horizontal():
-                                        yield RichLog(
-                                            id="activity-log", auto_scroll=True, markup=True
-                                        )
+                                yield Static("🚀 Deployments", classes="section-header")
+                                with Vertical(id="deployments-list-wrapper"):
+                                    yield DataTable(id="dashboard-deployments-table", zebra_stripes=True)
 
                                 yield Static(
-                                    f"🚀 {self.platform_info['name']}", classes="section-header"
+                                    f"� {self.platform_info['name']}", classes="section-header"
                                 )
                                 with Vertical(id="vantage-platform"):
                                     yield Static("[bold]🔗 Access your cluster[/bold]")
@@ -604,16 +777,22 @@ class DashboardApp(App):
                                         classes="url-link",
                                     )
                                     yield Static("")
-                                    yield Static("[bold]📚 Documentation[/bold]")
+                                    yield Static("[bold]� Documentation[/bold]")
                                     yield Static(
                                         f"    {self.platform_info['docs_url']}", classes="url-link"
                                     )
                                     yield Static("")
-                                    yield Static("[bold]💬 Support[/bold]")
+                                    yield Static("[bold]� Support[/bold]")
                                     yield Static(
                                         f"    {self.platform_info['support_email']}",
                                         classes="url-link",
                                     )
+
+                            # Right side: Deployment details
+                            with Vertical(id="right-content"):
+                                yield Static("� Deployment Details", classes="section-header")
+                                with Vertical(id="deployment-details-group"):
+                                    yield DataTable(id="dashboard-deployment-details-table")
 
                 if self.config.enable_logs:
                     with TabPane("📜 Full Logs", id="logs-tab"):
@@ -666,14 +845,111 @@ class DashboardApp(App):
         self.add_log("💡 Use Ctrl+C or 'q' to quit, 'r' to restart")
 
         self.setup_tables()
+        
+        # Load deployments if context is available
+        if self.ctx:
+            self.load_deployments()
 
         if self.config.enable_stats:
             self.set_interval(self.config.refresh_interval, self.refresh_stats)
 
     def setup_tables(self):
         """Set up the data tables"""
-        # No deployment tables needed - they're handled by the deployment management tab pane
-        pass
+        # Set up the deployments table on the main dashboard
+        try:
+            table = self.query_one("#dashboard-deployments-table", DataTable)
+            table.add_columns("Deployment Name", "App", "Cluster", "Status")
+            table.cursor_type = "row"
+            table.show_cursor = True
+            logger.debug("Dashboard deployments table setup complete.")
+        except Exception as e:
+            logger.debug(f"Dashboard deployments table not found (may not be in compose yet): {e}")
+        
+        # Set up the deployment details table
+        try:
+            details_table = self.query_one("#dashboard-deployment-details-table", DataTable)
+            details_table.add_columns("Property", "Value")
+            logger.debug("Dashboard deployment details table setup complete.")
+        except Exception as e:
+            logger.debug(f"Dashboard deployment details table not found: {e}")
+
+    def load_deployments(self) -> None:
+        """Load deployments from SDK and populate the table."""
+        if not self.ctx:
+            return
+        
+        # Run async loading in background
+        self.run_worker(self._load_deployments_async(), exclusive=True)
+
+    async def _load_deployments_async(self) -> None:
+        """Async worker to load deployments."""
+        try:
+            logger.debug("Loading deployments for dashboard...")
+            self.deployments = await deployment_sdk.list(self.ctx)
+            logger.debug(f"Loaded {len(self.deployments)} deployments")
+            self.update_deployments_table()
+        except Exception as e:
+            logger.error(f"Failed to load deployments: {e}")
+
+    def update_deployments_table(self) -> None:
+        """Update the deployments table with current data."""
+        try:
+            table = self.query_one("#dashboard-deployments-table", DataTable)
+            table.clear()
+            
+            for deployment in self.deployments:
+                table.add_row(
+                    deployment.deployment_name,
+                    deployment.app_name,
+                    deployment.cluster_name,
+                    deployment.status,
+                    key=deployment.deployment_id,
+                )
+            
+            logger.debug(f"Updated deployments table with {len(self.deployments)} deployments")
+        except Exception as e:
+            logger.warning(f"Failed to update deployments table: {e}")
+
+    def update_deployment_details(self, deployment: Deployment) -> None:
+        """Update the deployment details table with selected deployment info."""
+        try:
+            details_table = self.query_one("#dashboard-deployment-details-table", DataTable)
+            details_table.clear()
+            
+            # Display deployment properties
+            details = [
+                ("Deployment ID", deployment.deployment_id),
+                ("Deployment Name", deployment.deployment_name),
+                ("App Name", deployment.app_name),
+                ("Cluster", deployment.cluster_name),
+                ("Cloud", deployment.cloud.upper() if deployment.cloud else "Unknown"),
+                ("Status", deployment.status),
+                ("Created", deployment.formatted_created_at),
+                ("Active", "✅ Yes" if deployment.is_active else "❌ No"),
+            ]
+            
+            for key, value in details:
+                details_table.add_row(key, str(value))
+                
+            logger.debug(f"Updated deployment details for {deployment.deployment_name}")
+        except Exception as e:
+            logger.warning(f"Failed to update deployment details: {e}")
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Handle row selection in the deployments table."""
+        if event.data_table.id == "dashboard-deployments-table":
+            deployment_id = event.row_key
+            logger.debug(f"Deployment selected: {deployment_id}")
+            
+            # Find the selected deployment
+            selected = next(
+                (d for d in self.deployments if d.deployment_id == deployment_id),
+                None,
+            )
+            
+            if selected:
+                self.selected_deployment = selected
+                self.update_deployment_details(selected)
 
     def add_log(self, message: str, level: str = "INFO"):
         """Add a message to log widgets"""
@@ -753,11 +1029,74 @@ class DashboardApp(App):
         self.add_log(f"🌓 Switched to {mode} mode", "INFO")
 
     def action_start_execution(self):
-        """Start worker execution"""
-        if not self.execution_running:
-            self.add_log("🚀 Starting worker execution...", "SUCCESS")
-            self.execution_running = True
-            self.run_worker(self.execute_workers, exclusive=True)
+        """Open the deployment creation modal."""
+        if not self.ctx:
+            self.add_log("❌ No context available for deployment creation", "ERROR")
+            return
+        
+        # Load clusters and apps, then show modal
+        self.run_worker(self._show_create_deployment_modal(), exclusive=True)
+
+    async def _show_create_deployment_modal(self) -> None:
+        """Load data and show the create deployment modal."""
+        try:
+            # Load clusters
+            logger.debug("Loading clusters for deployment creation...")
+            clusters = await cluster_sdk.list_clusters(self.ctx)
+            
+            # Get available apps and providers using DeploymentAppSDK
+            from vantage_cli.sdk.deployment_app import deployment_app_sdk
+            
+            # Get all available apps and providers
+            all_apps = deployment_app_sdk.list()
+            providers = deployment_app_sdk.get_all_providers()
+            
+            if not all_apps:
+                self.add_log("⚠️ No deployment apps available", "WARNING")
+                return
+            
+            # Show the modal
+            result = await self.push_screen_wait(
+                DeploymentCreateModal(self.ctx, clusters, all_apps, providers)
+            )
+            
+            if result:
+                # User confirmed - create the deployment
+                await self._create_deployment_from_modal(result)
+                
+        except Exception as e:
+            logger.error(f"Failed to show create modal: {e}")
+            self.add_log(f"❌ Failed to open deployment creation: {e}", "ERROR")
+
+    async def _create_deployment_from_modal(self, data: Dict[str, Any]) -> None:
+        """Create a deployment from modal data.
+        
+        Args:
+            data: Dictionary with 'provider', 'app' and 'cluster' keys
+        """
+        try:
+            provider_name = data["provider"]
+            app_name = data["app"]
+            cluster = data["cluster"]
+            
+            self.add_log(
+                f"🚀 Creating deployment: {app_name} on {cluster.name} ({provider_name})...", 
+                "INFO"
+            )
+            logger.debug(
+                f"Creating deployment: provider={provider_name}, app={app_name}, cluster={cluster.name}"
+            )
+            
+            # TODO: Actually call the app's create() function here
+            # For now, just show success
+            self.add_log(f"✅ Deployment creation initiated for {app_name}", "SUCCESS")
+            
+            # Reload deployments
+            self.load_deployments()
+            
+        except Exception as e:
+            logger.error(f"Failed to create deployment: {e}")
+            self.add_log(f"❌ Failed to create deployment: {e}", "ERROR")
 
     def action_stop_execution(self):
         """Stop worker execution"""

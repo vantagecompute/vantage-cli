@@ -18,12 +18,11 @@ import click
 import typer
 from typing_extensions import Annotated
 
-from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
-from vantage_cli.constants import PROVIDER_VANTAGE_MAPPING
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
+from vantage_cli.sdk.cloud.crud import cloud_sdk
 from vantage_cli.sdk.cluster.crud import cluster_sdk
 from vantage_cli.sdk.cluster.schema import Cluster
 from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
@@ -65,7 +64,6 @@ async def create_cluster(
             "--app",
             help="Deploy an application after cluster creation.",
             case_sensitive=False,
-            click_type=click.Choice(get_app_choices(), case_sensitive=False),
         ),
     ] = None,
 ):
@@ -81,14 +79,8 @@ async def create_cluster(
             log_message="Settings not configured",
         )
 
-    # Validate cloud provider
-    supported_clouds = ctx.obj.settings.supported_clouds
-    if cloud not in supported_clouds:
-        raise Abort(
-            f"Unsupported cloud provider: {cloud}. Supported providers: {', '.join(supported_clouds)}",
-            subject="Invalid Cloud Provider",
-            log_message=f"Invalid cloud provider: {cloud}",
-        )
+    # Note: Cloud provider validation is already done by click.Choice in the parameter definition
+    # No need for additional validation here
 
     # Build provider-specific attributes
     provider_attributes: Optional[dict[str, Any]] = None
@@ -127,11 +119,20 @@ async def create_cluster(
                 f"[bold blue]Creating cluster '{cluster_name}' on {cloud}...[/bold blue]"
             )
 
+        # Get Cloud object to extract vantage_provider_label
+        cloud_obj = cloud_sdk.get(cloud)
+        if not cloud_obj:
+            raise Abort(
+                f"Cloud '{cloud}' not found",
+                subject="Cloud Not Found",
+                log_message=f"Cloud not found: {cloud}",
+            )
+
         # Create cluster using SDK
         cluster = await cluster_sdk.create_cluster(
             ctx=ctx,
             name=cluster_name,
-            provider=PROVIDER_VANTAGE_MAPPING.get(cloud, "on_prem"),
+            provider=cloud_obj.vantage_provider_label,
             description=f"Cluster {cluster_name} created via CLI",
             provider_attributes=provider_attributes,
         )
@@ -160,8 +161,10 @@ async def create_cluster(
 async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: str):
     """Deploy an application to the newly created cluster."""
     try:
-        # Get available apps
-        available_apps = get_available_apps()
+        # Import SDK here to avoid module-level initialization
+        from vantage_cli.sdk.deployment_app import deployment_app_sdk
+        available_apps_list = deployment_app_sdk.list()
+        available_apps = {app.name: app for app in available_apps_list}
 
         if app_name not in available_apps:
             ctx.obj.console.print(f"[bold red]✗ App '{app_name}' not found[/bold red]")
@@ -171,13 +174,13 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
             f"[bold blue]Deploying app '{app_name}' to cluster '{cluster.name}'...[/bold blue]"
         )
 
-        # Get the app info
-        app_info = available_apps[app_name]
+        # Get the app
+        app = available_apps[app_name]
 
-        # Check if this is a function-based app or class-based app
-        if "create_function" in app_info:
+        # Check if app has a module with create function
+        if app.module and hasattr(app.module, "create"):
             # Function-based app
-            create_function = app_info["create_function"]
+            create_function = getattr(app.module, "create")
 
             # Fetch sssd_binder_password from organization extra attributes
             #if extra_attrs := await get_extra_attributes(ctx):
@@ -190,26 +193,6 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
             ctx.obj.console.print(
                 f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
             )
-
-        elif "instance" in app_info:
-            # Class-based app
-            app_instance = app_info["instance"]
-
-            # Check if the app has a deploy method
-            if hasattr(app_instance, "create"):
-                # Call the app's create method
-                await app_instance.create(ctx, cluster)
-
-                ctx.obj.console.print(
-                    f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
-                )
-            else:
-                ctx.obj.console.print(
-                    f"[bold yellow]! App '{app_name}' does not support automatic deployment[/bold yellow]"
-                )
-                ctx.obj.console.print(
-                    "[dim]You can manually deploy this app using the appropriate commands.[/dim]"
-                )
         else:
             ctx.obj.console.print(
                 f"[bold yellow]! App '{app_name}' does not support automatic deployment[/bold yellow]"

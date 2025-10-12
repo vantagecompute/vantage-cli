@@ -19,7 +19,8 @@ from datetime import datetime
 from typing import Any, List, Optional
 
 import typer
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical

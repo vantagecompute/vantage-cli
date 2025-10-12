@@ -14,7 +14,6 @@
 import typer
 from typing_extensions import Annotated
 
-from vantage_cli.apps.utils import get_available_apps
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.cluster.crud import cluster_sdk
@@ -133,7 +132,10 @@ async def cleanup_orphans(
 
         # Clean up orphaned deployments
         cleanup_results = []
-        available_apps = get_available_apps()
+        
+        # Import SDK here to avoid module-level initialization
+        from vantage_cli.sdk.deployment_app import deployment_app_sdk
+        available_apps = deployment_app_sdk.list()
         
         for deployment in orphaned:
             result = {
