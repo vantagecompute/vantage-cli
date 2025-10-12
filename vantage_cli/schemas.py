@@ -15,18 +15,22 @@ This module contains core authentication and CLI context schemas.
 Domain-specific schemas have been moved to their respective SDK modules:
 - Cluster schemas: vantage_cli.sdk.cluster.schema
 - Deployment schemas: vantage_cli.sdk.deployment.schema
+- DeploymentApp schemas: vantage_cli.sdk.deployment_app.schema
 - Notebook schemas: vantage_cli.sdk.notebook.schema
 - Profile schemas: vantage_cli.sdk.profile.schema
 - Support ticket schemas: vantage_cli.sdk.support_ticket.schema
 """
 
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import httpx
 from pydantic import BaseModel
 from rich.console import Console
 
 from vantage_cli.config import Settings
+
+if TYPE_CHECKING:
+    from vantage_cli.sdk.deployment_app.schema import DeploymentApp
 
 __all__ = [
     # Core/Auth schemas
@@ -35,8 +39,17 @@ __all__ = [
     "Persona",
     "DeviceCodeData",
     "CliContext",
+    # Re-exported for backward compatibility (runtime import only)
     "DeploymentApp",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Lazy import for backward compatibility to avoid circular imports."""
+    if name == "DeploymentApp":
+        from vantage_cli.sdk.deployment_app.schema import DeploymentApp
+        return DeploymentApp
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class TokenSet(BaseModel):
@@ -83,19 +96,3 @@ class CliContext(BaseModel, arbitrary_types_allowed=True):
     console: Optional[Console] = None
     command_start_time: Optional[float] = None
     rest_client: Optional[Any] = None  # VantageRestApiClient (avoid circular import)
-
-
-class DeploymentApp(BaseModel, arbitrary_types_allowed=True):
-    """Schema for a deployment application."""
-
-    name: str
-    """The app command name (e.g., 'slurm-lxd', 'slurm-metal')"""
-
-    providers: List[str]
-    """List of providers this app supports (e.g., ['localhost'], ['cudo-compute'])"""
-
-    substrate: str
-    """The substrate/platform type (e.g., 'lxd', 'metal', 'k8s', 'multipass', 'microk8s')"""
-
-    module: Optional[Any] = None
-    """The Python module containing the app implementation (if loaded)"""

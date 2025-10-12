@@ -12,8 +12,9 @@
 """Deployment App SDK for managing available deployment applications."""
 
 from vantage_cli.sdk.deployment_app.crud import DeploymentAppSDK
+from vantage_cli.sdk.deployment_app.schema import DeploymentApp
 
-__all__ = ["DeploymentAppSDK", "deployment_app_sdk"]
+__all__ = ["DeploymentApp", "DeploymentAppSDK", "deployment_app_sdk"]
 
 # Lazy-loaded singleton instance
 _deployment_app_sdk_instance = None

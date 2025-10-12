@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from vantage_cli.constants import VANTAGE_CLI_DEV_APPS_DIR
-from vantage_cli.schemas import DeploymentApp
+from vantage_cli.sdk.cloud import cloud_sdk
+from vantage_cli.sdk.deployment_app.schema import DeploymentApp
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +34,13 @@ class DeploymentAppSDK:
 
     def list(
         self,
-        provider: Optional[str] = None,
+        cloud: Optional[str] = None,
         substrate: Optional[str] = None,
     ) -> List[DeploymentApp]:
         """List deployment apps with optional filtering.
 
         Args:
-            provider: Optional provider filter (e.g., 'localhost', 'cudo-compute')
+            cloud: Optional cloud filter (e.g., 'localhost', 'cudo-compute')
             substrate: Optional substrate filter (e.g., 'lxd', 'metal', 'k8s')
 
         Returns:
@@ -47,10 +48,10 @@ class DeploymentAppSDK:
         """
         apps = list(self._app_registry.values())
 
-        # Filter by provider if specified
-        if provider:
-            apps = [app for app in apps if provider in app.providers]
-            logger.debug(f"Filtered apps by provider '{provider}': {[a.name for a in apps]}")
+        # Filter by cloud if specified
+        if cloud:
+            apps = [app for app in apps if app.cloud == cloud]
+            logger.debug(f"Filtered apps by cloud '{cloud}': {[a.name for a in apps]}")
 
         # Filter by substrate if specified
         if substrate:
@@ -70,16 +71,16 @@ class DeploymentAppSDK:
         """
         return self._app_registry.get(name)
 
-    def get_all_providers(self) -> List[str]:
-        """Get a list of all unique providers across all apps.
+    def get_all_clouds(self) -> List[str]:
+        """Get a list of all unique clouds across all apps.
 
         Returns:
-            Sorted list of unique provider names
+            Sorted list of unique cloud names
         """
-        providers: set[str] = set()
+        clouds: set[str] = set()
         for app in self._app_registry.values():
-            providers.update(app.providers)
-        return sorted(providers)
+            clouds.add(app.cloud)
+        return sorted(clouds)
 
     def get_all_substrates(self) -> List[str]:
         """Get a list of all unique substrates across all apps.
@@ -171,7 +172,6 @@ class DeploymentAppSDK:
     def _process_app(self, app_path: Path, is_builtin: bool) -> None:
         """Process a single app and add it to the registry."""
         app_name = app_path.name
-        command_name = app_name.replace("_", "-")
 
         try:
             # Load the app module and check if it has a create function
@@ -179,14 +179,22 @@ class DeploymentAppSDK:
             if app_module is None or not hasattr(app_module, "create"):
                 return
 
-            # Determine provider and substrate
-            providers = self._infer_providers_from_path(app_path)
-            substrate = self._infer_substrate_from_name(command_name)
+            constants_module = self._load_constants_module(app_path, app_name, is_builtin)
+            
+            # Extract app name, cloud and substrate from constants module
+            if constants_module and hasattr(constants_module, "APP_NAME"):
+                command_name = constants_module.APP_NAME
+            else:
+                # Fallback to directory name with underscores replaced by hyphens
+                command_name = app_name.replace("_", "-")
+            
+            cloud = constants_module.CLOUD if constants_module and hasattr(constants_module, "CLOUD") else "localhost"
+            substrate = constants_module.SUBSTRATE if constants_module and hasattr(constants_module, "SUBSTRATE") else "unknown"
 
             # Create DeploymentApp instance with module reference
             deployment_app = DeploymentApp(
                 name=command_name,
-                providers=providers,
+                cloud=cloud,
                 substrate=substrate,
                 module=app_module,
             )
@@ -194,7 +202,7 @@ class DeploymentAppSDK:
             # Add to registry
             self._app_registry[command_name] = deployment_app
             logger.debug(
-                f"Registered app '{command_name}' - providers: {providers}, substrate: {substrate}"
+                f"Registered app '{command_name}' - cloud: {cloud}, substrate: {substrate}"
             )
 
         except Exception as e:
@@ -241,41 +249,36 @@ class DeploymentAppSDK:
             logger.debug(f"Failed to load module for app {app_name}: {e}")
             return None
 
-    def _infer_providers_from_path(self, app_path: Path) -> List[str]:
-        """Infer providers from app directory location.
+    def _load_constants_module(self, app_path: Path, app_name: str, is_builtin: bool):
+        """Load the app constants module.
 
         Args:
             app_path: Path to the app directory
+            app_name: Name of the app directory
+            is_builtin: Whether this is a built-in app
 
         Returns:
-            List of provider names
+            The loaded module or None if loading failed
         """
-        # Check parent directory to determine provider
-        parent_dir = app_path.parent
+        try:
+            if is_builtin:
+                # Import built-in app - handle nested structure
+                parent_dir = app_path.parent
+                apps_dir = app_path.parent.parent
 
-        # Map directory names to provider names
-        provider_mapping = {
-            "localhost": ["localhost"],
-            "cudo_compute": ["cudo-compute"],
-            "aws": ["aws"],
-            "gcp": ["gcp"],
-            "azure": ["azure"],
-        }
+                if parent_dir.name != "apps" and apps_dir.name == "apps":
+                    # Nested app (e.g., localhost/slurm_lxd)
+                    category = parent_dir.name
+                    constants_module = importlib.import_module(
+                        f"vantage_cli.apps.{category}.{app_name}.constants"
+                    )
+                else:
+                    # Top-level app
+                    constants_module = importlib.import_module(
+                        f"vantage_cli.apps.{app_name}.constants"
+                    )
 
-        return provider_mapping.get(parent_dir.name, ["unknown"])
-
-    def _infer_substrate_from_name(self, app_name: str) -> str:
-        """Infer substrate from app name.
-
-        Args:
-            app_name: The app name (e.g., 'slurm-lxd')
-
-        Returns:
-            Inferred substrate name
-        """
-        # App names typically follow pattern: apptype-substrate
-        parts = app_name.split("-")
-        if len(parts) > 1:
-            return parts[-1]  # Last part is usually the substrate
-        return "unknown"
-
+            return constants_module
+        except Exception as e:
+            logger.debug(f"Failed to load constants module for app {app_name}: {e}")
+            return None

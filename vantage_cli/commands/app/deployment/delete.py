@@ -100,16 +100,15 @@ async def delete_deployment(
         else:
             cleanup_error = f"App '{app_name}' not found in available apps"
 
-        # Delete the deployment from tracking (this happens in the app's remove function too,
-        # but we do it here as a fallback in case the app cleanup failed)
-        if not cleanup_success:
-            deleted = await deployment_sdk.delete(deployment.id)
-            if not deleted:
-                raise Abort(
-                    f"Failed to delete deployment '{deployment.id}' from tracking.",
-                    subject="Deletion Failed",
-                    log_message="Deployment deletion failed",
-                )
+        # Delete the deployment from tracking
+        # Always delete the deployment record, regardless of cleanup success
+        deleted = await deployment_sdk.delete(deployment.id)
+        if not deleted:
+            raise Abort(
+                f"Failed to delete deployment '{deployment.id}' from tracking.",
+                subject="Deletion Failed",
+                log_message="Deployment deletion failed",
+            )
 
         # Output results
         output_data = {

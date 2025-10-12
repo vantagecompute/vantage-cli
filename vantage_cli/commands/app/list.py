@@ -33,7 +33,7 @@ async def list_apps(
     for app in available_apps:
         app_data = {
             "name": app.name,
-            "providers": ", ".join(app.providers),
+            "cloud": app.cloud,
             "substrate": app.substrate,
             "module": app.module.__name__ if app.module and hasattr(app.module, "__name__") else "unknown",
         }
