@@ -19,7 +19,7 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.clouds.cudo_compute.apps.slurm_metal.templates import head_node_init_script
+from vantage_cli.clouds.cudo_compute.apps.slurm_metal.templates import head_node_init_script, init_script_curl
 from vantage_cli.clouds.cudo_compute.apps.slurm_metal.utils import init_project_and_head_node
 from vantage_cli.clouds.cudo_compute.apps.slurm_metal.constants import CLOUD
 
@@ -67,7 +67,8 @@ async def _deploy_slurm_metal_cudo(
 
     logger.debug(f"{await cudo_sdk.whoami()}")
 
-    slurm_head_node_init_script = head_node_init_script(
+    #slurm_head_node_init_script = head_node_init_script(
+    slurm_head_node_init_script = init_script_curl(
         vantage_cluster_ctx=vantage_cluster_ctx,
     )
     from pathlib import Path

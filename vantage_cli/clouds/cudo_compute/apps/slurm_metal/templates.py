@@ -4,11 +4,115 @@ from textwrap import dedent
 
 from vantage_cli.sdk.cluster.schema import VantageClusterContext
 
-def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
-    """Return the initialization script for the head node."""
+
+def init_script_curl(vantage_cluster_ctx: VantageClusterContext) -> str:
+    """Return a curl command to fetch the initialization script for the head node."""
     return dedent(f"""\
         #!/bin/bash
         set -euo pipefail
+        
+        # Set environment variables
+        CLUSTER_NAME="{vantage_cluster_ctx.cluster_name}"
+        SSSD_BINDER_PASSWORD="{vantage_cluster_ctx.sssd_binder_password}"
+        LDAP_URL="{vantage_cluster_ctx.ldap_url}"
+        ORG_ID="{vantage_cluster_ctx.org_id}"
+        OIDC_CLIENT_ID="{vantage_cluster_ctx.client_id}"
+        OIDC_CLIENT_SECRET="{vantage_cluster_ctx.client_secret}"
+        JUPYTERHUB_TOKEN="{vantage_cluster_ctx.jupyterhub_token}"
+        OIDC_BASE_URL="{vantage_cluster_ctx.oidc_base_url}"
+        TUNNEL_API_URL="{vantage_cluster_ctx.tunnel_api_url}"
+        VANTAGE_API_URL="{vantage_cluster_ctx.base_api_url}"
+        OIDC_DOMAIN="{vantage_cluster_ctx.oidc_domain}"
+        
+        # Download and execute the initialization script
+        curl -fsSL https://vantage-public-assets.s3.us-west-2.amazonaws.com/vantage-cli/clouds/cudo-compute/head_node_init_script.sh | bash -s -- \
+            --cluster-name "$CLUSTER_NAME" \
+            --sssd-binder-password "$SSSD_BINDER_PASSWORD" \
+            --ldap-url "$LDAP_URL" \
+            --org-id "$ORG_ID" \
+            --oidc-client-id "$OIDC_CLIENT_ID" \
+            --oidc-client-secret "$OIDC_CLIENT_SECRET" \
+            --jupyterhub-token "$JUPYTERHUB_TOKEN" \
+            --oidc-base-url "$OIDC_BASE_URL" \
+            --tunnel-api-url "$TUNNEL_API_URL" \
+            --vantage-api-url "$VANTAGE_API_URL" \
+            --oidc-domain "$OIDC_DOMAIN"
+        """
+    )
+
+
+def head_node_init_script() -> str:
+    """Return the initialization script for the head node."""
+    return dedent("""\
+        #!/bin/bash
+        set -euo pipefail
+
+        # Parse command-line arguments
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --cluster-name)
+                    CLUSTER_NAME="$2"
+                    shift 2
+                    ;;
+                --sssd-binder-password)
+                    SSSD_BINDER_PASSWORD="$2"
+                    shift 2
+                    ;;
+                --ldap-url)
+                    LDAP_URL="$2"
+                    shift 2
+                    ;;
+                --org-id)
+                    ORG_ID="$2"
+                    shift 2
+                    ;;
+                --oidc-client-id)
+                    OIDC_CLIENT_ID="$2"
+                    shift 2
+                    ;;
+                --oidc-client-secret)
+                    OIDC_CLIENT_SECRET="$2"
+                    shift 2
+                    ;;
+                --jupyterhub-token)
+                    JUPYTERHUB_TOKEN="$2"
+                    shift 2
+                    ;;
+                --oidc-base-url)
+                    OIDC_BASE_URL="$2"
+                    shift 2
+                    ;;
+                --tunnel-api-url)
+                    TUNNEL_API_URL="$2"
+                    shift 2
+                    ;;
+                --vantage-api-url)
+                    VANTAGE_API_URL="$2"
+                    shift 2
+                    ;;
+                --oidc-domain)
+                    OIDC_DOMAIN="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Unknown parameter: $1"
+                    exit 1
+                    ;;
+            esac
+        done
+
+        # Export environment variables
+        export CLUSTER_NAME
+        export SSSD_BINDER_PASSWORD
+        export LDAP_URL
+        export ORG_ID
+        export OIDC_CLIENT_ID
+        export OIDC_CLIENT_SECRET
+        export JUPYTERHUB_TOKEN
+        export OIDC_BASE_URL
+        export TUNNEL_API_URL
+        export VANTAGE_API_URL
+        export OIDC_DOMAIN
 
         # Provisioning script converted from cloud-init user-data
         # This script performs the same operations as the cloud-init configuration
@@ -135,12 +239,9 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         signalchildrenprocesses=yes
         EOF
 
-        HEADNODE_ADDRESS=$(hostname -I | awk '{{print $1}}')
-        HEADNODE_HOSTNAME=$(hostname)
-
         # /etc/slurm/slurm.conf
         cat > /etc/slurm/slurm.conf << 'EOF'
-        ClusterName={vantage_cluster_ctx.cluster_name}
+        ClusterName=$CLUSTER_NAME
         
         # MCS
         MCSPlugin=mcs/label
@@ -150,9 +251,9 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         SlurmdUser=root
         SlurmdPort=6818
         SlurmctldPort=6817
-        SlurmctldHost=$HEADNODE_HOSTNAME
-        SlurmctldAddr=$HEADNODE_ADDRESS
-        
+        SlurmctldHost=@HEADNODE_HOSTNAME@
+        SlurmctldAddr=@HEADNODE_ADDRESS@
+
         AuthType=auth/slurm
         CredType=auth/slurm
         
@@ -209,12 +310,9 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         AccountingStorageUser=slurm
         AccountingStoragePort=6839
         
-        # Node Configurations
-        NodeName=@HEADNODE_HOSTNAME@ NodeAddr=@HEADNODE_ADDRESS@ CPUs=@CPUs@ ThreadsPerCore=@THREADS_PER_CORE@ CoresPerSocket=@CORES_PER_SOCKET@ Sockets=@SOCKETS@ RealMemory=@REAL_MEMORY@
-        
         # Partition Configurations
-        PartitionName=compute Nodes=@HEADNODE_HOSTNAME@ MaxTime=INFINITE State=UP Default=Yes
-        
+        PartitionName=compute MaxTime=INFINITE State=UP Default=Yes
+
         # Nodeset
         NodeSet=compute Feature=compute
         EOF
@@ -243,12 +341,12 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         # /etc/slurm/acct_gather.conf
         cat > /etc/slurm/acct_gather.conf << 'EOF'
         # InfluxDB profiling disabled due to libslurm_curl linking issues
-        #ProfileInfluxDBDatabase=slurm-job-metrics
-        #ProfileInfluxDBDefault=All
-        #ProfileInfluxDBHost=localhost:8086
-        #ProfileInfluxDBPass=rats
-        #ProfileInfluxDBUser=slurm
-        #ProfileInfluxDBRTPolicy=three_days
+        ProfileInfluxDBDatabase=slurm-job-metrics
+        ProfileInfluxDBDefault=All
+        ProfileInfluxDBHost=localhost:8086
+        ProfileInfluxDBPass=rats
+        ProfileInfluxDBUser=slurm
+        ProfileInfluxDBRTPolicy=three_days
         EOF
         
         # Systemd service files
@@ -448,19 +546,19 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         access_provider  = ldap
         
         # LDAP servers and search bases
-        ldap_uri               = {vantage_cluster_ctx.ldap_url}
-        ldap_search_base       = ou={vantage_cluster_ctx.org_id},ou=organizations,dc=vantagecompute,dc=ai
-        ldap_user_search_base  = ou=People,ou={vantage_cluster_ctx.org_id},ou=organizations,dc=vantagecompute,dc=ai
-        ldap_group_search_base = ou=Groups,ou={vantage_cluster_ctx.org_id},ou=organizations,dc=vantagecompute,dc=ai
+        ldap_uri               = $LDAP_URL
+        ldap_search_base       = ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
+        ldap_user_search_base  = ou=People,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
+        ldap_group_search_base = ou=Groups,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
 
         # Credentials for binding to LDAP
-        ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou={vantage_cluster_ctx.org_id},ou=organizations,dc=vantagecompute,dc=ai
-        ldap_default_authtok      = {vantage_cluster_ctx.sssd_binder_password}
+        ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
+        ldap_default_authtok      = $SSSD_BINDER_PASSWORD
         ldap_default_authtok_type = password
         
         # ─── Access control ───────────────────────────────────────────────────────────
         # Only allow slurm-users to log in
-        ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,ou={vantage_cluster_ctx.org_id},ou=organizations,dc=vantagecompute,dc=ai
+        ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
         
         # ─── SSH public key lookup ────────────────────────────────────────────────────
         ldap_user_ssh_public_key = sshPublicKey
@@ -483,12 +581,13 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         # Configure MySQL
         echo "Configuring MySQL..."
         systemctl restart mysql.service
-        
-        mysql << 'END_SQL'
+
+        mysql << END_SQL
+
         CREATE USER IF NOT EXISTS 'slurm'@'localhost' IDENTIFIED BY 'rats';
         CREATE DATABASE IF NOT EXISTS slurm DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-        GRANT ALL PRIVILEGES ON slurm.* TO 'slurm'@'localhost';
-        FLUSH PRIVILEGES;
+        GRANT ALL PRIVILEGES ON  slurm.* TO 'slurm'@'localhost';
+
         END_SQL
         
         # Configure InfluxDB
@@ -496,11 +595,11 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         systemctl start influxdb.service
         sleep 5
         
-        influx -execute "CREATE USER slurm WITH PASSWORD 'rats'" || true
-        influx -execute 'CREATE DATABASE "slurm-job-metrics"' || true
-        influx -execute 'GRANT ALL ON "slurm-job-metrics" TO "slurm"' || true
-        influx -execute 'CREATE RETENTION POLICY "three_days" ON "slurm-job-metrics" DURATION 3d REPLICATION 1 DEFAULT' || true
-        
+        influx -execute "CREATE USER slurm WITH PASSWORD 'rats'"
+        influx -execute 'CREATE DATABASE "slurm-job-metrics"'
+        influx -execute 'GRANT ALL ON "slurm-job-metrics" TO "slurm"'
+        influx -execute 'CREATE RETENTION POLICY "three_days" ON "slurm-job-metrics" DURATION 3d REPLICATION 1 DEFAULT'
+
         # Setup Slurm directories
         echo "Setting up Slurm directories..."
         mkdir -p /etc/slurm
@@ -521,6 +620,7 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         chown -R slurm:slurm /var/log/slurm
         chown -R slurm:slurm /var/lib/slurm
         chown slurm /etc/slurm/slurmdbd.conf
+        chmod 600 /etc/slurm/slurmdbd.conf
         chown slurm /etc/slurm/slurm.conf
         chown slurm /etc/slurm/slurm.key
         chmod 600 /etc/slurm/slurm.key
@@ -578,14 +678,14 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
           echo "Creating wrapper for $BASENAME in $TARGET_DIR"
           
           # Create wrapper script that sources z00_lmod.sh (which loads slurm module) before executing
-          cat > ${{TARGET_DIR}}/${{BASENAME}} << WRAPPER_EOF
+          cat > ${TARGET_DIR}/${BASENAME} << WRAPPER_EOF
         #!/bin/bash
         source /etc/profile.d/z00_lmod.sh
         exec $i "\\$@"
         WRAPPER_EOF
           
           # Make wrapper executable
-          chmod +x ${{TARGET_DIR}}/${{BASENAME}}
+          chmod +x ${TARGET_DIR}/${BASENAME}
         
         done
         
@@ -607,6 +707,10 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         echo "Configuring PAM for automatic home directory creation..."
         pam-auth-update --enable mkhomedir
 
+        sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
+        sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{{print $1}}')|g\" /etc/slurm/slurm.conf
+        sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
+
         # Enable and start services
         echo "Enabling and starting services..."
         systemctl enable --now mysql
@@ -622,32 +726,32 @@ def head_node_init_script(vantage_cluster_ctx: VantageClusterContext) -> str:
         systemctl enable --now slurmctld
         systemctl enable --now slurmd
         systemctl enable --now slurmrestd
-        scontrol update NodeName=$(hostname) State=RESUME
+        #scontrol update NodeName=$(hostname) State=RESUME
 
         for agent_name in vantage-agent jobbergate-agent; do
-            snap set $agent_name base-api-url={vantage_cluster_ctx.base_api_url}
-            snap set $agent_name cluster-name={vantage_cluster_ctx.cluster_name}
-            snap set $agent_name oidc-domain={vantage_cluster_ctx.oidc_domain}
-            snap set $agent_name oidc-client-id={vantage_cluster_ctx.client_id}
-            snap set $agent_name oidc-client-secret={vantage_cluster_ctx.client_secret}
+            snap set $agent_name base-api-url=$VANTAGE_API_URL
+            snap set $agent_name cluster-name=$CLUSTER_NAME
+            snap set $agent_name oidc-domain=$OIDC_DOMAIN
+            snap set $agent_name oidc-client-id=$OIDC_CLIENT_ID
+            snap set $agent_name oidc-client-secret=$OIDC_CLIENT_SECRET
             snap set $agent_name task-jobs-interval-seconds=10
         done
-        snap set vantage-agent cluster-name={vantage_cluster_ctx.cluster_name}
+        snap set vantage-agent cluster-name=$CLUSTER_NAME
         snap set jobbergate-agent x-slurm-user-name=ubuntu
         snap set jobbergate-agent influx-dsn=influxdb://slurm:rats@localhost:8086/slurm-job-metrics
         snap start vantage-agent.start --enable
         snap start jobbergate-agent.start --enable
 
         echo "Configuring JupyterHub..."
-        echo /etc/default/vantage-jupyterhub << EOF
+        cat > /etc/default/vantage-jupyterhub << EOF
         JUPYTERHUB_VENV_DIR=/srv/vantage-nfs/vantage-jupyterhub
-        OIDC_CLIENT_ID={vantage_cluster_ctx.client_id}
-        OIDC_CLIENT_SECRET={vantage_cluster_ctx.client_secret}
-        JUPYTERHUB_TOKEN={vantage_cluster_ctx.jupyterhub_token}
-        OIDC_BASE_URL={vantage_cluster_ctx.oidc_base_url}
-        TUNNEL_API_URL={vantage_cluster_ctx.tunnel_api_url}
-        VANTAGE_API_URL={vantage_cluster_ctx.base_api_url}
-        OIDC_DOMAIN={vantage_cluster_ctx.oidc_domain}
+        OIDC_CLIENT_ID=$OIDC_CLIENT_ID
+        OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET
+        JUPYTERHUB_TOKEN=$JUPYTERHUB_TOKEN
+        OIDC_BASE_URL=$OIDC_BASE_URL
+        TUNNEL_API_URL=$TUNNEL_API_URL
+        VANTAGE_API_URL=$VANTAGE_API_URL
+        OIDC_DOMAIN=$OIDC_DOMAIN
         EOF
         systemctl --now enable vantage-jupyterhub.service
 

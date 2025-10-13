@@ -1,6 +1,73 @@
 #!/bin/bash
 set -euo pipefail
 
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --cluster-name)
+            CLUSTER_NAME="$2"
+            shift 2
+            ;;
+        --sssd-binder-password)
+            SSSD_BINDER_PASSWORD="$2"
+            shift 2
+            ;;
+        --ldap-url)
+            LDAP_URL="$2"
+            shift 2
+            ;;
+        --org-id)
+            ORG_ID="$2"
+            shift 2
+            ;;
+        --oidc-client-id)
+            OIDC_CLIENT_ID="$2"
+            shift 2
+            ;;
+        --oidc-client-secret)
+            OIDC_CLIENT_SECRET="$2"
+            shift 2
+            ;;
+        --jupyterhub-token)
+            JUPYTERHUB_TOKEN="$2"
+            shift 2
+            ;;
+        --oidc-base-url)
+            OIDC_BASE_URL="$2"
+            shift 2
+            ;;
+        --tunnel-api-url)
+            TUNNEL_API_URL="$2"
+            shift 2
+            ;;
+        --vantage-api-url)
+            VANTAGE_API_URL="$2"
+            shift 2
+            ;;
+        --oidc-domain)
+            OIDC_DOMAIN="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown parameter: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Export environment variables
+export CLUSTER_NAME
+export SSSD_BINDER_PASSWORD
+export LDAP_URL
+export ORG_ID
+export OIDC_CLIENT_ID
+export OIDC_CLIENT_SECRET
+export JUPYTERHUB_TOKEN
+export OIDC_BASE_URL
+export TUNNEL_API_URL
+export VANTAGE_API_URL
+export OIDC_DOMAIN
+
 # Provisioning script converted from cloud-init user-data
 # This script performs the same operations as the cloud-init configuration
 
@@ -26,14 +93,14 @@ if ! id ubuntu &>/dev/null; then
     echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ubuntu
 fi
 
-# Set root password
-echo 'root:$6$canonical.$0zWaW71A9ke9ASsaOcFTdQ2tx1gSmLxMPrsH0rF0Yb.2AEKNPV1lrF94n6YuPJmnUy2K2/JSDtxuiBDey6Lpa/' | chpasswd -e
+## Set root password
+#echo 'root:$6$canonical.$0zWaW71A9ke9ASsaOcFTdQ2tx1gSmLxMPrsH0rF0Yb.2AEKNPV1lrF94n6YuPJmnUy2K2/JSDtxuiBDey6Lpa/' | chpasswd -e
 
 # Enable SSH password authentication
 echo "Configuring SSH..."
-sed -i -e '/^[#]*PermitRootLogin/s/^.*$/PermitRootLogin yes/' /etc/ssh/sshd_config
-sed -i -e '/^[#]*PasswordAuthentication/s/^.*$/PasswordAuthentication yes/' /etc/ssh/sshd_config
-systemctl restart ssh || systemctl restart sshd
+#sed -i -e '/^[#]*PermitRootLogin/s/^.*$/PermitRootLogin yes/' /etc/ssh/sshd_config
+#sed -i -e '/^[#]*PasswordAuthentication/s/^.*$/PasswordAuthentication yes/' /etc/ssh/sshd_config
+#systemctl restart ssh || systemctl restart sshd
 
 # Update package lists
 echo "Updating package lists..."
@@ -82,13 +149,12 @@ apt-get update
 
 # Install packages
 echo "Installing packages..."
-DEBIAN_FRONTEND=noninteractive apt-get install -y             libpmix-dev             openmpi-bin             parallel             mysql-server             apptainer-suid             influxdb             influxdb-client             wget             autossh             lmod             oddjob-mkhomedir             sssd-ldap             ldap-utils
+DEBIAN_FRONTEND=noninteractive apt-get install -y             libpmix-dev             openmpi-bin             parallel             mysql-server             apptainer-suid             influxdb             influxdb-client             wget             autossh             lmod             oddjob-mkhomedir             sssd-ldap             ldap-utils             snapd
 
 # Install snaps
 echo "Installing snap packages..."
-snap install multipass-sshfs
-snap install vantage-agent --channel=stable --classic
-snap install jobbergate-agent --channel=stable --classic
+snap install vantage-agent --channel=edge --classic
+snap install jobbergate-agent --channel=edge --classic
 
 # Write configuration files
 echo "Writing configuration files..."
@@ -113,9 +179,6 @@ constrainswapspace=yes
 signalchildrenprocesses=yes
 EOF
 
-HEADNODE_ADDRESS=$(hostname -I | awk '{print $1}')
-HEADNODE_HOSTNAME=$(hostname)
-
 # /etc/slurm/slurm.conf
 cat > /etc/slurm/slurm.conf << 'EOF'
 ClusterName=$CLUSTER_NAME
@@ -128,8 +191,8 @@ SlurmUser=slurm
 SlurmdUser=root
 SlurmdPort=6818
 SlurmctldPort=6817
-SlurmctldHost=$HEADNODE_HOSTNAME
-SlurmctldAddr=$HEADNODE_ADDRESS
+SlurmctldHost=@HEADNODE_HOSTNAME@
+SlurmctldAddr=@HEADNODE_ADDRESS@
 
 AuthType=auth/slurm
 CredType=auth/slurm
@@ -187,11 +250,8 @@ AccountingStorageHost=@HEADNODE_ADDRESS@
 AccountingStorageUser=slurm
 AccountingStoragePort=6839
 
-# Node Configurations
-NodeName=@HEADNODE_HOSTNAME@ NodeAddr=@HEADNODE_ADDRESS@ CPUs=@CPUs@ ThreadsPerCore=@THREADS_PER_CORE@ CoresPerSocket=@CORES_PER_SOCKET@ Sockets=@SOCKETS@ RealMemory=@REAL_MEMORY@
-
 # Partition Configurations
-PartitionName=compute Nodes=@HEADNODE_HOSTNAME@ MaxTime=INFINITE State=UP Default=Yes
+PartitionName=compute MaxTime=INFINITE State=UP Default=Yes
 
 # Nodeset
 NodeSet=compute Feature=compute
@@ -221,12 +281,12 @@ EOF
 # /etc/slurm/acct_gather.conf
 cat > /etc/slurm/acct_gather.conf << 'EOF'
 # InfluxDB profiling disabled due to libslurm_curl linking issues
-#ProfileInfluxDBDatabase=slurm-job-metrics
-#ProfileInfluxDBDefault=All
-#ProfileInfluxDBHost=localhost:8086
-#ProfileInfluxDBPass=rats
-#ProfileInfluxDBUser=slurm
-#ProfileInfluxDBRTPolicy=three_days
+ProfileInfluxDBDatabase=slurm-job-metrics
+ProfileInfluxDBDefault=All
+ProfileInfluxDBHost=localhost:8086
+ProfileInfluxDBPass=rats
+ProfileInfluxDBUser=slurm
+ProfileInfluxDBRTPolicy=three_days
 EOF
 
 # Systemd service files
@@ -426,7 +486,7 @@ chpass_provider  = ldap
 access_provider  = ldap
 
 # LDAP servers and search bases
-ldap_uri               = $LDAP_URI
+ldap_uri               = $LDAP_URL
 ldap_search_base       = ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
 ldap_user_search_base  = ou=People,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
 ldap_group_search_base = ou=Groups,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
@@ -462,11 +522,12 @@ EOF
 echo "Configuring MySQL..."
 systemctl restart mysql.service
 
-mysql << 'END_SQL'
+mysql << END_SQL
+
 CREATE USER IF NOT EXISTS 'slurm'@'localhost' IDENTIFIED BY 'rats';
 CREATE DATABASE IF NOT EXISTS slurm DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-GRANT ALL PRIVILEGES ON slurm.* TO 'slurm'@'localhost';
-FLUSH PRIVILEGES;
+GRANT ALL PRIVILEGES ON  slurm.* TO 'slurm'@'localhost';
+
 END_SQL
 
 # Configure InfluxDB
@@ -474,10 +535,10 @@ echo "Configuring InfluxDB..."
 systemctl start influxdb.service
 sleep 5
 
-influx -execute "CREATE USER slurm WITH PASSWORD 'rats'" || true
-influx -execute 'CREATE DATABASE "slurm-job-metrics"' || true
-influx -execute 'GRANT ALL ON "slurm-job-metrics" TO "slurm"' || true
-influx -execute 'CREATE RETENTION POLICY "three_days" ON "slurm-job-metrics" DURATION 3d REPLICATION 1 DEFAULT' || true
+influx -execute "CREATE USER slurm WITH PASSWORD 'rats'"
+influx -execute 'CREATE DATABASE "slurm-job-metrics"'
+influx -execute 'GRANT ALL ON "slurm-job-metrics" TO "slurm"'
+influx -execute 'CREATE RETENTION POLICY "three_days" ON "slurm-job-metrics" DURATION 3d REPLICATION 1 DEFAULT'
 
 # Setup Slurm directories
 echo "Setting up Slurm directories..."
@@ -499,6 +560,7 @@ echo "Setting Slurm permissions..."
 chown -R slurm:slurm /var/log/slurm
 chown -R slurm:slurm /var/lib/slurm
 chown slurm /etc/slurm/slurmdbd.conf
+chmod 600 /etc/slurm/slurmdbd.conf
 chown slurm /etc/slurm/slurm.conf
 chown slurm /etc/slurm/slurm.key
 chmod 600 /etc/slurm/slurm.key
@@ -561,6 +623,10 @@ systemctl daemon-reload
 echo "Configuring PAM for automatic home directory creation..."
 pam-auth-update --enable mkhomedir
 
+sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
+sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{{print $1}}')|g" /etc/slurm/slurm.conf
+sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
+
 # Enable and start services
 echo "Enabling and starting services..."
 systemctl enable --now mysql
@@ -576,10 +642,11 @@ sleep 10
 systemctl enable --now slurmctld
 systemctl enable --now slurmd
 systemctl enable --now slurmrestd
-scontrol update NodeName=$(hostname) State=RESUME
+#scontrol update NodeName=$(hostname) State=RESUME
 
 for agent_name in vantage-agent jobbergate-agent; do
-    snap set $agent_name base-api-url=$BASE_API_URL
+    snap set $agent_name base-api-url=$VANTAGE_API_URL
+    snap set $agent_name cluster-name=$CLUSTER_NAME
     snap set $agent_name oidc-domain=$OIDC_DOMAIN
     snap set $agent_name oidc-client-id=$OIDC_CLIENT_ID
     snap set $agent_name oidc-client-secret=$OIDC_CLIENT_SECRET
@@ -592,7 +659,7 @@ snap start vantage-agent.start --enable
 snap start jobbergate-agent.start --enable
 
 echo "Configuring JupyterHub..."
-echo /etc/default/vantage-jupyterhub << EOF
+cat > /etc/default/vantage-jupyterhub << EOF
 JUPYTERHUB_VENV_DIR=/srv/vantage-nfs/vantage-jupyterhub
 OIDC_CLIENT_ID=$OIDC_CLIENT_ID
 OIDC_CLIENT_SECRET=$OIDC_CLIENT_SECRET

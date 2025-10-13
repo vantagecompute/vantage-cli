@@ -117,11 +117,11 @@ async def init_project_and_head_node(
     image_id = "ubuntu-2404"
 
     # Get local SSH public keys
-    local_ssh_keys = get_local_ssh_public_keys()
-    if local_ssh_keys:
-        ctx.obj.console.print(f"📝 Found {len(local_ssh_keys)} local SSH key(s) to add to VM")
-    else:
-        ctx.obj.console.print(f"⚠️  [yellow]Warning:[/yellow] No local SSH keys found in ~/.ssh/")
+    #local_ssh_keys = get_local_ssh_public_keys()
+    #if local_ssh_keys:
+    #    ctx.obj.console.print(f"📝 Found {len(local_ssh_keys)} local SSH key(s) to add to VM")
+    #else:
+    #    ctx.obj.console.print(f"⚠️  [yellow]Warning:[/yellow] No local SSH keys found in ~/.ssh/")
 
     # Get available machine types for the data center
     dc_machine_types = await ctx.obj.cudo_sdk.list_vm_machine_types(
@@ -157,7 +157,7 @@ async def init_project_and_head_node(
 
     vm = await ctx.obj.cudo_sdk.create_vm(
         project_id=project_id,
-        vm_id="vantage-slurm-head-node",
+        vm_id=project_name + "-head-node",
         data_center_id=data_center_id,
         machine_type=machine_type,
         boot_disk_image_id=image_id,
@@ -166,8 +166,8 @@ async def init_project_and_head_node(
         gpus=0,
         boot_disk_size_gib=20,
         ssh_key_source="SSH_KEY_SOURCE_USER",
-        start_script=init_script,
-        custom_ssh_keys=local_ssh_keys,
+        start_script=init_script,  # Use minimal bootstrap instead of full script
+        # custom_ssh_keys=local_ssh_keys,  # Disabled: causes 403 when combined with large start_script
         nics=[
             {
                 "assignPublicIp": True,
