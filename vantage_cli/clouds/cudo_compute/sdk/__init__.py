@@ -1002,6 +1002,25 @@ class CudoComputeSDK:
         accounts = data.get("billingAccounts", [])
         return [BillingAccount(**account) for account in accounts]
 
+    async def get_billing_account(
+        self,
+        billing_account_id: str,
+    ) -> Optional[BillingAccount]:
+        """Get details of a specific billing account.
+
+        Args:
+            billing_account_id: Billing account ID
+
+        Returns:
+            BillingAccount model instance or None if not found
+        """
+        response = await self.client.get(
+            f"/v1/billing-accounts/{billing_account_id}",
+        )
+        response.raise_for_status()
+        data = response.json()
+        return BillingAccount(**data) if data else None
+
     # ========================================================================
     # Projects
     # ========================================================================

@@ -17,11 +17,14 @@ import inspect
 import logging
 import sys
 import time
+from pathlib import Path
 from typing import Any, Callable, List, Optional  # noqa: F401
 
 import typer
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import Annotated
+
+from vantage_cli.constants import VANTAGE_CLI_DEBUG_LOG_PATH
 
 __version__ = importlib.metadata.version("vantage-cli")
 
@@ -34,12 +37,13 @@ _logging_initialized: bool = False
 logging.getLogger().addHandler(logging.NullHandler())
 
 
-def setup_logging(verbose: bool = False, log_file: bool = False) -> None:
-    """Configure logging based on verbosity and file logging flags.
+def setup_logging(verbose: bool = False) -> None:
+    """Configure logging based on verbosity flag.
+    
+    File logging to ~/.vantage-cli/debug.log is always enabled.
 
     Args:
         verbose: If True, enable DEBUG level logging to console
-        log_file: If True, enable logging to ~/.vantage-cli/debug.log
     """
     global _file_handler, _logging_initialized
 
@@ -54,7 +58,6 @@ def setup_logging(verbose: bool = False, log_file: bool = False) -> None:
         for handler in handlers_to_remove:
             root_logger.removeHandler(handler)
 
-    # Set console logging level based on verbosity
     if verbose:
         console_level = logging.DEBUG
         # Enable rich tracebacks only in verbose mode
@@ -78,9 +81,9 @@ def setup_logging(verbose: bool = False, log_file: bool = False) -> None:
     console_handler.setFormatter(console_formatter)
     root_logger.addHandler(console_handler)
 
-    # Set root logger level (should be the minimum of all handlers)
-    # This ensures child loggers inherit the correct level
-    root_logger.setLevel(min(console_level, logging.DEBUG if log_file else logging.ERROR))
+    # Set root logger level to DEBUG to capture all logs for file handler
+    # Console handler will filter based on its own level
+    root_logger.setLevel(logging.DEBUG)
 
     # IMPORTANT: Reset all existing loggers to ensure they pick up the new level
     # This is necessary because loggers created before setup_logging() may have
@@ -93,20 +96,13 @@ def setup_logging(verbose: bool = False, log_file: bool = False) -> None:
 
     _logging_initialized = True
 
-    # Add file logging if requested and not already added
-    if log_file and _file_handler is None:
-        from pathlib import Path
+    if _file_handler is None:
         from logging.handlers import RotatingFileHandler
 
-        home_dir = Path.home()
-        log_path = home_dir / ".vantage-cli" / "debug.log"
+        VANTAGE_CLI_DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        # Ensure the directory exists
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Add rotating file handler
         _file_handler = RotatingFileHandler(
-            log_path,
+            VANTAGE_CLI_DEBUG_LOG_PATH,
             maxBytes=10 * 1024 * 1024,  # 10 MB
             backupCount=7,
         )
@@ -120,9 +116,8 @@ def setup_logging(verbose: bool = False, log_file: bool = False) -> None:
 
     logger = logging.getLogger(__name__)
     logger.debug(
-        "Logging configured (verbose=%s, file_logging=%s)",
+        "Logging configured (verbose=%s, file_logging=always_enabled)",
         verbose,
-        log_file,
     )
 
 
@@ -151,14 +146,6 @@ inherited_command_parameters = [
         default=False,
         annotation=Annotated[
             bool, typer.Option("--verbose", "-v", help="Enable verbose terminal output")
-        ],
-    ),
-    TyperCommandParameter(
-        name="log_file",
-        type=inspect.Parameter.KEYWORD_ONLY,
-        default=False,
-        annotation=Annotated[
-            bool, typer.Option("--log-file", help="Enable logging to ~/.vantage-cli/debug.log")
         ],
     ),
     TyperCommandParameter(
@@ -316,14 +303,7 @@ class AsyncTyper(typer.Typer):
                     verbose_flag = kwargs.pop("verbose", False)
                     ctx.obj.verbose = verbose_flag or getattr(ctx.obj, "verbose", False)
 
-                    # Handle log_file parameter
-                    log_file_flag = kwargs.pop("log_file", False)
-                    ctx.obj.log_file = log_file_flag or getattr(ctx.obj, "log_file", False)
-
-                    # Reconfigure logging immediately based on verbose and log_file flags
-                    # This ensures logging is properly configured before any command logic runs
-                    # The setup_logging function will preserve the file handler if it was enabled
-                    setup_logging(verbose=ctx.obj.verbose, log_file=ctx.obj.log_file)
+                    setup_logging(verbose=ctx.obj.verbose)
 
                     # Handle profile parameter
                     profile_value = kwargs.pop("profile", "default")

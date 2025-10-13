@@ -245,8 +245,10 @@ def refresh_token_if_needed(profile: str, token_set: TokenSet) -> TokenSet:
     except Exception as e:
         logger.debug(f"Failed to refresh token: {e}")
         raise Abort(
-            "Failed to refresh the expired access token. Please log in again.",
-            subject="Token refresh failed",
+            "Your authentication session has expired.\n\nToken refresh failed"
+            "Please log in again by running:\n\n"
+            "    vantage login\n",
+            subject="Authentication Required",
             log_message=f"Token refresh failed: {e}",
         )
 
@@ -290,9 +292,12 @@ def init_persona(ctx: typer.Context, token_set: TokenSet | None = None):
 
 def attach_persona(func: Callable[..., Any]) -> Callable[..., Any]:
     """Attach persona to the CLI context."""
+    from vantage_cli.exceptions import handle_abort
+    
     if inspect.iscoroutinefunction(func):
 
         @wraps(func)
+        @handle_abort
         async def async_wrapper(ctx: typer.Context, *args, **kwargs):
             logger.debug("Extracting persona from cached tokens")
             ctx.obj.persona = extract_persona(ctx.obj.profile)
@@ -303,6 +308,7 @@ def attach_persona(func: Callable[..., Any]) -> Callable[..., Any]:
     else:
 
         @wraps(func)
+        @handle_abort
         def wrapper(ctx: typer.Context, *args, **kwargs):
             logger.debug("Extracting persona from cached tokens")
             ctx.obj.persona = extract_persona(ctx.obj.profile)

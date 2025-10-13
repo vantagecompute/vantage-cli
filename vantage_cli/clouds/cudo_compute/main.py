@@ -88,6 +88,9 @@ from .cmds.sshkey.get import get_ssh_key
 from .cmds.sshkey.create import create_ssh_key
 from .cmds.sshkey.delete import delete_ssh_key
 
+from .cmds.billing_account.list import list_billing_accounts
+from .cmds.billing_account.get import get_billing_account
+
 # Create main app
 app = AsyncTyper(
     name="cudo-compute",
@@ -127,6 +130,9 @@ volume_app = AsyncTyper(
     name="volume", help="Manage Cudo Compute NFS volumes", no_args_is_help=True
 )
 sshkey_app = AsyncTyper(name="sshkey", help="Manage Cudo Compute SSH keys", no_args_is_help=True)
+billing_account_app = AsyncTyper(
+    name="billing-account", help="Manage Cudo Compute billing accounts", no_args_is_help=True
+)
 
 # Register project commands
 project_app.command("list")(list_projects)
@@ -217,6 +223,10 @@ sshkey_app.command("get")(get_ssh_key)
 sshkey_app.command("create")(create_ssh_key)
 sshkey_app.command("delete")(delete_ssh_key)
 
+# Register billing account commands
+billing_account_app.command("list")(list_billing_accounts)
+billing_account_app.command("get")(get_billing_account)
+
 # Add sub-apps to main app (singular)
 app.add_typer(project_app)
 app.add_typer(cluster_app)
@@ -233,6 +243,7 @@ app.add_typer(image_app)
 app.add_typer(disk_app)
 app.add_typer(volume_app)
 app.add_typer(sshkey_app)
+app.add_typer(billing_account_app)
 
 # Add plural aliases for list commands (so users can type `vantage cloud cudo-compute projects` instead of `vantage cloud cudo-compute project list`)
 app.command("projects", help="List Cudo Compute projects (alias for 'project list')", hidden=True)(
@@ -285,3 +296,8 @@ app.command(
 app.command("sshkeys", help="List Cudo Compute SSH keys (alias for 'sshkey list')", hidden=True)(
     list_ssh_keys
 )
+app.command(
+    "billing-accounts",
+    help="List Cudo Compute billing accounts (alias for 'billing-account list')",
+    hidden=True,
+)(list_billing_accounts)

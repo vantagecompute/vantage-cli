@@ -118,7 +118,6 @@ def main(ctx: typer.Context):
     # Get injected parameters from context object if they exist
     profile = getattr(ctx.obj, "profile", None) if hasattr(ctx, "obj") and ctx.obj else None
     verbose = getattr(ctx.obj, "verbose", False) if hasattr(ctx, "obj") and ctx.obj else False
-    log_file = getattr(ctx.obj, "log_file", False) if hasattr(ctx, "obj") and ctx.obj else False
     json_output = (
         getattr(ctx.obj, "json_output", False) if hasattr(ctx, "obj") and ctx.obj else False
     )
@@ -126,7 +125,7 @@ def main(ctx: typer.Context):
     # Use explicit profile if provided, otherwise get the active profile
     active_profile = profile if profile is not None else get_active_profile()
 
-    setup_logging(verbose=verbose, log_file=log_file)
+    setup_logging(verbose=verbose)
 
     # Create a single console instance for the entire application
     # console = Console(width=200)

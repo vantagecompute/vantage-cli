@@ -91,7 +91,6 @@ class CliContext(BaseModel):
 
     profile: str = "default"
     verbose: bool = False
-    log_file: bool = False
     json_output: bool = False
     formatter: Optional[Any] = None  # UniversalOutputFormatter (avoid circular import)
     persona: Optional[Persona] = None

@@ -312,15 +312,38 @@ def head_node_init_script() -> str:
         AccountingStorageHost=@HEADNODE_ADDRESS@
         AccountingStorageUser=slurm
         AccountingStoragePort=6839
-        
-        # Partition Configurations
-        PartitionName=compute Nodes=compute MaxTime=INFINITE State=UP Default=Yes
 
-        # Nodeset
+        # Node Configurations
+        NodeName=@HEADNODE_HOSTNAME@ NodeAddr=@HEADNODE_ADDRESS@ CPUs=@CPUs@ ThreadsPerCore=@THREADS_PER_CORE@ CoresPerSocket=@CORES_PER_SOCKET@ Sockets=@SOCKETS@ RealMemory=@REAL_MEMORY@ MemSpecLimit=@MEMSPEC_LIMIT@ State=UNKNOWN Feature=compute
+
+        # Partition Configurations
         PartitionName=compute Nodes=@HEADNODE_HOSTNAME@ MaxTime=INFINITE State=UP Default=Yes
-        NodeName=@HEADNODE_HOSTNAME@
+
+        # NodeSet Configurations
         NodeSet=compute Feature=compute
         EOF
+
+        sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{print $1}')|g" /etc/slurm/slurm.conf
+        sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
+
+        cpu_info=$(lscpu -J | jq)
+        CPUs=$(echo $cpu_info | jq -r '.lscpu | .[] | select(.field == "CPU(s):") | .data')
+        sed -i "s|@CPUs@|$CPUs|g" /etc/slurm/slurm.conf
+
+        THREADS_PER_CORE=$(echo $cpu_info | jq -r '.lscpu | .[] | select(.field == "Thread(s) per core:") | .data')
+        sed -i "s|@THREADS_PER_CORE@|$THREADS_PER_CORE|g" /etc/slurm/slurm.conf
+
+        CORES_PER_SOCKET=$(echo $cpu_info | jq -r '.lscpu | .[] | select(.field == "Core(s) per socket:") | .data')
+        sed -i "s|@CORES_PER_SOCKET@|$CORES_PER_SOCKET|g" /etc/slurm/slurm.conf
+
+        SOCKETS=$(echo $cpu_info | jq -r '.lscpu | .[] | select(.field == "Socket(s):") | .data')
+        sed -i "s|@SOCKETS@|$SOCKETS|g" /etc/slurm/slurm.conf
+
+        REAL_MEMORY=$(free -m | grep -oP '\d+' | head -n 1)
+        sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf
+
+        sed -i "s|@REAL_MEMORY@|$(grep MemTotal /proc/meminfo | awk '{print $2}')|g" /etc/slurm/slurm.conf
+        sed -i "s|@MEMSPEC_LIMIT@|1024|g" /etc/slurm/slurm.conf
         
         # /etc/slurm/slurmdbd.conf
         cat > /etc/slurm/slurmdbd.conf << 'EOF'
@@ -342,10 +365,11 @@ def head_node_init_script() -> str:
         
         DebugLevel=info
         EOF
+
+        sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
         
         # /etc/slurm/acct_gather.conf
         cat > /etc/slurm/acct_gather.conf << 'EOF'
-        # InfluxDB profiling disabled due to libslurm_curl linking issues
         ProfileInfluxDBDatabase=slurm-job-metrics
         ProfileInfluxDBDefault=All
         ProfileInfluxDBHost=localhost:8086
@@ -465,22 +489,18 @@ def head_node_init_script() -> str:
         LimitSTACK=infinity
         Delegate=yes
         TasksMax=infinity
+
+        [Install]
+        WantedBy=multi-user.target
         EOF
         
         # Default environment files
         mkdir -p /etc/default
         
         cat > /etc/default/slurmd << 'EOF'
-        SLURMD_OPTIONS="--conf 'cpus=@CPUS@ boards=1 socketsperboard=1 corespersocket=@CORES_PER_SOCKET@ threadspercore=@THREADS_PER_CORE@ realmemory=@REAL_MEMORY@ memspeclimit=@MEMSPEC_LIMIT@ features=compute'"
+        SLURMD_OPTIONS=""
         SLURM_CONF=/etc/slurm/slurm.conf
         EOF
-
-        sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{print $1}')|g\" /etc/default/slurmd
-        sed -i "s|@CPUS@|$(nproc)|g" /etc/default/slurmd
-        sed -i "s|@CORES_PER_SOCKET@|$(nproc)|g" /etc/default/slurmd
-        sed -i "s|@THREADS_PER_CORE@|1|g" /etc/default/slurmd
-        sed -i "s|@REAL_MEMORY@|$(grep MemTotal /proc/meminfo | awk '{print $2}')|g" /etc/default/slurmd
-        sed -i "s|@MEMSPEC_LIMIT@|1024|g" /etc/default/slurmd
 
         cat > /etc/default/slurmctld << 'EOF'
         SLURMCTLD_OPTIONS=""
