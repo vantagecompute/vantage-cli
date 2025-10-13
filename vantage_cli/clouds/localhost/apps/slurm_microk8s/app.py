@@ -24,7 +24,9 @@ from vantage_cli.clouds.common import (
     generate_dev_cluster_data,
 )
 from vantage_cli.clouds.constants import DEV_JUPYTERHUB_TOKEN, DEV_ORG_ID, DEV_SSSD_BINDER_PASSWORD
-from vantage_cli.clouds.localhost.apps.slurm_microk8s.chart_values import CHART_VALUES_SLURM_CLUSTER
+from vantage_cli.clouds.localhost.apps.slurm_microk8s.chart_values import (
+    CHART_VALUES_SLURM_CLUSTER,
+)
 from vantage_cli.clouds.localhost.apps.slurm_microk8s.constants import (
     APP_NAME,
     DEFAULT_NAMESPACE_CERT_MANAGER,
@@ -87,10 +89,10 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         persona_org_id = getattr(identity_data, "org_id", None)
 
     org_id = (
-        cluster.creation_parameters.get("org_id")
-        if cluster.creation_parameters
-        else None
-    ) or persona_org_id or DEV_ORG_ID
+        (cluster.creation_parameters.get("org_id") if cluster.creation_parameters else None)
+        or persona_org_id
+        or DEV_ORG_ID
+    )
 
     ssh_keys = get_ssh_keys() or ""
 
@@ -132,9 +134,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     chart_values["clusterName"] = cluster.client_id
     loginset_values = chart_values["loginsets"]["slinky"]
     loginset_values["rootSshAuthorizedKeys"] = ssh_keys
-    loginset_values["sssdConf"] = sssd_conf(
-        settings.get_ldap_url(), org_id, sssd_binder_password
-    )
+    loginset_values["sssdConf"] = sssd_conf(settings.get_ldap_url(), org_id, sssd_binder_password)
 
     set_values: Dict[str, str] = {
         "clusterName": cluster.client_id,
@@ -205,7 +205,7 @@ async def create_command(
         cluster = fetched_cluster
 
         if (extra_attrs := await get_extra_attributes(ctx)) is not None:
-            if (sssd_binder_password := extra_attrs.get("sssd_binder_password")):
+            if sssd_binder_password := extra_attrs.get("sssd_binder_password"):
                 cluster.sssd_binder_password = sssd_binder_password
     else:
         ctx.obj.console.print(

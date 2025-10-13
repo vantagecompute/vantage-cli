@@ -42,13 +42,16 @@ async def get_security_group_rule(
         # Use default project if not specified
         if not project_id:
             project_id = ctx.obj.settings.cudo_compute_project_id
-        
+
         rule = await ctx.obj.cudo_sdk.get_security_group_rule(
             project_id, security_group_id, rule_id
         )
-        
+
+        # Convert Pydantic model to dict for the formatter
+        rule_data = rule.model_dump() if rule else {}
+
         ctx.obj.formatter.render_get(
-            data=rule,
+            data=rule_data,
             resource_name="Security Group Rule",
         )
     except ValueError as e:

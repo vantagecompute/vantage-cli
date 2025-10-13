@@ -550,6 +550,7 @@ def deploy_microk8s_stack(
     )
     console.print("[green]✓[/green] SLURM cluster installed")
 
+
 def create_complete_prerequisite_checks() -> List[PrerequisiteCheck]:
     """Create complete prerequisite checks including MicroK8s addons."""
     basic_checks = create_common_prerequisite_checks()

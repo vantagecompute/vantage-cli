@@ -38,7 +38,10 @@ async def get_project(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get project: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    project_data = project.model_dump() if project else {}
+
     ctx.obj.formatter.render_get(
-        data=project,
+        data=project_data,
         resource_name=f"Project: {project_id}",
     )

@@ -49,8 +49,11 @@ async def list_disks(
     if not disks:
         logger.debug(f"No disks found in project '{project_id}'.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    disks_data = [d.model_dump() for d in disks]
+
     ctx.obj.formatter.render_list(
-        data=disks,
+        data=disks_data,
         resource_name="Cudo Compute Disks",
     )

@@ -38,11 +38,11 @@ async def update_network(
         kwargs = {}
         if ip_range:
             kwargs["ipRange"] = ip_range
-        
+
         if not kwargs:
             logger.debug("[bold yellow]Warning:[/bold yellow] No update parameters provided")
             raise typer.Exit(code=1)
-        
+
         network = await ctx.obj.cudo_sdk.update_network(
             project_id=project_id,
             network_id=network_id,

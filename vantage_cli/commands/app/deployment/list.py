@@ -33,16 +33,15 @@ async def list_deployments(
     ] = None,
     status: Annotated[
         Optional[str],
-        typer.Option(
-            "--status", help="Filter deployments by status (e.g., active, inactive)"
-        ),
+        typer.Option("--status", help="Filter deployments by status (e.g., active, inactive)"),
     ] = None,
 ) -> None:
     """List all active deployments from ~/.vantage-cli/deployments.yaml."""
     try:
         # Use the SDK to get deployments
         deployments = [
-            d.model_dump(mode='json') for d in await deployment_sdk.list(ctx, cloud=cloud, status=status)
+            d.model_dump(mode="json")
+            for d in await deployment_sdk.list(ctx, cloud=cloud, status=status)
         ]
 
         ctx.obj.formatter.render_list(

@@ -36,13 +36,13 @@ async def list_images(
     try:
         if image_type == "private":
             if not project_id:
-                logger.debug("[bold red]Error:[/bold red] --project-id is required for private images")
+                logger.debug(
+                    "[bold red]Error:[/bold red] --project-id is required for private images"
+                )
                 raise typer.Exit(code=1)
-            result = await ctx.obj.cudo_sdk.list_private_vm_images(project_id=project_id)
+            images = await ctx.obj.cudo_sdk.list_private_vm_images(project_id=project_id)
         else:
-            result = await ctx.obj.cudo_sdk.list_public_vm_images()
-        
-        images = result.get("vmImages", [])
+            images = await ctx.obj.cudo_sdk.list_public_vm_images()
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list images: {e}")
         raise typer.Exit(code=1)
@@ -50,8 +50,11 @@ async def list_images(
     if not images:
         logger.debug(f"No {image_type} images found.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    images_data = [img.model_dump() for img in images]
+
     ctx.obj.formatter.render_list(
-        data=images,
+        data=images_data,
         resource_name=f"Cudo Compute {image_type.capitalize()} Images",
     )

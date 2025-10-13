@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
@@ -498,9 +499,7 @@ class NotebookSDK:
             error_message = mutation_result.get(
                 "message", "Notebook server creation was rejected by the API."
             )
-            logger.error(
-                f"Notebook creation returned {typename}: {error_message}"
-            )
+            logger.error(f"Notebook creation returned {typename}: {error_message}")
             raise Abort(
                 error_message,
                 subject="Notebook Creation Failed",

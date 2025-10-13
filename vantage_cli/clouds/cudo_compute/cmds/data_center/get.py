@@ -42,7 +42,10 @@ async def get_data_center(
         logger.debug(f"Data center '{data_center_id}' not found.")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    data_center_data = data_center.model_dump()
+
     ctx.obj.formatter.render_single(
-        data=data_center,
+        data=data_center_data,
         resource_name=f"Data Center: {data_center_id}",
     )

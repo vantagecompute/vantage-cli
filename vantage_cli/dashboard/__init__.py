@@ -20,7 +20,7 @@ and management of Vantage resources:
 SDK Integration:
 ---------------
 - **Clusters**: Uses `vantage_cli.sdk.cluster.schema.Cluster` for cluster data
-- **Deployments**: Uses `vantage_cli.sdk.deployment.schema.Deployment` for deployment data  
+- **Deployments**: Uses `vantage_cli.sdk.deployment.schema.Deployment` for deployment data
 - **Profiles**: Uses `vantage_cli.sdk.profile.schema.Profile` for profile management
 - **Context**: Uses `vantage_cli.schemas.CliContext` for CLI execution context
 
@@ -74,6 +74,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 from rich.text import Text
 from textual.app import App, ComposeResult
@@ -226,19 +227,19 @@ class DeploymentCreateModal(ModalScreen):
     def _on_provider_changed(self, provider: str) -> None:
         """Filter apps when provider selection changes."""
         self.selected_provider = provider
-        
+
         # Filter apps based on provider
         if provider:
             # Filter DeploymentApp instances by provider
             filtered_apps = [app for app in self.all_apps if provider in app.providers]
-            
+
             # If no apps match, show all
             if not filtered_apps:
                 filtered_apps = self.all_apps
         else:
             # No provider selected, show all apps
             filtered_apps = self.all_apps
-        
+
         # Update the app dropdown with app names
         app_select = self.query_one("#app-select", Select)
         app_select.set_options([(app.name, app.name) for app in filtered_apps])
@@ -282,10 +283,10 @@ class DeploymentCreateModal(ModalScreen):
 @dataclass
 class DashboardConfig:
     """Configuration for the dashboard.
-    
+
     This configures the dashboard behavior and which features are enabled.
     All tab panes that are enabled will use the SDK to fetch and display data.
-    
+
     Attributes:
         title: Main title displayed in the header
         subtitle: Subtitle text for the header
@@ -294,7 +295,7 @@ class DashboardConfig:
         enable_controls: Enable Create/Status/Remove control buttons
         enable_clusters: Enable cluster management tab (uses cluster SDK)
         refresh_interval: How often to refresh stats (in seconds)
-        
+
     Example:
         ```python
         config = DashboardConfig(
@@ -318,7 +319,7 @@ class DashboardConfig:
 @dataclass
 class ServiceConfig:
     """Configuration for a service in the dashboard.
-    
+
     This represents a deployment service that can be tracked and monitored.
     Can be constructed from Cluster or Deployment SDK objects.
     """
@@ -344,7 +345,7 @@ class ServiceConfig:
             "on_prem": "🏢",
         }
         emoji = provider_emoji_map.get(cluster.provider.lower(), "🖥️")
-        
+
         return cls(
             name=cluster.name,
             url=cluster.jupyterhub_url,
@@ -361,11 +362,11 @@ class ServiceConfig:
             "vm": "🧱",
         }
         emoji = substrate_emoji_map.get(deployment.substrate.lower(), "🚀")
-        
+
         dependencies = []
         if deployment.cluster:
             dependencies.append(deployment.cluster.name)
-        
+
         return cls(
             name=f"{deployment.app_name}-{deployment.cluster.name}",
             url=deployment.vantage_cluster_ctx.base_api_url,
@@ -382,16 +383,16 @@ class CustomHeader(Header):
 
 class DashboardApp(App):
     """Modular production dashboard that can be configured and reused.
-    
+
     This dashboard integrates with the Vantage CLI SDK to display and manage:
     - Clusters (via vantage_cli.sdk.cluster)
     - Deployments (via vantage_cli.sdk.deployment)
     - Profiles (via vantage_cli.sdk.profile)
-    
+
     The dashboard uses Worker objects for tracking progress of service deployments
     and dependencies. Services can be created from Cluster or Deployment SDK objects
     using ServiceConfig.from_cluster() and ServiceConfig.from_deployment().
-    
+
     Args:
         config: Dashboard configuration settings
         services: List of services to track (can be created from SDK objects)
@@ -651,7 +652,7 @@ class DashboardApp(App):
         self.start_time = time.time()
         self.execution_complete = False
         self.execution_running = False
-        
+
         # Deployment state for dashboard
         self.deployments: List[Deployment] = []
         self.selected_deployment: Optional[Deployment] = None
@@ -667,10 +668,10 @@ class DashboardApp(App):
         ctx: Optional[typer.Context] = None,
     ) -> "DashboardApp":
         """Create a DashboardApp from SDK cluster and deployment objects.
-        
+
         This is a convenience method that converts SDK schemas into ServiceConfig
         objects and initializes the dashboard.
-        
+
         Args:
             clusters: List of Cluster objects from cluster SDK
             deployments: List of Deployment objects from deployment SDK
@@ -678,18 +679,18 @@ class DashboardApp(App):
             custom_handlers: Optional custom worker handlers
             platform_info: Platform information to display
             ctx: Typer context with SDK configuration
-            
+
         Returns:
             Configured DashboardApp instance
-            
+
         Example:
             ```python
             from vantage_cli.sdk.cluster import cluster_sdk
             from vantage_cli.sdk.deployment import deployment_sdk
-            
+
             clusters = await cluster_sdk.list_clusters(ctx)
             deployments = await deployment_sdk.list(ctx)
-            
+
             app = DashboardApp.from_sdk_data(
                 clusters=clusters,
                 deployments=deployments,
@@ -699,13 +700,13 @@ class DashboardApp(App):
             ```
         """
         services = []
-        
+
         if clusters:
             services.extend([ServiceConfig.from_cluster(c) for c in clusters])
-            
+
         if deployments:
             services.extend([ServiceConfig.from_deployment(d) for d in deployments])
-        
+
         return cls(
             config=config,
             services=services,
@@ -759,7 +760,9 @@ class DashboardApp(App):
                             with Vertical(id="left-content"):
                                 yield Static("🚀 Deployments", classes="section-header")
                                 with Vertical(id="deployments-list-wrapper"):
-                                    yield DataTable(id="dashboard-deployments-table", zebra_stripes=True)
+                                    yield DataTable(
+                                        id="dashboard-deployments-table", zebra_stripes=True
+                                    )
 
                                 yield Static(
                                     f"� {self.platform_info['name']}", classes="section-header"
@@ -845,7 +848,7 @@ class DashboardApp(App):
         self.add_log("💡 Use Ctrl+C or 'q' to quit, 'r' to restart")
 
         self.setup_tables()
-        
+
         # Load deployments if context is available
         if self.ctx:
             self.load_deployments()
@@ -864,7 +867,7 @@ class DashboardApp(App):
             logger.debug("Dashboard deployments table setup complete.")
         except Exception as e:
             logger.debug(f"Dashboard deployments table not found (may not be in compose yet): {e}")
-        
+
         # Set up the deployment details table
         try:
             details_table = self.query_one("#dashboard-deployment-details-table", DataTable)
@@ -877,7 +880,7 @@ class DashboardApp(App):
         """Load deployments from SDK and populate the table."""
         if not self.ctx:
             return
-        
+
         # Run async loading in background
         self.run_worker(self._load_deployments_async(), exclusive=True)
 
@@ -896,7 +899,7 @@ class DashboardApp(App):
         try:
             table = self.query_one("#dashboard-deployments-table", DataTable)
             table.clear()
-            
+
             for deployment in self.deployments:
                 table.add_row(
                     deployment.deployment_name,
@@ -905,7 +908,7 @@ class DashboardApp(App):
                     deployment.status,
                     key=deployment.deployment_id,
                 )
-            
+
             logger.debug(f"Updated deployments table with {len(self.deployments)} deployments")
         except Exception as e:
             logger.warning(f"Failed to update deployments table: {e}")
@@ -915,7 +918,7 @@ class DashboardApp(App):
         try:
             details_table = self.query_one("#dashboard-deployment-details-table", DataTable)
             details_table.clear()
-            
+
             # Display deployment properties
             details = [
                 ("Deployment ID", deployment.deployment_id),
@@ -927,10 +930,10 @@ class DashboardApp(App):
                 ("Created", deployment.formatted_created_at),
                 ("Active", "✅ Yes" if deployment.is_active else "❌ No"),
             ]
-            
+
             for key, value in details:
                 details_table.add_row(key, str(value))
-                
+
             logger.debug(f"Updated deployment details for {deployment.deployment_name}")
         except Exception as e:
             logger.warning(f"Failed to update deployment details: {e}")
@@ -940,13 +943,13 @@ class DashboardApp(App):
         if event.data_table.id == "dashboard-deployments-table":
             deployment_id = event.row_key
             logger.debug(f"Deployment selected: {deployment_id}")
-            
+
             # Find the selected deployment
             selected = next(
                 (d for d in self.deployments if d.deployment_id == deployment_id),
                 None,
             )
-            
+
             if selected:
                 self.selected_deployment = selected
                 self.update_deployment_details(selected)
@@ -1033,7 +1036,7 @@ class DashboardApp(App):
         if not self.ctx:
             self.add_log("❌ No context available for deployment creation", "ERROR")
             return
-        
+
         # Load clusters and apps, then show modal
         self.run_worker(self._show_create_deployment_modal(), exclusive=True)
 
@@ -1043,34 +1046,34 @@ class DashboardApp(App):
             # Load clusters
             logger.debug("Loading clusters for deployment creation...")
             clusters = await cluster_sdk.list_clusters(self.ctx)
-            
+
             # Get available apps and providers using DeploymentAppSDK
             from vantage_cli.sdk.deployment_app import deployment_app_sdk
-            
+
             # Get all available apps and providers
             all_apps = deployment_app_sdk.list()
             providers = deployment_app_sdk.get_all_providers()
-            
+
             if not all_apps:
                 self.add_log("⚠️ No deployment apps available", "WARNING")
                 return
-            
+
             # Show the modal
             result = await self.push_screen_wait(
                 DeploymentCreateModal(self.ctx, clusters, all_apps, providers)
             )
-            
+
             if result:
                 # User confirmed - create the deployment
                 await self._create_deployment_from_modal(result)
-                
+
         except Exception as e:
             logger.error(f"Failed to show create modal: {e}")
             self.add_log(f"❌ Failed to open deployment creation: {e}", "ERROR")
 
     async def _create_deployment_from_modal(self, data: Dict[str, Any]) -> None:
         """Create a deployment from modal data.
-        
+
         Args:
             data: Dictionary with 'provider', 'app' and 'cluster' keys
         """
@@ -1078,22 +1081,22 @@ class DashboardApp(App):
             provider_name = data["provider"]
             app_name = data["app"]
             cluster = data["cluster"]
-            
+
             self.add_log(
-                f"🚀 Creating deployment: {app_name} on {cluster.name} ({provider_name})...", 
-                "INFO"
+                f"🚀 Creating deployment: {app_name} on {cluster.name} ({provider_name})...",
+                "INFO",
             )
             logger.debug(
                 f"Creating deployment: provider={provider_name}, app={app_name}, cluster={cluster.name}"
             )
-            
+
             # TODO: Actually call the app's create() function here
             # For now, just show success
             self.add_log(f"✅ Deployment creation initiated for {app_name}", "SUCCESS")
-            
+
             # Reload deployments
             self.load_deployments()
-            
+
         except Exception as e:
             logger.error(f"Failed to create deployment: {e}")
             self.add_log(f"❌ Failed to create deployment: {e}", "ERROR")
@@ -1192,34 +1195,34 @@ def run_dashboard(
     setup_signals: bool = True,
 ) -> None:
     """Run the dashboard with optional configuration.
-    
+
     This is the main entry point for using the dashboard in your applications.
-    
+
     The dashboard integrates with the Vantage CLI SDK to provide real-time
     monitoring and management of:
     - Clusters (vantage_cli.sdk.cluster)
     - Deployments (vantage_cli.sdk.deployment)
     - Profiles (vantage_cli.sdk.profile)
-    
+
     Example:
         ```python
         from vantage_cli.sdk.cluster import cluster_sdk
         from vantage_cli.sdk.deployment import deployment_sdk
         from vantage_cli.dashboard import DashboardConfig, ServiceConfig, run_dashboard
-        
+
         # Load data from SDK
         clusters = await cluster_sdk.list_clusters(ctx)
         deployments = await deployment_sdk.list(ctx)
-        
+
         # Convert to services
         services = [ServiceConfig.from_cluster(c) for c in clusters]
         services += [ServiceConfig.from_deployment(d) for d in deployments]
-        
+
         # Run dashboard
         config = DashboardConfig(title="My Dashboard")
         run_dashboard(config=config, services=services, ctx=ctx)
         ```
-    
+
     Args:
         config: Dashboard configuration settings
         services: List of services to display (can use ServiceConfig.from_cluster/from_deployment)

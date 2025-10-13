@@ -32,9 +32,12 @@ async def list_ssh_keys(
             page_number=page_number,
             page_size=page_size,
         )
-        
+
+        # Convert Pydantic models to dicts for the formatter
+        ssh_keys_data = [key.model_dump() for key in ssh_keys]
+
         ctx.obj.formatter.render_list(
-            data=ssh_keys,
+            data=ssh_keys_data,
             resource_name="SSH Keys",
         )
     except Exception as e:

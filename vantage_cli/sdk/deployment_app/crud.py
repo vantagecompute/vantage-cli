@@ -100,14 +100,14 @@ class DeploymentAppSDK:
 
     def _discover_apps(self) -> None:
         """Discover all available deployment apps from the filesystem."""
-        built_in_apps_dir = Path(__file__).parent.parent.parent / "apps"
+        clouds_dir = Path(__file__).parent.parent.parent / "clouds"
 
-        if not built_in_apps_dir.exists():
-            logger.warning(f"Apps directory not found: {built_in_apps_dir}")
+        if not clouds_dir.exists():
+            logger.warning(f"Clouds directory not found: {clouds_dir}")
             return
 
         # Discover built-in and dev apps
-        built_in_apps = self._discover_builtin_apps(built_in_apps_dir)
+        built_in_apps = self._discover_builtin_apps(clouds_dir)
         dev_apps = self._discover_dev_apps()
 
         # Combine and process all apps
@@ -117,27 +117,30 @@ class DeploymentAppSDK:
 
         logger.debug(f"Discovered {len(self._app_registry)} deployment apps")
 
-    def _discover_builtin_apps(self, built_in_apps_dir: Path) -> List[tuple[Path, bool]]:
-        """Discover built-in apps from the apps directory.
+    def _discover_builtin_apps(self, clouds_dir: Path) -> List[tuple[Path, bool]]:
+        """Discover built-in apps from the clouds directory structure.
 
-        Supports both top-level apps and nested apps (e.g., localhost/slurm_*).
+        Looks for apps in: vantage_cli/clouds/{cloud}/apps/{app_name}/
         """
         built_in_apps = []
 
-        for app_path in built_in_apps_dir.iterdir():
-            if app_path.is_dir() and not app_path.name.startswith("__"):
-                # Check if it's a direct app directory
-                app_module_path = app_path / "app.py"
-                if app_module_path.exists():
-                    built_in_apps.append((app_path, True))  # (path, is_builtin)
-                # Check if it's a category directory (e.g., localhost/)
-                elif app_path.is_dir():
-                    # Look for nested app directories
-                    for nested_app_path in app_path.iterdir():
-                        if nested_app_path.is_dir() and not nested_app_path.name.startswith("__"):
-                            nested_app_module_path = nested_app_path / "app.py"
-                            if nested_app_module_path.exists():
-                                built_in_apps.append((nested_app_path, True))
+        # Iterate through each cloud provider directory
+        for cloud_dir in clouds_dir.iterdir():
+            if not cloud_dir.is_dir() or cloud_dir.name.startswith("__"):
+                continue
+
+            # Look for apps directory within the cloud directory
+            apps_dir = cloud_dir / "apps"
+            if not apps_dir.exists() or not apps_dir.is_dir():
+                continue
+
+            # Iterate through app directories
+            for app_path in apps_dir.iterdir():
+                if app_path.is_dir() and not app_path.name.startswith("__"):
+                    app_module_path = app_path / "app.py"
+                    if app_module_path.exists():
+                        built_in_apps.append((app_path, True))  # (path, is_builtin)
+                        logger.debug(f"Found app: {cloud_dir.name}/{app_path.name}")
 
         return built_in_apps
 
@@ -180,16 +183,24 @@ class DeploymentAppSDK:
                 return
 
             constants_module = self._load_constants_module(app_path, app_name, is_builtin)
-            
+
             # Extract app name, cloud and substrate from constants module
             if constants_module and hasattr(constants_module, "APP_NAME"):
                 command_name = constants_module.APP_NAME
             else:
                 # Fallback to directory name with underscores replaced by hyphens
                 command_name = app_name.replace("_", "-")
-            
-            cloud = constants_module.CLOUD if constants_module and hasattr(constants_module, "CLOUD") else "localhost"
-            substrate = constants_module.SUBSTRATE if constants_module and hasattr(constants_module, "SUBSTRATE") else "unknown"
+
+            cloud = (
+                constants_module.CLOUD
+                if constants_module and hasattr(constants_module, "CLOUD")
+                else "localhost"
+            )
+            substrate = (
+                constants_module.SUBSTRATE
+                if constants_module and hasattr(constants_module, "SUBSTRATE")
+                else "unknown"
+            )
 
             # Create DeploymentApp instance with module reference
             deployment_app = DeploymentApp(
@@ -210,12 +221,12 @@ class DeploymentAppSDK:
 
     def _load_app_module(self, app_path: Path, app_name: str, is_builtin: bool):
         """Load the app module.
-        
+
         Args:
             app_path: Path to the app directory
             app_name: Name of the app directory
             is_builtin: Whether this is a built-in app
-            
+
         Returns:
             The loaded module or None if loading failed
         """
@@ -233,8 +244,10 @@ class DeploymentAppSDK:
                     )
                 else:
                     # Fallback for top-level apps (if any exist)
-                    app_module = importlib.import_module(f"vantage_cli.clouds.localhost.apps.{app_name}.app")
-                
+                    app_module = importlib.import_module(
+                        f"vantage_cli.clouds.localhost.apps.{app_name}.app"
+                    )
+
                 return app_module
             else:
                 # For dev apps, check if app.py exists but don't import yet

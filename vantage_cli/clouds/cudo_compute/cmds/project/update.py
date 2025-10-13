@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 async def update_project(
     ctx: typer.Context,
     project_id: str = typer.Argument(..., help="Project ID"),
-    billing_account_id: str = typer.Option(..., "--billing-account-id", help="New billing account ID"),
+    billing_account_id: str = typer.Option(
+        ..., "--billing-account-id", help="New billing account ID"
+    ),
 ) -> None:
     """Update a Cudo Compute project."""
 

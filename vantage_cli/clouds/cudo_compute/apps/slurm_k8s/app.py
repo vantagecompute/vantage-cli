@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import logging
+
 logger = logging.getLogger(__name__)
 import typer
 import yaml
@@ -45,6 +46,7 @@ from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 from .constants import APP_NAME, SUBSTRATE
 from .render import success_create_message, success_destroy_message
+
 
 def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
     return [
@@ -130,7 +132,6 @@ async def _configure_jobbergate_influxdb(model) -> None:
     if not jobbergate_agent:
         return
     await jobbergate_agent.set_config({"jobbergate-agent-influx-dsn": influxdb_uri})
-
 
 
 async def _deploy_slurm_k8s_cudo(ctx: Any) -> None:
@@ -290,7 +291,9 @@ async def remove_command(
     if deployment is not None:
         await remove(ctx=ctx, deployment=deployment)
         await deployment_sdk.delete(deployment.id)
-        ctx.obj.console.print(f"[green]✓[/green] Deployment '{deployment.name}' removed successfully")
+        ctx.obj.console.print(
+            f"[green]✓[/green] Deployment '{deployment.name}' removed successfully"
+        )
         return
 
     ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment '{deployment_id}' not found.")

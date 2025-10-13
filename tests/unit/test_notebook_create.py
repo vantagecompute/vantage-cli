@@ -41,11 +41,14 @@ async def test_create_notebook_uses_persona_username():
         "slurm_job_id": 1234,
     }
 
-    with patch("vantage_cli.auth.extract_persona", return_value=persona), patch.object(
-        notebook_create_module.notebook_sdk,
-        "create_notebook",
-        AsyncMock(return_value=result_payload),
-    ) as mock_sdk_create:
+    with (
+        patch("vantage_cli.auth.extract_persona", return_value=persona),
+        patch.object(
+            notebook_create_module.notebook_sdk,
+            "create_notebook",
+            AsyncMock(return_value=result_payload),
+        ) as mock_sdk_create,
+    ):
         await notebook_create_module.create_notebook(
             ctx,
             cluster_name="test123",
@@ -82,7 +85,10 @@ async def test_create_notebook_requires_server_name():
         identity_data=IdentityData(client_id="client", email="user@example.com", org_id="org"),
     )
 
-    with patch("vantage_cli.auth.extract_persona", return_value=persona), pytest.raises(typer.Exit) as excinfo:
+    with (
+        patch("vantage_cli.auth.extract_persona", return_value=persona),
+        pytest.raises(typer.Exit) as excinfo,
+    ):
         await notebook_create_module.create_notebook(
             ctx,
             cluster_name="test123",
@@ -109,7 +115,10 @@ async def test_create_notebook_requires_partition():
         identity_data=IdentityData(client_id="client", email="user@example.com", org_id="org"),
     )
 
-    with patch("vantage_cli.auth.extract_persona", return_value=persona), pytest.raises(typer.Exit) as excinfo:
+    with (
+        patch("vantage_cli.auth.extract_persona", return_value=persona),
+        pytest.raises(typer.Exit) as excinfo,
+    ):
         await notebook_create_module.create_notebook(
             ctx,
             cluster_name="test123",
@@ -148,10 +157,13 @@ async def test_create_notebook_handles_existing_notebook():
 
     ctx.obj.formatter.render_get = Mock()
 
-    with patch("vantage_cli.auth.extract_persona", return_value=persona), patch.object(
-        notebook_create_module.notebook_sdk,
-        "create_notebook",
-        AsyncMock(return_value=existing_payload),
+    with (
+        patch("vantage_cli.auth.extract_persona", return_value=persona),
+        patch.object(
+            notebook_create_module.notebook_sdk,
+            "create_notebook",
+            AsyncMock(return_value=existing_payload),
+        ),
     ):
         await notebook_create_module.create_notebook(
             ctx,

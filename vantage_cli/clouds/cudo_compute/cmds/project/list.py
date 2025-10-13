@@ -34,11 +34,10 @@ async def list_projects(
     """List all Cudo Compute projects accessible by the current user."""
 
     try:
-        result = await ctx.obj.cudo_sdk.list_projects(
+        projects = await ctx.obj.cudo_sdk.list_projects(
             page_token=page_token,
             page_size=page_size,
         )
-        projects = result.get("projects", [])
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list projects: {e}")
         raise typer.Exit(code=1)
@@ -46,8 +45,11 @@ async def list_projects(
     if not projects:
         logger.debug("No projects found.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    projects_data = [p.model_dump() for p in projects]
+
     ctx.obj.formatter.render_list(
-        data=projects,
+        data=projects_data,
         resource_name="Cudo Compute Projects",
     )

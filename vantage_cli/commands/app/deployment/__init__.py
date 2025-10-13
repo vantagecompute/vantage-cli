@@ -37,12 +37,12 @@ deployment_app.command("cleanup-orphans")(cleanup_orphans)
 
 def _register_app_commands():
     """Dynamically register app-specific deployment commands.
-    
+
     This is called lazily to ensure logging is configured before SDK discovery runs.
     """
     # Import SDK here to avoid module-level initialization
     from vantage_cli.sdk.deployment_app import deployment_app_sdk
-    
+
     # Dynamically register app-specific deployment commands
     available_apps = deployment_app_sdk.list()
     for app in available_apps:

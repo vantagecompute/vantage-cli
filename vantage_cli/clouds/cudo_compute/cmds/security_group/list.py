@@ -33,8 +33,7 @@ async def list_security_groups(
     """List security groups within a Cudo Compute project."""
 
     try:
-        result = await ctx.obj.cudo_sdk.list_security_groups(project_id=project_id)
-        security_groups = result.get("securityGroups", [])
+        security_groups = await ctx.obj.cudo_sdk.list_security_groups(project_id=project_id)
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list security groups: {e}")
         raise typer.Exit(code=1)
@@ -42,8 +41,11 @@ async def list_security_groups(
     if not security_groups:
         logger.debug(f"No security groups found in project '{project_id}'.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    security_groups_data = [sg.model_dump() for sg in security_groups]
+
     ctx.obj.formatter.render_list(
-        data=security_groups,
+        data=security_groups_data,
         resource_name="Cudo Compute Security Groups",
     )

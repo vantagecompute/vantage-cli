@@ -42,11 +42,9 @@ async def delete_security_group_rule(
         # Use default project if not specified
         if not project_id:
             project_id = ctx.obj.settings.cudo_compute_project_id
-        
-        await ctx.obj.cudo_sdk.delete_security_group_rule(
-            project_id, security_group_id, rule_id
-        )
-        
+
+        await ctx.obj.cudo_sdk.delete_security_group_rule(project_id, security_group_id, rule_id)
+
         typer.echo(f"✓ Security group rule {rule_id} deleted successfully")
     except ValueError as e:
         logger.debug(f"Rule not found: {e}")

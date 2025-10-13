@@ -42,7 +42,10 @@ async def get_disk(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get disk: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    disk_data = disk.model_dump() if disk else {}
+
     ctx.obj.formatter.render_single(
-        data=disk,
+        data=disk_data,
         resource_name="Cudo Compute Disk",
     )

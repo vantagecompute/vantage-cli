@@ -1,11 +1,10 @@
 """Utility functions for Cudo Compute."""
 
 from typing import Optional
-from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
 
 
 def get_datacenter_id_from_credentials() -> Optional[str]:
-     """Get datacenter_id from the default Cudo Compute credentials.
+    """Get datacenter_id from the default Cudo Compute credentials.
 
     Returns:
         datacenter_id from credentials if set, None otherwise

@@ -32,8 +32,7 @@ async def list_data_centers(
     """List all available Cudo Compute data centers."""
 
     try:
-        result = await ctx.obj.cudo_sdk.list_vm_data_centers()
-        data_centers = result.get("dataCenters", [])
+        data_centers = await ctx.obj.cudo_sdk.list_vm_data_centers()
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list data centers: {e}")
         raise typer.Exit(code=1)
@@ -41,8 +40,11 @@ async def list_data_centers(
     if not data_centers:
         logger.debug("No data centers found.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    data_centers_data = [dc.model_dump() for dc in data_centers]
+
     ctx.obj.formatter.render_list(
-        data=data_centers,
+        data=data_centers_data,
         resource_name="Cudo Compute Data Centers",
     )

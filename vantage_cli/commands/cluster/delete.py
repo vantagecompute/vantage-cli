@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 from rich.console import Console
 from typing_extensions import Annotated
@@ -65,31 +66,37 @@ async def delete_cluster(
             ctx.obj.console.print(f"[bold blue]Querying cluster '{cluster_name}'...[/bold blue]")
 
         cluster = await cluster_sdk.get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
-        
+
         # If cluster doesn't exist, check for orphaned deployments
         if not cluster:
             if verbose and not json_output:
-                ctx.obj.console.print(f"[yellow]Cluster '{cluster_name}' not found in API.[/yellow]")
-            
+                ctx.obj.console.print(
+                    f"[yellow]Cluster '{cluster_name}' not found in API.[/yellow]"
+                )
+
             # Check for orphaned deployments
             deployments = await deployment_sdk.get_deployments_by_cluster(ctx, cluster_name)
-            
+
             if deployments:
                 if not json_output:
                     ctx.obj.console.print(
                         f"\n[yellow]⚠️  Found {len(deployments)} deployment(s) for cluster '{cluster_name}'[/yellow]"
                     )
-                    ctx.obj.console.print("[yellow]These are orphaned (cluster no longer exists).[/yellow]")
-                
+                    ctx.obj.console.print(
+                        "[yellow]These are orphaned (cluster no longer exists).[/yellow]"
+                    )
+
                 # Ask if user wants to clean them up
                 if app:
                     # User specified an app, clean up that specific deployment
                     deployment = next((d for d in deployments if d.app_name == app), None)
                     if deployment:
                         if not json_output:
-                            ctx.obj.console.print(f"\n[blue]Cleaning up orphaned deployment for '{app}'...[/blue]")
+                            ctx.obj.console.print(
+                                f"\n[blue]Cleaning up orphaned deployment for '{app}'...[/blue]"
+                            )
                         cleanup_result = await _cleanup_single_deployment_object(ctx, deployment)
-                        
+
                         output_data = {
                             "cluster_name": cluster_name,
                             "cluster_existed": False,
@@ -183,16 +190,17 @@ async def delete_cluster(
 
 async def _call_app_remove_function(ctx: typer.Context, deployment: Deployment) -> None:
     """Call the appropriate remove function from the app module.
-    
+
     Args:
         ctx: The typer context object
         deployment: The deployment object to remove
-        
+
     Raises:
         ValueError: If the app is not found or doesn't have a remove function
     """
     # Import SDK here to avoid module-level initialization
     from vantage_cli.sdk.deployment_app import deployment_app_sdk
+
     available_apps_list = deployment_app_sdk.list()
     available_apps = {app.name: app for app in available_apps_list}
 
@@ -200,7 +208,7 @@ async def _call_app_remove_function(ctx: typer.Context, deployment: Deployment) 
         raise ValueError(f"App '{deployment.app_name}' not found")
 
     app = available_apps[deployment.app_name]
-    
+
     # Check if the app module has a remove function
     if app.module and hasattr(app.module, "remove"):
         remove_function = getattr(app.module, "remove")
@@ -215,12 +223,12 @@ async def _cleanup_single_deployment(
     app_name: str,
 ) -> bool:
     """Clean up a single deployment and return True if successful.
-    
+
     Args:
         ctx: The typer context object
         cluster_name: Name of the cluster
         app_name: Name of the app (e.g., 'slurm-multipass')
-        
+
     Returns:
         True if cleanup was successful, False otherwise
     """
@@ -234,7 +242,7 @@ async def _cleanup_single_deployment(
     try:
         # Call the app's remove function
         await _call_app_remove_function(ctx, deployment)
-        
+
         # Remove deployment entry from tracking file
         deleted = await deployment_sdk.delete(deployment.id)
         if deleted:

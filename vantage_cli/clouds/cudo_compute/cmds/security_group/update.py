@@ -38,17 +38,19 @@ async def update_security_group(
         kwargs = {}
         if description:
             kwargs["description"] = description
-        
+
         if not kwargs:
             logger.debug("[bold yellow]Warning:[/bold yellow] No update parameters provided")
             raise typer.Exit(code=1)
-        
+
         security_group = await ctx.obj.cudo_sdk.update_security_group(
             project_id=project_id,
             security_group_id=security_group_id,
             **kwargs,
         )
-        logger.debug(f"[bold green]Success:[/bold green] Updated security group '{security_group_id}'")
+        logger.debug(
+            f"[bold green]Success:[/bold green] Updated security group '{security_group_id}'"
+        )
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to update security group: {e}")
         raise typer.Exit(code=1)

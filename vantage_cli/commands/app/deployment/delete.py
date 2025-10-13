@@ -23,17 +23,11 @@ from vantage_cli.sdk.deployment.crud import deployment_sdk
 @handle_abort
 async def delete_deployment(
     ctx: typer.Context,
-    deployment_id: Annotated[
-        str, 
-        typer.Argument(help="ID or name of the deployment to delete")
-    ],
-    force: Annotated[
-        bool, 
-        typer.Option("--force", "-f", help="Skip confirmation prompt")
-    ] = False,
+    deployment_id: Annotated[str, typer.Argument(help="ID or name of the deployment to delete")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
 ) -> None:
     """Delete a deployment and clean up associated resources (multipass instances, etc)."""
-    
+
     try:
         # Try to get deployment by ID first
         deployment = await deployment_sdk.get_deployment(ctx, deployment_id)
@@ -74,18 +68,19 @@ async def delete_deployment(
         # Get the app's remove function
         # Import SDK here to avoid module-level initialization
         from vantage_cli.sdk.deployment_app import deployment_app_sdk
+
         available_apps_list = deployment_app_sdk.list()
         available_apps = {app.name: app for app in available_apps_list}
-        
+
         app_name = deployment.app_name
-        
+
         cleanup_success = False
         cleanup_error = None
 
         # Try to call the app's remove function to clean up resources
         if app_name in available_apps:
             app = available_apps[app_name]
-            
+
             if app.module and hasattr(app.module, "remove"):
                 try:
                     remove_function = getattr(app.module, "remove")
@@ -119,7 +114,7 @@ async def delete_deployment(
             "success": True,
             "cleanup_success": cleanup_success,
         }
-        
+
         if cleanup_error:
             output_data["cleanup_warning"] = cleanup_error
 
@@ -130,9 +125,7 @@ async def delete_deployment(
         )
 
         if cleanup_error and not json_output:
-            ctx.obj.console.print(
-                f"\n[yellow]⚠️  Warning: {cleanup_error}[/yellow]"
-            )
+            ctx.obj.console.print(f"\n[yellow]⚠️  Warning: {cleanup_error}[/yellow]")
             ctx.obj.console.print(
                 "[yellow]Deployment record deleted, but manual cleanup may be required.[/yellow]"
             )

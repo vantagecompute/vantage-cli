@@ -24,7 +24,7 @@ The dashboard uses the following SDK modules:
 The command automatically:
 1. Fetches clusters using `cluster_sdk.list_clusters()`
 2. Fetches deployments using `deployment_sdk.list()`
-3. Converts SDK objects to dashboard ServiceConfig using `ServiceConfig.from_cluster()` 
+3. Converts SDK objects to dashboard ServiceConfig using `ServiceConfig.from_cluster()`
    and `ServiceConfig.from_deployment()`
 4. Creates the dashboard using `DashboardApp.from_sdk_data()` factory method
 
@@ -43,6 +43,7 @@ from typing import Any, Callable, Dict, Iterable, List, TypeVar, cast
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 
 from vantage_cli.config import attach_settings
@@ -63,9 +64,10 @@ def handle_abort(func: F) -> F:
 
 def _cluster_handler(cluster: Cluster):  # pragma: no cover - trivial closure
     """Create a worker handler for a cluster.
-    
+
     This handler returns cluster status information when the worker is executed.
     """
+
     def handler(worker_id: str) -> Dict[str, str]:
         return {
             "worker": worker_id,
@@ -80,9 +82,10 @@ def _cluster_handler(cluster: Cluster):  # pragma: no cover - trivial closure
 
 def _deployment_handler(deployment: Deployment):  # pragma: no cover - trivial closure
     """Create a worker handler for a deployment.
-    
+
     This handler returns deployment status information when the worker is executed.
     """
+
     def handler(worker_id: str) -> Dict[str, str]:
         return {
             "worker": worker_id,
@@ -99,7 +102,7 @@ def _build_custom_handlers(
     clusters: Iterable[Cluster], deployments: Iterable[Deployment]
 ) -> Dict[str, Callable[[str], Dict[str, str]]]:
     """Build custom worker handlers for clusters and deployments.
-    
+
     These handlers are called when workers are executed to gather status information.
     """
     handlers: Dict[str, Callable[[str], Dict[str, str]]] = {}
@@ -146,7 +149,7 @@ async def cli_dash(
     ctx: typer.Context,
 ) -> None:
     """Vantage CLI Dashboard - Interactive terminal dashboard.
-    
+
     This command creates an interactive dashboard using the Vantage SDK to display
     and manage clusters, deployments, and profiles. The dashboard automatically
     fetches data using the SDK and provides real-time monitoring and management.

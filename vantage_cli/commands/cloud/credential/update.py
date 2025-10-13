@@ -24,33 +24,16 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 async def update_command(
     ctx: typer.Context,
-    credential_id: str = typer.Argument(
-        ...,
-        help="ID of the credential to update"
-    ),
-    name: Optional[str] = typer.Option(
-        None,
-        "--name",
-        "-n",
-        help="New name for the credential"
-    ),
+    credential_id: str = typer.Argument(..., help="ID of the credential to update"),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="New name for the credential"),
     credentials_json: Optional[str] = typer.Option(
-        None,
-        "--credentials-json",
-        "-c",
-        help="New credentials data as JSON string"
+        None, "--credentials-json", "-c", help="New credentials data as JSON string"
     ),
     credentials_file: Optional[str] = typer.Option(
-        None,
-        "--file",
-        "-f",
-        help="Path to JSON file containing new credentials data"
+        None, "--file", "-f", help="Path to JSON file containing new credentials data"
     ),
     set_default: bool = typer.Option(
-        False,
-        "--default",
-        "-d",
-        help="Set this credential as the default for its cloud type"
+        False, "--default", "-d", help="Set this credential as the default for its cloud type"
     ),
 ) -> None:
     """Update an existing cloud credential.
@@ -108,24 +91,18 @@ async def update_command(
         try:
             new_credentials_data = json.loads(credentials_json)
         except json.JSONDecodeError as e:
-            ctx.obj.formatter.render_error(
-                f"Invalid JSON in --credentials-json: {e}"
-            )
+            ctx.obj.formatter.render_error(f"Invalid JSON in --credentials-json: {e}")
             raise typer.Exit(1)
 
     if credentials_file:
         try:
-            with open(credentials_file, 'r') as f:
+            with open(credentials_file, "r") as f:
                 new_credentials_data = json.load(f)
         except FileNotFoundError:
-            ctx.obj.formatter.render_error(
-                f"File not found: {credentials_file}"
-            )
+            ctx.obj.formatter.render_error(f"File not found: {credentials_file}")
             raise typer.Exit(1)
         except json.JSONDecodeError as e:
-            ctx.obj.formatter.render_error(
-                f"Invalid JSON in file {credentials_file}: {e}"
-            )
+            ctx.obj.formatter.render_error(f"Invalid JSON in file {credentials_file}: {e}")
             raise typer.Exit(1)
 
     # Update the credential
@@ -137,16 +114,15 @@ async def update_command(
     )
 
     if not updated_credential:
-        ctx.obj.formatter.render_error(
-            f"Failed to update credential {credential_id}"
-        )
+        ctx.obj.formatter.render_error(f"Failed to update credential {credential_id}")
         raise typer.Exit(1)
 
     # Prepare output data
-    cred_data = updated_credential.model_dump(mode='json')
-    
+    cred_data = updated_credential.model_dump(mode="json")
+
     # Get cloud name
     from vantage_cli.sdk.cloud import cloud_sdk
+
     cloud = cloud_sdk.get_by_id(updated_credential.cloud_id)
     cred_data["cloud_name"] = cloud.name if cloud else updated_credential.cloud_id
 

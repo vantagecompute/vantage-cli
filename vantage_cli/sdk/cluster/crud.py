@@ -191,7 +191,11 @@ class ClusterSDK(BaseGraphQLResourceSDK):
             raise Exception(f"Failed to create cluster: {error_message}")
 
         client_secret_from_api = None
-        if (client_secret := await self.get_cluster_client_secret(ctx=ctx, client_id=result["clientId"])) is not None:
+        if (
+            client_secret := await self.get_cluster_client_secret(
+                ctx=ctx, client_id=result["clientId"]
+            )
+        ) is not None:
             client_secret_from_api = client_secret
 
         return Cluster(
@@ -412,7 +416,10 @@ class ClusterSDK(BaseGraphQLResourceSDK):
             # Use vantage-api admin/management/clients endpoint
             api_url = f"{ctx.obj.settings.get_apis_url()}/admin/management/clients"
 
-            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            }
 
             async with httpx.AsyncClient() as client:
                 # First, search for the client by clientId

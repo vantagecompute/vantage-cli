@@ -24,6 +24,7 @@ import typer
 from jose import jwt
 from jose.exceptions import ExpiredSignatureError
 import logging
+
 logger = logging.getLogger(__name__)
 from pydantic import ValidationError
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn

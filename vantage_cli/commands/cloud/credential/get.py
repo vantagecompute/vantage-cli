@@ -21,15 +21,9 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 async def get_command(
     ctx: typer.Context,
-    credential_id: str = typer.Argument(
-        ...,
-        help="ID of the credential to retrieve"
-    ),
+    credential_id: str = typer.Argument(..., help="ID of the credential to retrieve"),
     show_secrets: bool = typer.Option(
-        False,
-        "--show-secrets",
-        "-s",
-        help="Show sensitive credential data (use with caution)"
+        False, "--show-secrets", "-s", help="Show sensitive credential data (use with caution)"
     ),
 ) -> None:
     """Get detailed information about a specific cloud credential.
@@ -73,16 +67,14 @@ async def get_command(
 
     # Prepare credential data for output
     # Use mode='json' to ensure datetime objects are serialized as strings
-    cred_data = credential.model_dump(mode='json')
+    cred_data = credential.model_dump(mode="json")
     cred_data["cloud_name"] = cloud_name
-    
+
     # Hide credentials_data unless --show-secrets is used
     if not show_secrets:
         cred_data["credentials_data"] = "***HIDDEN*** (use --show-secrets to display)"
 
     # Use UniversalOutputFormatter for consistent get rendering
     ctx.obj.formatter.render_get(
-        data=cred_data,
-        resource_name="Cloud Credential",
-        resource_id=credential.id
+        data=cred_data, resource_name="Cloud Credential", resource_id=credential.id
     )

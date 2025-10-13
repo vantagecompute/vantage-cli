@@ -23,26 +23,15 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 async def create_command(
     ctx: typer.Context,
-    name: str = typer.Argument(
-        ...,
-        help="Name for the credential (e.g., 'AWS Production')"
-    ),
+    name: str = typer.Argument(..., help="Name for the credential (e.g., 'AWS Production')"),
     cloud_name: str = typer.Option(
-        ...,
-        "--cloud",
-        "-c",
-        help="Cloud provider name (e.g., 'aws', 'gcp', 'azure')"
+        ..., "--cloud", "-c", help="Cloud provider name (e.g., 'aws', 'gcp', 'azure')"
     ),
     credentials_file: str = typer.Option(
-        None,
-        "--file",
-        "-f",
-        help="Path to JSON file containing credential data"
+        None, "--file", "-f", help="Path to JSON file containing credential data"
     ),
     credentials_json: str = typer.Option(
-        None,
-        "--credentials-json",
-        help="JSON string containing credential data"
+        None, "--credentials-json", help="JSON string containing credential data"
     ),
 ) -> None:
     """Create a new cloud provider credential.
@@ -92,6 +81,7 @@ async def create_command(
     try:
         if credentials_file:
             import pathlib
+
             cred_path = pathlib.Path(credentials_file)
             if not cred_path.exists():
                 ctx.obj.formatter.render_error(f"File not found: {credentials_file}")
@@ -123,16 +113,13 @@ async def create_command(
         name=name,
         credential_type=credential_type,
         cloud_id=cloud.id,
-        credentials_data=credentials_data
+        credentials_data=credentials_data,
     )
 
     # Prepare credential data for output
     # Use mode='json' to ensure datetime objects are serialized as strings
-    cred_data = credential.model_dump(mode='json')
+    cred_data = credential.model_dump(mode="json")
     cred_data["cloud_name"] = cloud.name
 
     # Use UniversalOutputFormatter for consistent create rendering
-    ctx.obj.formatter.render_create(
-        data=cred_data,
-        resource_name="Cloud Credential"
-    )
+    ctx.obj.formatter.render_create(data=cred_data, resource_name="Cloud Credential")

@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 from typing_extensions import Annotated
 
@@ -127,7 +128,9 @@ async def create_notebook(
 
         # Add resource specs if they were provided
         if server_options:
-            result_data["resources"] = {k: v for k, v in server_options.items() if k != "partition"}
+            result_data["resources"] = {
+                k: v for k, v in server_options.items() if k != "partition"
+            }
 
         # Include partition information separately for clarity
         result_data["resources"] = {

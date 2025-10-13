@@ -14,7 +14,6 @@
 from vantage_cli.config import Settings
 
 
-
 def get_cloud_choices() -> list[str]:
     """Get the list of supported clouds from settings."""
     settings = Settings()
@@ -26,6 +25,7 @@ def get_app_choices() -> list[str]:
     try:
         # Import SDK here to avoid module-level initialization
         from vantage_cli.sdk.deployment_app import deployment_app_sdk
+
         apps = deployment_app_sdk.list()
         choices = [app.name for app in apps]
         return choices

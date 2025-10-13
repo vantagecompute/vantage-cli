@@ -42,7 +42,10 @@ async def get_network(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get network: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    network_data = network.model_dump() if network else {}
+
     ctx.obj.formatter.render_single(
-        data=network,
+        data=network_data,
         resource_name=f"Network: {network_id}",
     )

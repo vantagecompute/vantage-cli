@@ -32,7 +32,9 @@ async def update_vm(
     vm_id: str = typer.Argument(..., help="VM ID"),
     vcpus: int = typer.Option(None, "--vcpus", help="New number of vCPUs"),
     memory_gib: int = typer.Option(None, "--memory-gib", help="New memory in GiB"),
-    custom_ssh_keys: str = typer.Option(None, "--custom-ssh-keys", help="Comma-separated SSH keys"),
+    custom_ssh_keys: str = typer.Option(
+        None, "--custom-ssh-keys", help="Comma-separated SSH keys"
+    ),
 ) -> None:
     """Update a Cudo Compute VM configuration."""
 
@@ -44,11 +46,11 @@ async def update_vm(
             kwargs["memoryGib"] = memory_gib
         if custom_ssh_keys:
             kwargs["customSshKeys"] = custom_ssh_keys.split(",")
-        
+
         if not kwargs:
             logger.debug("[bold yellow]Warning:[/bold yellow] No update parameters provided")
             raise typer.Exit(code=1)
-        
+
         vm = await ctx.obj.cudo_sdk.update_vm(
             project_id=project_id,
             vm_id=vm_id,

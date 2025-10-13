@@ -25,7 +25,7 @@ async def list_apps(
     """List all available applications for deployment."""
     # Import SDK here to avoid module-level initialization
     from vantage_cli.sdk.deployment_app import deployment_app_sdk
-    
+
     # Get available apps from SDK
     available_apps = deployment_app_sdk.list()
     # Prepare apps data for output
@@ -35,7 +35,9 @@ async def list_apps(
             "name": app.name,
             "cloud": app.cloud,
             "substrate": app.substrate,
-            "module": app.module.__name__ if app.module and hasattr(app.module, "__name__") else "unknown",
+            "module": app.module.__name__
+            if app.module and hasattr(app.module, "__name__")
+            else "unknown",
         }
 
         # Try to get description from create function docstring if module is available

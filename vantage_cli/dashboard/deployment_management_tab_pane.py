@@ -20,6 +20,7 @@ from typing import Any, List, Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 from textual import work
 from textual.app import ComposeResult

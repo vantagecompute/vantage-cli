@@ -44,7 +44,7 @@ async def get_machine_type(
     ),
 ) -> None:
     """Get details of a specific bare-metal machine type.
-    
+
     Retrieves detailed information about a bare-metal machine type including pricing,
     CPU/GPU models, and resource limits for a specific data center.
     """
@@ -54,9 +54,12 @@ async def get_machine_type(
             machine_type_id=machine_type,
             project_id=project_id,
         )
-        
+
+        # Convert Pydantic model to dict for the formatter
+        machine_type_data = machine_type_details.model_dump() if machine_type_details else {}
+
         ctx.obj.formatter.render_get(
-            data=machine_type_details,
+            data=machine_type_data,
             resource_name=f"Bare-Metal Machine Type: {machine_type}",
         )
     except Exception as e:

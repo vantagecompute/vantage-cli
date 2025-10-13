@@ -24,7 +24,7 @@ async def clouds_command(
     """List all available cloud providers.
 
     This is an alias for 'vantage cloud list'.
-    
+
     Examples:
         $ vantage clouds
     """

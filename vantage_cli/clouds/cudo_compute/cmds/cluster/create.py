@@ -32,8 +32,12 @@ async def create_cluster(
     cluster_id: str = typer.Argument(..., help="Unique cluster identifier"),
     data_center_id: str = typer.Option(..., "--data-center-id", help="Data center ID"),
     machine_type_id: str = typer.Option(..., "--machine-type-id", help="Machine type ID"),
-    machine_count: int = typer.Option(..., "--machine-count", help="Number of machines in cluster"),
-    custom_ssh_keys: str = typer.Option(None, "--custom-ssh-keys", help="Comma-separated SSH keys"),
+    machine_count: int = typer.Option(
+        ..., "--machine-count", help="Number of machines in cluster"
+    ),
+    custom_ssh_keys: str = typer.Option(
+        None, "--custom-ssh-keys", help="Comma-separated SSH keys"
+    ),
     start_script: str = typer.Option(None, "--start-script", help="Start script"),
 ) -> None:
     """Create a new Cudo Compute cluster."""
@@ -44,7 +48,7 @@ async def create_cluster(
             kwargs["customSshKeys"] = custom_ssh_keys.split(",")
         if start_script:
             kwargs["startScript"] = start_script
-        
+
         cluster = await ctx.obj.cudo_sdk.create_cluster(
             project_id=project_id,
             cluster_id=cluster_id,

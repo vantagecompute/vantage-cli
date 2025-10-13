@@ -18,6 +18,7 @@ from functools import wraps
 from pathlib import Path
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 from vantage_cli.constants import USER_TOKEN_CACHE_DIR

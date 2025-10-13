@@ -10,6 +10,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Deployment schemas for the Vantage CLI."""
+
 import yaml
 
 from datetime import datetime
@@ -34,8 +35,7 @@ def load_deployments() -> Dict[str, Any]:
         return {"deployments": {}}
 
     try:
-
-        data = yaml.safe_load(DEPLOYMENTS_YAML.read_text()) 
+        data = yaml.safe_load(DEPLOYMENTS_YAML.read_text())
         if "deployments" not in data:
             data["deployments"] = {}
         return data
@@ -51,13 +51,15 @@ def save_deployments(deployments_data: Dict[str, Any]) -> None:
         deployments_data: Dictionary containing deployments data
     """
     import logging
-    
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         # Ensure the directory exists
         DEPLOYMENTS_YAML.parent.mkdir(parents=True, exist_ok=True)
-        DEPLOYMENTS_YAML.write_text(yaml.dump(deployments_data, default_flow_style=False, indent=2))
+        DEPLOYMENTS_YAML.write_text(
+            yaml.dump(deployments_data, default_flow_style=False, indent=2)
+        )
     except Exception as e:
         logger.error(f"Failed to save deployments to {DEPLOYMENTS_YAML}: {e}")
         raise RuntimeError(f"Failed to save deployments: {e}") from e
@@ -111,17 +113,17 @@ class Deployment(BaseModel):
 
         """
         from vantage_cli.sdk.cloud.schema import CloudType
-        
+
         deployments_data = load_deployments()
         # Use mode='python' to serialize properly
-        deployment_dict = self.model_dump(mode='python')
-        
+        deployment_dict = self.model_dump(mode="python")
+
         # Ensure CloudType enums are serialized as strings
-        if 'credential' in deployment_dict and deployment_dict['credential']:
-            cred = deployment_dict['credential']
-            if isinstance(cred.get('credential_type'), CloudType):
-                cred['credential_type'] = cred['credential_type'].value
-        
+        if "credential" in deployment_dict and deployment_dict["credential"]:
+            cred = deployment_dict["credential"]
+            if isinstance(cred.get("credential_type"), CloudType):
+                cred["credential_type"] = cred["credential_type"].value
+
         deployments_data["deployments"][str(self.id)] = deployment_dict
         save_deployments(deployments_data)
 
@@ -161,7 +163,7 @@ class Deployment(BaseModel):
     @property
     def created_at_as_timestamp_str(self) -> str:
         """Get creation timestamp as a string with only numbers (no dots, dashes, or colons).
-        
+
         Format: YYYYMMDDHHMMSSffffff (e.g., 20251010123045123456)
         """
         try:

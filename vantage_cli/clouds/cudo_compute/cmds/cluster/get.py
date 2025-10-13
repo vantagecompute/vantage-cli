@@ -42,7 +42,10 @@ async def get_cluster(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get cluster: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    cluster_data = cluster.model_dump() if cluster else {}
+
     ctx.obj.formatter.render_single(
-        data=cluster,
+        data=cluster_data,
         resource_name=f"Cluster: {cluster_id}",
     )

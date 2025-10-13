@@ -1456,7 +1456,7 @@ class UniversalOutputFormatter:
         # Add columns with calculated widths and smart overflow handling
         # Track which columns use ellipsis for smart truncation
         column_overflow = {}
-        
+
         for key in sorted_keys:
             header = self._format_column_header(key)
             col_width = column_widths.get(key, 20)
@@ -1488,7 +1488,7 @@ class UniversalOutputFormatter:
                     no_wrap = False
 
             column_overflow[key] = (overflow, col_width)
-            
+
             table.add_column(
                 header, overflow=overflow, no_wrap=no_wrap, width=col_width, max_width=col_width
             )
@@ -1499,12 +1499,12 @@ class UniversalOutputFormatter:
             for key in sorted_keys:
                 value = item.get(key, "")
                 formatted_value = self._format_cell_value(key, value)
-                
+
                 # Apply smart truncation for columns using ellipsis
                 overflow_type, col_width = column_overflow[key]
                 if overflow_type == "ellipsis" and isinstance(formatted_value, str):
                     formatted_value = self._smart_truncate(formatted_value, col_width)
-                
+
                 row_data.append(formatted_value)
             table.add_row(*row_data)
 
@@ -1515,7 +1515,7 @@ class UniversalOutputFormatter:
         self, items: List[Dict[str, Any]], sorted_keys: List[str], total_width: int
     ) -> Dict[str, int]:
         """Calculate proportional column widths with intelligent auto-scaling.
-        
+
         This method implements a smart column width algorithm that:
         1. Calculates actual content widths from data
         2. Assigns priority to important columns (id, name, status)
@@ -1568,9 +1568,7 @@ class UniversalOutputFormatter:
                     column_config[key]["min_width"] = 8
 
         # Calculate final widths using priority-based allocation
-        final_widths = self._allocate_column_widths(
-            sorted_keys, column_config, available_width
-        )
+        final_widths = self._allocate_column_widths(sorted_keys, column_config, available_width)
 
         return final_widths
 
@@ -1714,9 +1712,7 @@ class UniversalOutputFormatter:
         # If there's still space left, distribute evenly among all columns up to their max
         if remaining_width > 0:
             keys_can_grow = [
-                k
-                for k in sorted_keys
-                if final_widths[k] < column_config[k]["max_width"]
+                k for k in sorted_keys if final_widths[k] < column_config[k]["max_width"]
             ]
 
             while remaining_width > 0 and keys_can_grow:
@@ -1981,31 +1977,31 @@ class UniversalOutputFormatter:
 
     def _smart_truncate(self, text: str, max_width: int) -> str:
         """Intelligently truncate text to fit within max_width.
-        
+
         For very narrow columns (< 6 chars), shows first 3 chars + "..."
         For wider columns, uses standard ellipsis truncation.
-        
+
         Args:
             text: Text to truncate
             max_width: Maximum width for the text
-            
+
         Returns:
             Truncated text with ellipsis if needed
         """
         if not text or len(text) <= max_width:
             return text
-            
+
         # For very narrow columns (< 6 chars), show first 3 chars + "..."
         if max_width < 6:
             # Ensure we have at least 4 chars for "X..." pattern
             if max_width >= 4:
-                return text[:max_width - 3] + "..."
+                return text[: max_width - 3] + "..."
             else:
                 # For extremely narrow (1-3 chars), just show what we can
                 return text[:max_width]
-        
+
         # For columns 6+ chars, use standard truncation with ellipsis
-        return text[:max_width - 3] + "..."
+        return text[: max_width - 3] + "..."
 
     def _format_cell_value(self, key: str, value: Any) -> str:
         """Format a cell value for display."""

@@ -45,8 +45,11 @@ async def list_vms(
     if not vms:
         logger.debug(f"No VMs found in project '{project_id}'.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    vms_data = [vm.model_dump() for vm in vms]
+
     ctx.obj.formatter.render_list(
-        data=vms,
+        data=vms_data,
         resource_name="Cudo Compute VMs",
     )

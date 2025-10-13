@@ -22,8 +22,7 @@ from vantage_cli.exceptions import handle_abort
 async def get_command(
     ctx: typer.Context,
     cloud_name: str = typer.Argument(
-        ...,
-        help="Name of the cloud provider (e.g., 'aws', 'localhost', 'gcp')"
+        ..., help="Name of the cloud provider (e.g., 'aws', 'localhost', 'gcp')"
     ),
 ) -> None:
     """Get detailed information about a specific cloud provider.

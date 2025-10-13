@@ -41,6 +41,7 @@ from graphql.language.ast import OperationDefinitionNode
 from jose import exceptions as jwt_exceptions
 from jose import jwt
 import logging
+
 logger = logging.getLogger(__name__)
 from requests.exceptions import ConnectionError, Timeout
 

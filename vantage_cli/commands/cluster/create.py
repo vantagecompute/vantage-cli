@@ -163,6 +163,8 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
     try:
         # Import SDK here to avoid module-level initialization
         from vantage_cli.sdk.deployment_app import deployment_app_sdk
+        from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
+
         available_apps_list = deployment_app_sdk.list()
         available_apps = {app.name: app for app in available_apps_list}
 
@@ -179,11 +181,31 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
 
         # Check if app has a module with create function
         if app.module and hasattr(app.module, "create"):
+            # Initialize cloud-specific SDK if needed
+            if app.cloud == "cudo-compute":
+                from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
+                
+                # Get default credential for Cudo Compute
+                cudo_credential = cloud_credential_sdk.get_default(cloud_name="cudo-compute")
+                if cudo_credential is None:
+                    ctx.obj.console.print(
+                        f"[bold red]✗ No default credential found for 'cudo-compute'[/bold red]"
+                    )
+                    ctx.obj.console.print(
+                        "[dim]Run: vantage cloud credential create --cloud cudo-compute[/dim]"
+                    )
+                    return
+                
+                # Initialize SDK and attach to context
+                ctx.obj.cudo_sdk = CudoComputeSDK(
+                    api_key=cudo_credential.credentials_data["api_key"]
+                )
+
             # Function-based app
             create_function = getattr(app.module, "create")
 
             # Fetch sssd_binder_password from organization extra attributes
-            #if extra_attrs := await get_extra_attributes(ctx):
+            # if extra_attrs := await get_extra_attributes(ctx):
             #    if sssd_binder_password := extra_attrs.get("sssd_binder_password"):
             #        cluster.sssd_binder_password = sssd_binder_password
             cluster.sssd_binder_password = "rats"

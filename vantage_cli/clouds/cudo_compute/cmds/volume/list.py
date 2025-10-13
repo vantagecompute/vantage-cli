@@ -47,8 +47,11 @@ async def list_volumes(
     if not volumes:
         logger.debug(f"No volumes found in project '{project_id}'.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    volumes_data = [v.model_dump() for v in volumes]
+
     ctx.obj.formatter.render_list(
-        data=volumes,
+        data=volumes_data,
         resource_name="Cudo Compute Volumes",
     )

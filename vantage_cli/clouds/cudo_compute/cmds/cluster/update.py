@@ -31,7 +31,9 @@ async def update_cluster(
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
     cluster_id: str = typer.Argument(..., help="Cluster ID"),
     machine_count: int = typer.Option(None, "--machine-count", help="New machine count"),
-    custom_ssh_keys: str = typer.Option(None, "--custom-ssh-keys", help="Comma-separated SSH keys"),
+    custom_ssh_keys: str = typer.Option(
+        None, "--custom-ssh-keys", help="Comma-separated SSH keys"
+    ),
 ) -> None:
     """Update a Cudo Compute cluster."""
 
@@ -41,11 +43,11 @@ async def update_cluster(
             kwargs["machineCount"] = machine_count
         if custom_ssh_keys:
             kwargs["customSshKeys"] = custom_ssh_keys.split(",")
-        
+
         if not kwargs:
             logger.debug("[bold yellow]Warning:[/bold yellow] No update parameters provided")
             raise typer.Exit(code=1)
-        
+
         cluster = await ctx.obj.cudo_sdk.update_cluster(
             project_id=project_id,
             cluster_id=cluster_id,

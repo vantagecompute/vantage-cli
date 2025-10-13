@@ -47,7 +47,9 @@ async def delete_machine(
             project_id=project_id,
             machine_id=machine_id,
         )
-        logger.debug(f"[bold green]Success:[/bold green] Deleted bare-metal machine '{machine_id}'")
+        logger.debug(
+            f"[bold green]Success:[/bold green] Deleted bare-metal machine '{machine_id}'"
+        )
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to delete bare-metal machine: {e}")
         raise typer.Exit(code=1)

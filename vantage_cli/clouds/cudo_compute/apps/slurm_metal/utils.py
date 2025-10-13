@@ -11,56 +11,86 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Utility functions for Cudo Compute SLURM K8S deployments."""
 
-
+import asyncio
+from pathlib import Path
 import typer
 
-from vantage_cli.clouds.cudo_compute.utils import get_datacenter_id_from_credentials
 
-from .templates import INIT_SCRIPT
+def get_local_ssh_public_keys() -> list[str]:
+    """Read SSH public keys from the local ~/.ssh directory.
+    
+    Returns:
+        List of SSH public key strings
+    """
+    ssh_keys = []
+    ssh_dir = Path.home() / ".ssh"
+    
+    # Common public key file names
+    key_files = ["id_rsa.pub", "id_ed25519.pub", "id_ecdsa.pub", "id_dsa.pub"]
+    
+    for key_file in key_files:
+        key_path = ssh_dir / key_file
+        if key_path.exists():
+            try:
+                with open(key_path, 'r') as f:
+                    key_content = f.read().strip()
+                    if key_content:
+                        ssh_keys.append(key_content)
+            except Exception:
+                # Skip files that can't be read
+                pass
+    
+    return ssh_keys
 
 
 async def init_project_and_head_node(
-    ctx,
+    ctx: typer.Context,
     project_name: str,
-    vm_specs: list,
-):
+    init_script: str,
+    data_center_id: str,
+) -> str:
     """Create a project with the required resources."""
     # Create project - you'll need to get billing_account_id from settings or pass it
     billing_accounts = await ctx.obj.cudo_sdk.list_billing_accounts()
     if not billing_accounts:
         raise typer.Exit("No billing accounts available")
-    billing_account_id = billing_accounts[0]["id"]
-    
+    billing_account_id = billing_accounts[0].id
+
     project_data = {
         "id": project_name,
         "billingAccountId": billing_account_id,
     }
     project = await ctx.obj.cudo_sdk.create_project(project_data=project_data)
-    project_id = project["id"]
-    
-    # Get datacenter_id from credentials, or use first available
-    from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
-    data_center_id = get_datacenter_id_from_credentials()
-    
-    if not data_center_id:
-        # Fall back to first available data center
-        data_centers = await ctx.obj.cudo_sdk.list_vm_data_centers()
-        if not data_centers:
-            raise typer.Exit("No data centers available")
-        data_center_id = data_centers[0]["id"]
-        print(f"ℹ️  No datacenter_id in credentials, using: {data_center_id}")
-    else:
-        print(f"✓ Using datacenter from credentials: {data_center_id}")
-    
+    project_id = project.id
+
     # Create network
-    network_id = "vantage-network"
+    network_id = "vantage-slurm-on-metal-nat-network"
     network = await ctx.obj.cudo_sdk.create_network(
         project_id=project_id,
         network_id=network_id,
         data_center_id=data_center_id,
         ip_range="10.0.0.0/16",
     )
+
+    # Wait for network to be active before proceeding
+    ctx.obj.console.print(f"⏳ Waiting for network to be active...")
+    max_wait = 120  # 2 minutes
+    wait_interval = 5  # seconds
+    elapsed = 0
     
+    while elapsed < max_wait:
+        network = await ctx.obj.cudo_sdk.get_network(
+            project_id=project_id,
+            network_id=network_id,
+        )
+        if network.state == "ACTIVE":
+            ctx.obj.console.print(f"✅ Network is active")
+            break
+        await asyncio.sleep(wait_interval)
+        elapsed += wait_interval
+    else:
+        raise Exception(f"Network did not become active after {max_wait} seconds")
+
     # Create security group with allow-all ingress and egress rules
     security_group_id = "vantage-sg-allow-all"
     allow_all_rules = [
@@ -75,7 +105,7 @@ async def init_project_and_head_node(
             "ipRangeCidr": "0.0.0.0/0",
         },
     ]
-    
+
     security_group = await ctx.obj.cudo_sdk.create_security_group(
         project_id=project_id,
         security_group_id=security_group_id,
@@ -83,113 +113,71 @@ async def init_project_and_head_node(
         description="Allow all ingress and egress traffic",
         rules=allow_all_rules,
     )
-    
-    # Get image ID for Ubuntu 24.04 LTS
-    images = await ctx.obj.cudo_sdk.list_public_vm_images()
-    ubuntu_image = next((img for img in images if "Ubuntu 24.04" in img.get("name", "")), None)
-    if not ubuntu_image:
-        raise typer.Exit("Ubuntu 24.04 LTS image not found")
-    image_id = ubuntu_image["id"]
-    
-    # Get SSH keys
-    ssh_keys = await ctx.obj.cudo_sdk.list_ssh_keys()
-    ssh_key_ids = [key["id"] for key in ssh_keys[:1]] if ssh_keys else []
-    
+
+    image_id = "ubuntu-2404"
+
+    # Get local SSH public keys
+    local_ssh_keys = get_local_ssh_public_keys()
+    if local_ssh_keys:
+        ctx.obj.console.print(f"📝 Found {len(local_ssh_keys)} local SSH key(s) to add to VM")
+    else:
+        ctx.obj.console.print(f"⚠️  [yellow]Warning:[/yellow] No local SSH keys found in ~/.ssh/")
+
     # Get available machine types for the data center
-    all_machine_types = await ctx.obj.cudo_sdk.list_vm_machine_types(project_id=project_id)
-    if not all_machine_types:
-        raise typer.Exit("No machine types available")
-    
-    # Filter machine types for the selected data center
-    dc_machine_types = [mt for mt in all_machine_types if mt.get("dataCenterId") == data_center_id]
-    
-    if not dc_machine_types:
-        print(f"⚠️  No machine types found for data center {data_center_id}")
-        print(f"Available data centers with machine types:")
-        dc_set = set(mt.get("dataCenterId") for mt in all_machine_types)
-        for dc in dc_set:
-            print(f"  - {dc}")
-        # Use first available data center
-        data_center_id = list(dc_set)[0]
-        dc_machine_types = [mt for mt in all_machine_types if mt.get("dataCenterId") == data_center_id]
-        print(f"Using data center: {data_center_id}")
-        print(f"Available machine types in {data_center_id}:")
-        for mt in dc_machine_types[:5]:  # Show first 5
-            print(f"  - {mt.get('machineType')} (CPU: {mt.get('cpuModel')}, GPU: {mt.get('gpuModel')})")
-    
+    dc_machine_types = await ctx.obj.cudo_sdk.list_vm_machine_types(
+        project_id=project_id, data_center_id=data_center_id
+    )
+
     # Create VM with the specified specs
-    vm_spec = vm_specs[0] if vm_specs else {}
-    machine_type = vm_spec.get("machine_type")
-    
-    # Validate the machine type exists in the data center
-    if machine_type:
-        machine_type_valid = any(mt.get("machineType") == machine_type for mt in dc_machine_types)
-        if not machine_type_valid:
-            print(f"⚠️  Requested machine type '{machine_type}' not available in {data_center_id}")
-            machine_type = None  # Will be auto-selected below
-    
-    if not machine_type:
-        # Pick the first machine type that supports the requested resources
-        requested_vcpus = vm_spec.get("vcpus", 2)
-        requested_memory = vm_spec.get("memory_gib", 4)
-        requested_gpus = vm_spec.get("gpus", 0)
-        
-        # Find a suitable machine type
-        for mt in dc_machine_types:
-            min_vcpu = mt.get("minVcpu", 0)
-            min_memory = mt.get("minMemoryGib", 0)
-            max_vcpu = mt.get("maxVcpuFree", 999)
-            max_memory = mt.get("maxMemoryGibFree", 999)
-            max_gpu = mt.get("maxGpuFree", 0)
-            
-            # Skip GPU machine types if we don't need GPUs
-            if requested_gpus == 0 and max_gpu > 0:
-                continue
-            
-            # Check if this machine type can support our requirements
-            if (min_vcpu <= requested_vcpus <= max_vcpu and 
-                min_memory <= requested_memory <= max_memory):
-                machine_type = mt["machineType"]
-                print(f"✓ Selected machine type: {machine_type} (supports {requested_vcpus} vCPUs, {requested_memory} GiB RAM)")
-                break
-        
-        if not machine_type:
-            # Just use the first available one
-            machine_type = dc_machine_types[0]["machineType"]
-            print(f"⚠️  Using first available machine type: {machine_type}")
-    
-    vm_id = vm_spec.get("name", "vantage-testvm")
-    
-    print(f"\n🔧 VM Configuration:")
-    print(f"  Data Center: {data_center_id}")
-    print(f"  Machine Type: {machine_type}")
-    print(f"  Image: {image_id}")
-    print(f"  vCPUs: {vm_spec.get('vcpus', 2)}")
-    print(f"  Memory: {vm_spec.get('memory_gib', 4)} GiB")
-    print(f"  Network: {network['id']}")
-    print(f"  Security Group: {security_group['id']}")
-    
+
+    requested_vcpus = 4
+    requested_memory = 16
+    requested_gpus = 0
+
+    machine_type = dc_machine_types[0].machine_type
+    # Find a suitable machine type
+    for mt in dc_machine_types:
+        min_vcpu = mt.min_vcpu or 0
+        min_memory = mt.min_memory_gib or 0
+        max_vcpu = mt.max_vcpu_free or 999
+        max_memory = mt.max_memory_gib_free or 999
+        max_gpu = mt.max_gpu_free or 0
+
+        # Skip GPU machine types if we don't need GPUs
+        if requested_gpus == 0 and max_gpu > 0:
+            continue
+
+        # Check if this machine type can support our requirements
+        if (
+            min_vcpu <= requested_vcpus <= max_vcpu
+            and min_memory <= requested_memory <= max_memory
+        ):
+            machine_type = mt.machine_type
+            break
+
     vm = await ctx.obj.cudo_sdk.create_vm(
         project_id=project_id,
-        vm_id=vm_id,
+        vm_id="vantage-slurm-head-node",
         data_center_id=data_center_id,
         machine_type=machine_type,
         boot_disk_image_id=image_id,
-        vcpus=vm_spec.get("vcpus", 2),
-        memory_gib=vm_spec.get("memory_gib", 4),
-        gpus=vm_spec.get("gpus", 0),
-        boot_disk_size_gib=vm_spec.get("boot_disk_size_gib", 20),
+        vcpus=4,
+        memory_gib=16,
+        gpus=0,
+        boot_disk_size_gib=20,
         ssh_key_source="SSH_KEY_SOURCE_USER",
-        start_script=INIT_SCRIPT,
-        nics=[{
-            "assignPublicIp": False,
-            "networkId": network["id"],
-            "securityGroupIds": [security_group["id"]],
-        }],
+        start_script=init_script,
+        custom_ssh_keys=local_ssh_keys,
+        nics=[
+            {
+                "assignPublicIp": True,
+                "networkId": network.id,
+                "securityGroupIds": [security_group.id],
+            }
+        ],
     )
-    
-    return vm.get("id")
 
+    return vm.id
 
 
 async def delete_project_and_all_resources(ctx, project_id: str) -> None:

@@ -99,17 +99,33 @@ app = AsyncTyper(
 project_app = AsyncTyper(name="project", help="Manage Cudo Compute projects", no_args_is_help=True)
 cluster_app = AsyncTyper(name="cluster", help="Manage Cudo Compute clusters", no_args_is_help=True)
 vm_app = AsyncTyper(name="vm", help="Manage Cudo Compute virtual machines", no_args_is_help=True)
-machine_app = AsyncTyper(name="machine", help="Manage Cudo Compute bare-metal machines", no_args_is_help=True)
+machine_app = AsyncTyper(
+    name="machine", help="Manage Cudo Compute bare-metal machines", no_args_is_help=True
+)
 network_app = AsyncTyper(name="network", help="Manage Cudo Compute networks", no_args_is_help=True)
-security_group_app = AsyncTyper(name="security-group", help="Manage Cudo Compute security groups", no_args_is_help=True)
-security_group_rule_app = AsyncTyper(name="sg-rule", help="Manage Cudo Compute security group rules", no_args_is_help=True)
-vm_data_center_app = AsyncTyper(name="vm-data-center", help="Query VM data centers", no_args_is_help=True)
-machine_type_app = AsyncTyper(name="machine-type", help="Query bare-metal machine types", no_args_is_help=True)
-vm_machine_type_app = AsyncTyper(name="vm-machine-type", help="Query VM machine types", no_args_is_help=True)
-data_center_app = AsyncTyper(name="data-center", help="Query Cudo Compute data centers", no_args_is_help=True)
+security_group_app = AsyncTyper(
+    name="security-group", help="Manage Cudo Compute security groups", no_args_is_help=True
+)
+security_group_rule_app = AsyncTyper(
+    name="sg-rule", help="Manage Cudo Compute security group rules", no_args_is_help=True
+)
+vm_data_center_app = AsyncTyper(
+    name="vm-data-center", help="Query VM data centers", no_args_is_help=True
+)
+machine_type_app = AsyncTyper(
+    name="machine-type", help="Query bare-metal machine types", no_args_is_help=True
+)
+vm_machine_type_app = AsyncTyper(
+    name="vm-machine-type", help="Query VM machine types", no_args_is_help=True
+)
+data_center_app = AsyncTyper(
+    name="data-center", help="Query Cudo Compute data centers", no_args_is_help=True
+)
 image_app = AsyncTyper(name="image", help="Query Cudo Compute VM images", no_args_is_help=True)
 disk_app = AsyncTyper(name="disk", help="Manage Cudo Compute storage disks", no_args_is_help=True)
-volume_app = AsyncTyper(name="volume", help="Manage Cudo Compute NFS volumes", no_args_is_help=True)
+volume_app = AsyncTyper(
+    name="volume", help="Manage Cudo Compute NFS volumes", no_args_is_help=True
+)
 sshkey_app = AsyncTyper(name="sshkey", help="Manage Cudo Compute SSH keys", no_args_is_help=True)
 
 # Register project commands
@@ -219,17 +235,53 @@ app.add_typer(volume_app)
 app.add_typer(sshkey_app)
 
 # Add plural aliases for list commands (so users can type `vantage cloud cudo-compute projects` instead of `vantage cloud cudo-compute project list`)
-app.command("projects", help="List Cudo Compute projects (alias for 'project list')", hidden=True)(list_projects)
-app.command("clusters", help="List Cudo Compute clusters (alias for 'cluster list')", hidden=True)(list_clusters)
+app.command("projects", help="List Cudo Compute projects (alias for 'project list')", hidden=True)(
+    list_projects
+)
+app.command("clusters", help="List Cudo Compute clusters (alias for 'cluster list')", hidden=True)(
+    list_clusters
+)
 app.command("vms", help="List Cudo Compute VMs (alias for 'vm list')", hidden=True)(list_vms)
-app.command("machines", help="List Cudo Compute bare-metal machines (alias for 'machine list')", hidden=True)(list_machines)
-app.command("networks", help="List Cudo Compute networks (alias for 'network list')", hidden=True)(list_networks)
-app.command("security-groups", help="List Cudo Compute security groups (alias for 'security-group list')", hidden=True)(list_security_groups)
-app.command("vm-data-centers", help="List VM data centers (alias for 'vm-data-center list')", hidden=True)(list_vm_data_centers)
-app.command("machine-types", help="List bare-metal machine types (alias for 'machine-type list')", hidden=True)(list_machine_types)
-app.command("vm-machine-types", help="List VM machine types (alias for 'vm-machine-type list')", hidden=True)(list_vm_machine_types)
-app.command("data-centers", help="List Cudo Compute data centers (alias for 'data-center list')", hidden=True)(list_data_centers)
-app.command("images", help="List Cudo Compute VM images (alias for 'image list')", hidden=True)(list_images)
-app.command("disks", help="List Cudo Compute storage disks (alias for 'disk list')", hidden=True)(list_disks)
-app.command("volumes", help="List Cudo Compute NFS volumes (alias for 'volume list')", hidden=True)(list_volumes)
-app.command("sshkeys", help="List Cudo Compute SSH keys (alias for 'sshkey list')", hidden=True)(list_ssh_keys)
+app.command(
+    "machines",
+    help="List Cudo Compute bare-metal machines (alias for 'machine list')",
+    hidden=True,
+)(list_machines)
+app.command("networks", help="List Cudo Compute networks (alias for 'network list')", hidden=True)(
+    list_networks
+)
+app.command(
+    "security-groups",
+    help="List Cudo Compute security groups (alias for 'security-group list')",
+    hidden=True,
+)(list_security_groups)
+app.command(
+    "vm-data-centers", help="List VM data centers (alias for 'vm-data-center list')", hidden=True
+)(list_vm_data_centers)
+app.command(
+    "machine-types",
+    help="List bare-metal machine types (alias for 'machine-type list')",
+    hidden=True,
+)(list_machine_types)
+app.command(
+    "vm-machine-types",
+    help="List VM machine types (alias for 'vm-machine-type list')",
+    hidden=True,
+)(list_vm_machine_types)
+app.command(
+    "data-centers",
+    help="List Cudo Compute data centers (alias for 'data-center list')",
+    hidden=True,
+)(list_data_centers)
+app.command("images", help="List Cudo Compute VM images (alias for 'image list')", hidden=True)(
+    list_images
+)
+app.command("disks", help="List Cudo Compute storage disks (alias for 'disk list')", hidden=True)(
+    list_disks
+)
+app.command(
+    "volumes", help="List Cudo Compute NFS volumes (alias for 'volume list')", hidden=True
+)(list_volumes)
+app.command("sshkeys", help="List Cudo Compute SSH keys (alias for 'sshkey list')", hidden=True)(
+    list_ssh_keys
+)

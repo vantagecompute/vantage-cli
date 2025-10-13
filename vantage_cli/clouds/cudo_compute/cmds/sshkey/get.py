@@ -27,9 +27,12 @@ async def get_ssh_key(
     """Get details of a specific SSH key."""
     try:
         ssh_key = await ctx.obj.cudo_sdk.get_ssh_key(ssh_key_id)
-        
+
+        # Convert Pydantic model to dict for the formatter
+        ssh_key_data = ssh_key.model_dump() if ssh_key else {}
+
         ctx.obj.formatter.render_get(
-            data=ssh_key,
+            data=ssh_key_data,
             resource_name=f"SSH Key: {ssh_key_id}",
         )
     except Exception as e:

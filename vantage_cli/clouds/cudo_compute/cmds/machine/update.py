@@ -30,7 +30,9 @@ async def update_machine(
     ctx: typer.Context,
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
     machine_id: str = typer.Argument(..., help="Machine ID"),
-    custom_ssh_keys: str = typer.Option(None, "--custom-ssh-keys", help="Comma-separated SSH keys"),
+    custom_ssh_keys: str = typer.Option(
+        None, "--custom-ssh-keys", help="Comma-separated SSH keys"
+    ),
 ) -> None:
     """Update a Cudo Compute bare-metal machine."""
 
@@ -38,17 +40,19 @@ async def update_machine(
         kwargs = {}
         if custom_ssh_keys:
             kwargs["customSshKeys"] = custom_ssh_keys.split(",")
-        
+
         if not kwargs:
             logger.debug("[bold yellow]Warning:[/bold yellow] No update parameters provided")
             raise typer.Exit(code=1)
-        
+
         machine = await ctx.obj.cudo_sdk.update_machine(
             project_id=project_id,
             machine_id=machine_id,
             **kwargs,
         )
-        logger.debug(f"[bold green]Success:[/bold green] Updated bare-metal machine '{machine_id}'")
+        logger.debug(
+            f"[bold green]Success:[/bold green] Updated bare-metal machine '{machine_id}'"
+        )
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to update bare-metal machine: {e}")
         raise typer.Exit(code=1)

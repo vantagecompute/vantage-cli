@@ -42,8 +42,10 @@ async def get_volume(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get volume: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    volume_data = volume.model_dump() if volume else {}
+
     ctx.obj.formatter.render_single(
-        data=volume,
+        data=volume_data,
         resource_name="Cudo Compute Volume",
     )
-

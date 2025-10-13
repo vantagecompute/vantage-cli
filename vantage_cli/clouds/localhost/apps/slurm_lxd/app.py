@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import logging
+
 logger = logging.getLogger(__name__)
 import typer
 import yaml
@@ -63,6 +64,7 @@ from .utils import (
     SuppressOutput,
     check_juju_available,
 )
+
 
 def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
     return [
@@ -383,7 +385,9 @@ async def remove_command(
     if deployment is not None:
         await remove(ctx=ctx, deployment=deployment)
         await deployment_sdk.delete(deployment.id)
-        ctx.obj.console.print(f"[green]✓[/green] Deployment '{deployment.name}' removed successfully")
+        ctx.obj.console.print(
+            f"[green]✓[/green] Deployment '{deployment.name}' removed successfully"
+        )
         return
 
     ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment '{deployment_id}' not found.")
@@ -407,4 +411,3 @@ async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None
         logger.warning(f"Juju cleanup failed: {e}")
         raise
     ctx.obj.console.print(success_destroy_message(deployment=deployment))
-

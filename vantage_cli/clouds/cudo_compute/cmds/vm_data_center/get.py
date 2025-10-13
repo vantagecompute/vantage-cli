@@ -31,19 +31,19 @@ async def get_vm_data_center(
     try:
         # List all data centers and filter by ID
         data_centers = await ctx.obj.cudo_sdk.list_vm_data_centers()
-        
+
         # Find the requested data center
-        data_center = next(
-            (dc for dc in data_centers if dc.get("id") == data_center_id),
-            None
-        )
-        
+        data_center = next((dc for dc in data_centers if dc.id == data_center_id), None)
+
         if not data_center:
             typer.echo(f"Error: Data center '{data_center_id}' not found", err=True)
             raise typer.Exit(code=1)
-        
+
+        # Convert Pydantic model to dict for the formatter
+        data_center_data = data_center.model_dump()
+
         ctx.obj.formatter.render_get(
-            data=data_center,
+            data=data_center_data,
             resource_name="VM Data Center",
         )
     except typer.Exit:

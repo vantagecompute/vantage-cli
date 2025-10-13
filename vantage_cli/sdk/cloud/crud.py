@@ -26,11 +26,11 @@ logger = logging.getLogger(__name__)
 
 class CloudSDK:
     """SDK for managing clouds.
-    
+
     This SDK manages cloud providers and their supported substrates.
     Each cloud has a Vantage provider label and a list of supported substrates.
     """
-    
+
     # Cloud configuration with substrates
     CLOUD_CONFIGS = {
         "localhost": {
@@ -58,16 +58,16 @@ class CloudSDK:
             "substrates": ["metal", "k8s"],
         },
     }
-    
+
     def __init__(self):
         """Initialize the Cloud SDK."""
         self._clouds: Dict[str, Cloud] = {}
         self._discover_clouds()
-    
+
     def _discover_clouds(self):
         """Discover and register available clouds from built-in configuration."""
         logger.debug("Discovering clouds")
-        
+
         # Register clouds from built-in configuration
         for cloud_id, config in self.CLOUD_CONFIGS.items():
             # Create Cloud instance
@@ -82,53 +82,53 @@ class CloudSDK:
                 f"Registered cloud '{cloud_id}' - "
                 f"label: {config['vantage_label'].value}, substrates: {config['substrates']}"
             )
-        
+
         logger.debug(f"Discovered {len(self._clouds)} clouds")
-    
+
     def list(
         self,
         enabled_only: bool = True,
         vantage_label: Optional[VantageProviderLabel] = None,
     ) -> List[Cloud]:
         """List clouds with optional filtering.
-        
+
         Args:
             enabled_only: Only return enabled clouds
             vantage_label: Filter by Vantage provider label
-            
+
         Returns:
             List of Cloud instances
         """
         clouds = list(self._clouds.values())
-        
+
         # Filter by enabled status
         if enabled_only:
             clouds = [c for c in clouds if c.enabled]
-        
+
         # Filter by Vantage label
         if vantage_label:
             clouds = [c for c in clouds if c.vantage_provider_label == vantage_label]
             logger.debug(f"Filtered clouds by label '{vantage_label}': {[c.name for c in clouds]}")
-        
+
         return clouds
-    
+
     def get(self, cloud_name: str) -> Optional[Cloud]:
         """Get a cloud by name.
-        
+
         Args:
             cloud_name: Name of the cloud
-            
+
         Returns:
             Cloud instance or None
         """
         return self._clouds.get(cloud_name)
-    
+
     def get_by_id(self, cloud_id: str) -> Optional[Cloud]:
         """Get a cloud by ID.
-        
+
         Args:
             cloud_id: ID of the cloud
-            
+
         Returns:
             Cloud instance or None
         """
@@ -136,27 +136,27 @@ class CloudSDK:
             if cloud.id == cloud_id:
                 return cloud
         return None
-    
+
     def get_substrates(self, cloud_name: str) -> List[str]:
         """Get available substrates for a cloud.
-        
+
         Args:
             cloud_name: Name of the cloud
-            
+
         Returns:
             List of substrate names
         """
         cloud = self.get(cloud_name)
         return cloud.substrates if cloud else []
-    
+
     def get_all_clouds(self) -> VantageClouds:
         """Get all clouds as a VantageClouds collection.
-        
+
         Returns:
             VantageClouds instance containing all clouds
         """
         return VantageClouds(clouds=list(self._clouds.values()))
-    
+
     def refresh(self):
         """Refresh the cloud registry by re-discovering clouds."""
         logger.debug("Refreshing cloud registry")

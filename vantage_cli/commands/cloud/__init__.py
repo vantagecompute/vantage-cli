@@ -42,28 +42,28 @@ cloud_app.command("credentials", hidden=True)(list_credentials_command)
 def _register_cloud_provider_commands():
     """Register all cloud provider apps as subcommands."""
     import importlib
-    
+
     # Get the clouds directory
     clouds_dir = Path(__file__).parent.parent.parent / "clouds"
-    
+
     if not clouds_dir.exists():
         return
-    
+
     # Iterate through cloud provider directories
     for cloud_dir in clouds_dir.iterdir():
         if not cloud_dir.is_dir() or cloud_dir.name.startswith("__"):
             continue
-        
+
         # Check if main.py exists and has an 'app' attribute
         main_file = cloud_dir / "main.py"
         if not main_file.exists():
             continue
-        
+
         try:
             # Import the cloud provider's main module
             module_name = f"vantage_cli.clouds.{cloud_dir.name}.main"
             cloud_module = importlib.import_module(module_name)
-            
+
             # Check if the module has an 'app' attribute (typer app)
             if hasattr(cloud_module, "app"):
                 cloud_typer_app = getattr(cloud_module, "app")

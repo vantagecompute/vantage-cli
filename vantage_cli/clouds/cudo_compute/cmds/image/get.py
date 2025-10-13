@@ -42,7 +42,10 @@ async def get_image(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get image: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    image_data = image.model_dump() if image else {}
+
     ctx.obj.formatter.render_single(
-        data=image,
+        data=image_data,
         resource_name=f"VM Image: {image_id}",
     )

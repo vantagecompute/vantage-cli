@@ -48,6 +48,52 @@ class Project(BaseModel):
         populate_by_name = True
 
 
+class MoneyValue(BaseModel):
+    """Money/currency value."""
+
+    value: str
+
+
+class RechargeSettings(BaseModel):
+    """Auto-recharge settings for billing account."""
+
+    low: Optional[MoneyValue] = None
+    high: Optional[MoneyValue] = None
+    auto_recharge: bool = Field(False, alias="autoRecharge")
+    transaction: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+
+class BillingAccount(BaseModel):
+    """Cudo Compute billing account."""
+
+    id: str
+    create_time: Optional[str] = Field(None, alias="createTime")
+    display_name: Optional[str] = Field(None, alias="displayName")
+    stripe_ref: Optional[str] = Field(None, alias="stripeRef")
+    create_by: Optional[str] = Field(None, alias="createBy")
+    monthly_spend: Optional[str] = Field(None, alias="monthlySpend")
+    hourly_spend_rate: Optional[MoneyValue] = Field(None, alias="hourlySpendRate")
+    tax_id: Optional[str] = Field(None, alias="taxId")
+    invoice_time: Optional[str] = Field(None, alias="invoiceTime")
+    billing_threshold: Optional[MoneyValue] = Field(None, alias="billingThreshold")
+    monthly_spend_limit: Optional[MoneyValue] = Field(None, alias="monthlySpendLimit")
+    hourly_spend_limit: Optional[MoneyValue] = Field(None, alias="hourlySpendLimit")
+    next_invoice_total: Optional[str] = Field(None, alias="nextInvoiceTotal")
+    credit_balance: Optional[MoneyValue] = Field(None, alias="creditBalance")
+    credit_balance_recharge: Optional[RechargeSettings] = Field(None, alias="creditBalanceRecharge")
+    billing_address: Optional[str] = Field(None, alias="billingAddress")
+    state: Optional[str] = None
+    payment_terms: Optional[str] = Field(None, alias="paymentTerms")
+    delete_time: Optional[str] = Field(None, alias="deleteTime")
+    purge_time: Optional[str] = Field(None, alias="purgeTime")
+
+    class Config:
+        populate_by_name = True
+
+
 class ProjectPermission(BaseModel):
     """Project user permission."""
 
@@ -118,9 +164,7 @@ class Image(BaseModel):
     display_name: Optional[str] = Field(None, alias="displayName")
     platform: Optional[str] = None
     size_gib: Optional[int] = Field(None, alias="sizeGib")
-    installed_packages: Optional[List[InstalledPackage]] = Field(
-        None, alias="installedPackages"
-    )
+    installed_packages: Optional[List[InstalledPackage]] = Field(None, alias="installedPackages")
 
     class Config:
         populate_by_name = True
@@ -423,18 +467,14 @@ class VMDataCenter(BaseModel):
     id: str
     supplier_name: Optional[str] = Field(None, alias="supplierName")
     renewable_energy: Optional[bool] = Field(None, alias="renewableEnergy")
-    disk_pool_pricing: Optional[List[DiskPoolPricing]] = Field(
-        None, alias="diskPoolPricing"
-    )
+    disk_pool_pricing: Optional[List[DiskPoolPricing]] = Field(None, alias="diskPoolPricing")
     network_pricing: Optional[List[NetworkPricing]] = Field(None, alias="networkPricing")
     network_price_hr: Optional[Price] = Field(None, alias="networkPriceHr")
     ipv4_price_hr: Optional[Price] = Field(None, alias="ipv4PriceHr")
     ipv4_free: Optional[int] = Field(None, alias="ipv4Free")
     s3_endpoint: Optional[str] = Field(None, alias="s3Endpoint")
     location: Optional[Location] = None
-    object_storage_gib_price_hr: Optional[Price] = Field(
-        None, alias="objectStorageGibPriceHr"
-    )
+    object_storage_gib_price_hr: Optional[Price] = Field(None, alias="objectStorageGibPriceHr")
 
     class Config:
         populate_by_name = True
@@ -454,7 +494,7 @@ class DataCenter(BaseModel):
 
 
 # ============================================================================
-# Volume Models  
+# Volume Models
 # ============================================================================
 
 
@@ -505,4 +545,3 @@ class Cluster(BaseModel):
 
     class Config:
         populate_by_name = True
-

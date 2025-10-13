@@ -27,7 +27,7 @@ async def delete_ssh_key(
     """Delete an SSH key."""
     try:
         await ctx.obj.cudo_sdk.delete_ssh_key(ssh_key_id)
-        
+
         typer.echo(f"Successfully deleted SSH key: {ssh_key_id}")
     except Exception as e:
         logger.debug(f"Failed to delete SSH key {ssh_key_id}: {e}")

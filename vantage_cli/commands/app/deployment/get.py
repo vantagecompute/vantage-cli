@@ -39,7 +39,7 @@ async def get_deployment(
             )
         # Use the formatter to render the get response
         ctx.obj.formatter.render_get(
-            data=deployment.model_dump(mode='json'),
+            data=deployment.model_dump(mode="json"),
             resource_name="Deployment",
         )
 

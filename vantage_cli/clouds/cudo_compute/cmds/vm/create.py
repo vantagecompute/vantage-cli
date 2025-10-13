@@ -38,7 +38,9 @@ async def create_vm(
     gpus: int = typer.Option(0, "--gpus", help="Number of GPUs"),
     network_id: str = typer.Option(None, "--network-id", help="Network ID"),
     public_ip: bool = typer.Option(False, "--public-ip", help="Assign public IP"),
-    custom_ssh_keys: str = typer.Option(None, "--custom-ssh-keys", help="Comma-separated SSH keys"),
+    custom_ssh_keys: str = typer.Option(
+        None, "--custom-ssh-keys", help="Comma-separated SSH keys"
+    ),
 ) -> None:
     """Create a new Cudo Compute virtual machine."""
 
@@ -50,7 +52,7 @@ async def create_vm(
             kwargs["publicIpConfig"] = {"enabled": True}
         if custom_ssh_keys:
             kwargs["customSshKeys"] = custom_ssh_keys.split(",")
-        
+
         vm = await ctx.obj.cudo_sdk.create_vm(
             project_id=project_id,
             vm_id=vm_id,

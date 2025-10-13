@@ -27,7 +27,7 @@ async def create_ssh_key(
     """Create a new SSH key."""
     try:
         ssh_key = await ctx.obj.cudo_sdk.create_ssh_key(public_key)
-        
+
         typer.echo(f"Successfully created SSH key: {ssh_key.get('id', 'unknown')}")
         ctx.obj.formatter.render_get(
             data=ssh_key,

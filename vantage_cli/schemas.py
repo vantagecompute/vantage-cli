@@ -49,6 +49,7 @@ def __getattr__(name: str) -> Any:
     """Lazy import for backward compatibility to avoid circular imports."""
     if name == "DeploymentApp":
         from vantage_cli.sdk.deployment_app.schema import DeploymentApp
+
         return DeploymentApp
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

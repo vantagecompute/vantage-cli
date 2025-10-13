@@ -20,7 +20,7 @@ from uuid import uuid4
 
 class VantageProviderLabel(str, Enum):
     """Vantage provider labels for cloud providers."""
-    
+
     ON_PREM = "on_prem"
     AWS = "aws"
     GCP = "gcp"
@@ -30,7 +30,7 @@ class VantageProviderLabel(str, Enum):
 
 class CloudType(str, Enum):
     """Cloud provider types."""
-    
+
     LOCALHOST = "localhost"
     AWS = "aws"
     GCP = "gcp"
@@ -41,15 +41,14 @@ class CloudType(str, Enum):
 
 class Cloud(BaseModel):
     """Cloud model."""
-    
+
     id: str
     vantage_provider_label: VantageProviderLabel = Field(
-        ..., 
-        description="Vantage provider label for GraphQL API"
+        ..., description="Vantage provider label for GraphQL API"
     )
     substrates: List[str] = Field(
-        default_factory=list, 
-        description="Available substrates for this cloud (e.g., 'k8s', 'metal', 'lxd')"
+        default_factory=list,
+        description="Available substrates for this cloud (e.g., 'k8s', 'metal', 'lxd')",
     )
     enabled: bool = Field(default=True, description="Whether this cloud is enabled")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional cloud metadata")
@@ -61,37 +60,39 @@ class Cloud(BaseModel):
     def name(self) -> str:
         """Alias for id."""
         return self.id
-    
+
     class Config:
         use_enum_values = True
 
 
 class VantageClouds(BaseModel):
     """Collection of Vantage-supported clouds."""
-    
+
     clouds: List[Cloud] = Field(default_factory=list, description="List of clouds")
-    
+
     def get_by_name(self, name: str) -> Optional[Cloud]:
         """Get a cloud by name."""
         for cloud in self.clouds:
             if cloud.name == name:
                 return cloud
         return None
-    
+
     def get_by_id(self, cloud_id: str) -> Optional[Cloud]:
         """Get a cloud by ID."""
         for cloud in self.clouds:
             if cloud.id == cloud_id:
                 return cloud
         return None
-    
+
     def get_by_type(self, vantage_label: VantageProviderLabel) -> List[Cloud]:
         """Get all clouds with a specific Vantage provider label."""
         return [
-            cloud for cloud in self.clouds
-            if cloud.vantage_provider_label == vantage_label or cloud.vantage_provider_label == vantage_label.value
+            cloud
+            for cloud in self.clouds
+            if cloud.vantage_provider_label == vantage_label
+            or cloud.vantage_provider_label == vantage_label.value
         ]
-    
+
     def get_enabled(self) -> List[Cloud]:
         """Get all enabled clouds."""
         return [cloud for cloud in self.clouds if cloud.enabled]

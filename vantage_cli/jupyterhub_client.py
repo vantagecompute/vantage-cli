@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 import logging
+
 logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
@@ -92,13 +93,13 @@ class JupyterHubClient:
                     "JupyterHub returned 404 for the requested server."
                     "\n• Confirm the cluster's JupyterHub endpoint is reachable."
                     "\n• Ensure the named server '"
-                    f"{server_name or 'default'}" "' exists or can be created for user '"
-                    f"{username}'" "'."
+                    f"{server_name or 'default'}"
+                    "' exists or can be created for user '"
+                    f"{username}'"
+                    "'."
                     "\n• If this is a fresh deployment, verify the JupyterHub chart finished installing."
                 )
-                error_msg = (
-                    f"Failed to create server: {response.status_code} - {response.text}\n{hint_message}"
-                )
+                error_msg = f"Failed to create server: {response.status_code} - {response.text}\n{hint_message}"
                 logger.error(error_msg)
                 raise Abort(
                     error_msg,

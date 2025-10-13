@@ -42,7 +42,10 @@ async def get_vm(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get VM: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    vm_data = vm.model_dump() if vm else {}
+
     ctx.obj.formatter.render_single(
-        data=vm,
+        data=vm_data,
         resource_name=f"VM: {vm_id}",
     )

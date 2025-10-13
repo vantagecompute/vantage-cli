@@ -51,8 +51,6 @@ def generate_dev_cluster_data(cluster_name: Optional[str] = None) -> Cluster:
     )
 
 
-
-
 def create_deployment_with_init_status(
     app_name: str,
     cluster: Cluster,
@@ -85,5 +83,5 @@ def create_deployment_with_init_status(
         status="init",
         additional_metadata=additional_metadata or {},
         k8s_namespaces=k8s_namespaces or [],
-        verbose=verbose,   
+        verbose=verbose,
     )

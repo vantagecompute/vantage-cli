@@ -21,6 +21,7 @@ from typing import Optional
 import typer
 from jose import jwt
 import logging
+
 logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.panel import Panel
@@ -64,7 +65,7 @@ from vantage_cli.utils import get_dev_apps_gh_url
 
 from .constants import VANTAGE_CLI_DEV_APPS_DIR
 
-#os.environ["COLUMNS"] = "200"
+# os.environ["COLUMNS"] = "200"
 
 logging.getLogger("httpx").disabled = True
 logging.getLogger("httpcore").disabled = True

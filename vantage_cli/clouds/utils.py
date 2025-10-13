@@ -341,11 +341,11 @@ def _load_dev_app_as_package(app_path: Path, app_name: str, cloud: str = "localh
 
 def _discover_builtin_apps(built_in_apps_dir: Path) -> list[tuple]:
     """Discover built-in apps from the apps directory.
-    
+
     Supports both top-level apps and nested apps (e.g., localhost/slurm_*).
     """
     built_in_apps = []
-    
+
     for app_path in built_in_apps_dir.iterdir():
         if app_path.is_dir() and not app_path.name.startswith("__"):
             # Check if it's a direct app directory
@@ -360,7 +360,7 @@ def _discover_builtin_apps(built_in_apps_dir: Path) -> list[tuple]:
                         nested_app_module_path = nested_app_path / "app.py"
                         if nested_app_module_path.exists():
                             built_in_apps.append((nested_app_path, True))
-    
+
     return built_in_apps
 
 
@@ -403,12 +403,16 @@ def _process_app(app_path: Path, is_builtin: bool, apps: Dict[str, Dict[str, Any
             # Import built-in app - handle nested structure (e.g., localhost/slurm_lxd)
             # Check if this is a nested app (has a parent directory that's not 'apps')
             parent_dir = app_path.parent
-            cloud_dir = app_path.parent.parent  # Should be a cloud directory (localhost, cudo_compute, etc.)
-            
+            cloud_dir = (
+                app_path.parent.parent
+            )  # Should be a cloud directory (localhost, cudo_compute, etc.)
+
             if parent_dir.name == "apps" and cloud_dir.parent.name == "clouds":
                 # Nested app (e.g., localhost/apps/slurm_lxd or cudo_compute/apps/slurm_metal)
                 cloud_name = cloud_dir.name
-                app_module = importlib.import_module(f"vantage_cli.clouds.{cloud_name}.apps.{app_name}.app")
+                app_module = importlib.import_module(
+                    f"vantage_cli.clouds.{cloud_name}.apps.{app_name}.app"
+                )
             else:
                 # Legacy or incorrectly structured app - skip
                 logging.warning(f"App {app_name} has incorrect structure, skipping")

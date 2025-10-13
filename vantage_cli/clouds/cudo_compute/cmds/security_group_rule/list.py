@@ -38,17 +38,17 @@ async def list_security_group_rules(
         # Use default project if not specified
         if not project_id:
             project_id = ctx.obj.settings.cudo_compute_project_id
-        
-        rules = await ctx.obj.cudo_sdk.list_security_group_rules(
-            project_id, security_group_id
-        )
-        
+
+        rules = await ctx.obj.cudo_sdk.list_security_group_rules(project_id, security_group_id)
+
+        # Convert Pydantic models to dicts for the formatter
+        rules_data = [r.model_dump() for r in rules]
+
         ctx.obj.formatter.render_list(
-            data=rules,
+            data=rules_data,
             resource_name="Security Group Rules",
         )
     except Exception as e:
         logger.debug(f"Failed to list security group rules: {e}")
         typer.echo(f"Error listing security group rules: {e}", err=True)
         raise typer.Exit(code=1)
-

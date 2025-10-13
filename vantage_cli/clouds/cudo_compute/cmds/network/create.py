@@ -31,7 +31,9 @@ async def create_network(
     project_id: str = typer.Option(..., "--project-id", help="Project ID"),
     network_id: str = typer.Argument(..., help="Unique network identifier"),
     data_center_id: str = typer.Option(..., "--data-center-id", help="Data center ID"),
-    ip_range: str = typer.Option(..., "--ip-range", help="IP range (CIDR notation, e.g., 10.0.0.0/24)"),
+    ip_range: str = typer.Option(
+        ..., "--ip-range", help="IP range (CIDR notation, e.g., 10.0.0.0/24)"
+    ),
 ) -> None:
     """Create a new Cudo Compute network."""
 

@@ -35,12 +35,11 @@ async def list_machines(
     """List bare-metal machines within a Cudo Compute project."""
 
     try:
-        result = await ctx.obj.cudo_sdk.list_machines(
+        machines = await ctx.obj.cudo_sdk.list_machines(
             project_id=project_id,
             page_number=page_number,
             page_size=page_size,
         )
-        machines = result.get("machines", [])
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list bare-metal machines: {e}")
         raise typer.Exit(code=1)
@@ -48,8 +47,11 @@ async def list_machines(
     if not machines:
         logger.debug(f"No bare-metal machines found in project '{project_id}'.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    machines_data = [m.model_dump() for m in machines]
+
     ctx.obj.formatter.render_list(
-        data=machines,
+        data=machines_data,
         resource_name="Cudo Compute Bare-Metal Machines",
     )

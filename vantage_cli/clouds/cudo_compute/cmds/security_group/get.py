@@ -42,7 +42,10 @@ async def get_security_group(
         logger.debug(f"[bold red]Error:[/bold red] Failed to get security group: {e}")
         raise typer.Exit(code=1)
 
+    # Convert Pydantic model to dict for the formatter
+    security_group_data = security_group.model_dump() if security_group else {}
+
     ctx.obj.formatter.render_single(
-        data=security_group,
+        data=security_group_data,
         resource_name=f"Security Group: {security_group_id}",
     )

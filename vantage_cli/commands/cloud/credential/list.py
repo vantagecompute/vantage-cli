@@ -21,12 +21,7 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 async def list_command(
     ctx: typer.Context,
-    cloud_name: str = typer.Option(
-        None,
-        "--cloud",
-        "-c",
-        help="Filter credentials by cloud name"
-    ),
+    cloud_name: str = typer.Option(None, "--cloud", "-c", help="Filter credentials by cloud name"),
 ) -> None:
     """List all cloud provider credentials.
 
@@ -82,5 +77,5 @@ async def list_command(
     ctx.obj.formatter.render_list(
         data=credentials_data,
         resource_name="Cloud Credentials",
-        empty_message="No cloud credentials found."
+        empty_message="No cloud credentials found.",
     )

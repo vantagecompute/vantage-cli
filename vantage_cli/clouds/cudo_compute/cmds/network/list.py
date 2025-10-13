@@ -33,8 +33,7 @@ async def list_networks(
     """List networks within a Cudo Compute project."""
 
     try:
-        result = await ctx.obj.cudo_sdk.list_networks(project_id=project_id)
-        networks = result.get("networks", [])
+        networks = await ctx.obj.cudo_sdk.list_networks(project_id=project_id)
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list networks: {e}")
         raise typer.Exit(code=1)
@@ -42,8 +41,11 @@ async def list_networks(
     if not networks:
         logger.debug(f"No networks found in project '{project_id}'.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    networks_data = [n.model_dump() for n in networks]
+
     ctx.obj.formatter.render_list(
-        data=networks,
+        data=networks_data,
         resource_name="Cudo Compute Networks",
     )

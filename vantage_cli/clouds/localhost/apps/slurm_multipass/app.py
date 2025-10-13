@@ -19,6 +19,7 @@ from typing import Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 from rich.console import Console
 from typing_extensions import Annotated
@@ -155,7 +156,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     check_multipass_available()
 
     client_secret = cluster.client_secret
-    #sssd_binder_password = cluster.sssd_binder_password
+    # sssd_binder_password = cluster.sssd_binder_password
     sssd_binder_password = "ratrat"
 
     if sssd_binder_password is None:
@@ -270,7 +271,9 @@ async def remove_command(
     if deployment is not None:
         await remove(ctx=ctx, deployment=deployment)
         await deployment_sdk.delete(deployment.id)
-        ctx.obj.console.print(f"[green]✓[/green] Deployment '{deployment.name}' removed successfully")
+        ctx.obj.console.print(
+            f"[green]✓[/green] Deployment '{deployment.name}' removed successfully"
+        )
         return
 
     ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment '{deployment_id}' not found.")
@@ -309,4 +312,3 @@ async def _remove_deployment(deployment: Deployment) -> None:
     except Exception as e:
         logger.warning(f"Multipass cleanup failed: {e}")
         raise
-

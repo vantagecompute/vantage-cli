@@ -44,51 +44,66 @@ async def delete_project(
 
     try:
         # Check if project exists
-        projects_response = await ctx.obj.cudo_sdk.list_projects()
-        projects = projects_response.get("projects", [])
-        project = next((p for p in projects if p.get("id") == project_id), None)
-        
+        projects = await ctx.obj.cudo_sdk.list_projects()
+        project = next((p for p in projects if p.id == project_id), None)
+
         if not project:
             typer.echo(f"Error: Project '{project_id}' not found", err=True)
             raise typer.Exit(code=1)
-        
-        resource_count = project.get("resourceCount", 0)
+
+        resource_count = project.resource_count or 0
         if resource_count > 0:
             typer.echo(f"Project contains {resource_count} resource(s). Deleting all resources...")
-            
+
             # Delete VMs first
             typer.echo("  Checking for VMs...")
             vms = await ctx.obj.cudo_sdk.list_vms(project_id=project_id)
             if vms:
                 typer.echo(f"  Found {len(vms)} VM(s) to terminate")
                 for vm in vms:
-                    vm_id = vm.get("id")
+                    vm_id = vm.id
                     typer.echo(f"    Terminating VM: {vm_id}")
                     try:
                         await ctx.obj.cudo_sdk.terminate_vm(project_id=project_id, vm_id=vm_id)
                         typer.echo(f"      ✓ Terminated VM: {vm_id}")
                     except Exception as e:
                         typer.echo(f"      ⚠ Failed to terminate VM {vm_id}: {e}", err=True)
-                
-                # Wait longer after VM termination
+
+                # Wait for VMs to be fully terminated and cleaned up
                 if vms:
-                    typer.echo("  Waiting for VM termination to complete...")
-                    await asyncio.sleep(5)
-            
+                    typer.echo("  Waiting for VM termination and cleanup to complete...")
+                    max_wait = 60  # Maximum 60 seconds
+                    wait_interval = 5
+                    elapsed = 0
+                    
+                    while elapsed < max_wait:
+                        await asyncio.sleep(wait_interval)
+                        elapsed += wait_interval
+                        
+                        # Check if VMs are gone
+                        remaining_vms = await ctx.obj.cudo_sdk.list_vms(project_id=project_id)
+                        if not remaining_vms:
+                            typer.echo(f"    ✓ All VMs cleaned up after {elapsed}s")
+                            break
+                        typer.echo(f"    Still waiting... ({elapsed}s elapsed, {len(remaining_vms)} VM(s) remaining)")
+                    
+                    # Extra wait to ensure NICs are detached
+                    await asyncio.sleep(3)
+
             # Delete disks
             typer.echo("  Checking for disks...")
             disks = await ctx.obj.cudo_sdk.list_disks(project_id=project_id)
             if disks:
                 typer.echo(f"  Found {len(disks)} disk(s) to delete")
                 for disk in disks:
-                    disk_id = disk.get("id")
+                    disk_id = disk.id
                     typer.echo(f"    Deleting disk: {disk_id}")
                     try:
                         await ctx.obj.cudo_sdk.delete_disk(project_id=project_id, disk_id=disk_id)
                         typer.echo(f"      ✓ Deleted disk: {disk_id}")
                     except Exception as e:
                         typer.echo(f"      ⚠ Failed to delete disk {disk_id}: {e}", err=True)
-            
+
             # Delete volumes
             typer.echo("  Checking for volumes...")
             volumes_response = await ctx.obj.cudo_sdk.list_volumes(project_id=project_id)
@@ -96,51 +111,59 @@ async def delete_project(
             if volumes:
                 typer.echo(f"  Found {len(volumes)} volume(s) to delete")
                 for volume in volumes:
-                    volume_id = volume.get("id")
+                    volume_id = volume.get("id") if isinstance(volume, dict) else volume
                     typer.echo(f"    Deleting volume: {volume_id}")
                     try:
-                        await ctx.obj.cudo_sdk.delete_volume(project_id=project_id, volume_id=volume_id)
+                        await ctx.obj.cudo_sdk.delete_volume(
+                            project_id=project_id, volume_id=volume_id
+                        )
                         typer.echo(f"      ✓ Deleted volume: {volume_id}")
                     except Exception as e:
                         typer.echo(f"      ⚠ Failed to delete volume {volume_id}: {e}", err=True)
-            
+
             # Delete security groups
             typer.echo("  Checking for security groups...")
             security_groups = await ctx.obj.cudo_sdk.list_security_groups(project_id=project_id)
             if security_groups:
                 typer.echo(f"  Found {len(security_groups)} security group(s) to delete")
                 for sg in security_groups:
-                    sg_id = sg.get("id")
+                    sg_id = sg.id
                     typer.echo(f"    Deleting security group: {sg_id}")
                     try:
-                        await ctx.obj.cudo_sdk.delete_security_group(project_id=project_id, security_group_id=sg_id)
+                        await ctx.obj.cudo_sdk.delete_security_group(
+                            project_id=project_id, security_group_id=sg_id
+                        )
                         typer.echo(f"      ✓ Deleted security group: {sg_id}")
                     except Exception as e:
-                        typer.echo(f"      ⚠ Failed to delete security group {sg_id}: {e}", err=True)
-            
+                        typer.echo(
+                            f"      ⚠ Failed to delete security group {sg_id}: {e}", err=True
+                        )
+
             # Delete networks
             typer.echo("  Checking for networks...")
             networks = await ctx.obj.cudo_sdk.list_networks(project_id=project_id)
             if networks:
                 typer.echo(f"  Found {len(networks)} network(s) to delete")
                 for network in networks:
-                    network_id = network.get("id")
+                    network_id = network.id
                     typer.echo(f"    Deleting network: {network_id}")
                     try:
-                        await ctx.obj.cudo_sdk.delete_network(project_id=project_id, network_id=network_id)
+                        await ctx.obj.cudo_sdk.delete_network(
+                            project_id=project_id, network_id=network_id
+                        )
                         typer.echo(f"      ✓ Deleted network: {network_id}")
                     except Exception as e:
                         typer.echo(f"      ⚠ Failed to delete network {network_id}: {e}", err=True)
-            
+
             # Wait for async deletions to complete
             typer.echo("  Waiting for resource deletions to complete...")
             await asyncio.sleep(5)
-        
+
         # Delete the project with retry logic
         typer.echo(f"Deleting project '{project_id}'...")
         max_retries = 5
         retry_delay = 3
-        
+
         for attempt in range(max_retries):
             try:
                 await ctx.obj.cudo_sdk.delete_project(project_id=project_id)
@@ -150,13 +173,17 @@ async def delete_project(
                 if attempt < max_retries - 1:
                     error_msg = str(e)
                     if "400" in error_msg:
-                        typer.echo(f"  Resource cleanup still in progress, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                        typer.echo(
+                            f"  Resource cleanup still in progress, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})"
+                        )
                         await asyncio.sleep(retry_delay)
                         retry_delay *= 2  # Exponential backoff
                     else:
                         raise
                 else:
-                    typer.echo(f"Error deleting project after {max_retries} attempts: {e}", err=True)
+                    typer.echo(
+                        f"Error deleting project after {max_retries} attempts: {e}", err=True
+                    )
                     raise typer.Exit(code=1)
     except typer.Exit:
         raise

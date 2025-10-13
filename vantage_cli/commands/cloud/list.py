@@ -53,7 +53,5 @@ async def list_command(
 
     # Use UniversalOutputFormatter for consistent list rendering
     ctx.obj.formatter.render_list(
-        data=clouds_data,
-        resource_name="Clouds",
-        empty_message="No clouds found."
+        data=clouds_data, resource_name="Clouds", empty_message="No clouds found."
     )

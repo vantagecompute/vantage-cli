@@ -41,28 +41,28 @@ async def list_vm_machine_types(
     ),
 ) -> None:
     """List all VM machine types available.
-    
+
     If --datacenter-id is not provided, returns machine types for all data centers.
     """
     try:
         all_machine_types = await ctx.obj.cudo_sdk.list_vm_machine_types(project_id=project_id)
-        
+
         if datacenter_id:
             # Filter for specific data center
-            machine_types = [
-                mt for mt in all_machine_types 
-                if mt.get("dataCenterId") == datacenter_id
-            ]
-            
+            machine_types = [mt for mt in all_machine_types if mt.data_center_id == datacenter_id]
+
             if not machine_types:
                 typer.echo(
                     f"No machine types found for data center '{datacenter_id}'",
                     err=True,
                 )
                 raise typer.Exit(1)
-            
+
+            # Convert Pydantic models to dicts for the formatter
+            machine_types_data = [mt.model_dump() for mt in machine_types]
+
             ctx.obj.formatter.render_list(
-                data=machine_types,
+                data=machine_types_data,
                 resource_name=f"VM Machine Types for {datacenter_id}",
             )
         else:
@@ -70,9 +70,12 @@ async def list_vm_machine_types(
             if not all_machine_types:
                 typer.echo("No VM machine types found", err=True)
                 raise typer.Exit(1)
-            
+
+            # Convert Pydantic models to dicts for the formatter
+            all_machine_types_data = [mt.model_dump() for mt in all_machine_types]
+
             ctx.obj.formatter.render_list(
-                data=all_machine_types,
+                data=all_machine_types_data,
                 resource_name="VM Machine Types",
             )
     except typer.Exit:

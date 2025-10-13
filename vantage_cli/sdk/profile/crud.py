@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 
 from vantage_cli.cache import clear_token_cache

@@ -22,7 +22,7 @@ _deployment_app_sdk_instance = None
 
 def _get_deployment_app_sdk() -> DeploymentAppSDK:
     """Get or create the singleton DeploymentAppSDK instance.
-    
+
     Uses lazy initialization to avoid running discovery during module import,
     which would log debug messages before logging is configured.
     """
@@ -35,11 +35,11 @@ def _get_deployment_app_sdk() -> DeploymentAppSDK:
 # Property-like access for the singleton
 class _DeploymentAppSDKProxy:
     """Proxy object that lazily initializes the SDK on first access."""
-    
+
     def __getattr__(self, name):
         sdk = _get_deployment_app_sdk()
         return getattr(sdk, name)
-    
+
     def __call__(self, *args, **kwargs):
         sdk = _get_deployment_app_sdk()
         return sdk(*args, **kwargs)

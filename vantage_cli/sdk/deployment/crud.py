@@ -21,6 +21,7 @@ import logging
 from vantage_cli.commands.cloud import credential
 from vantage_cli.sdk.cloud.schema import Cloud
 from vantage_cli.sdk.cloud_credential.schema import CloudCredential
+
 logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
@@ -134,7 +135,9 @@ class DeploymentSDK:
                 # Already a VantageClusterContext object
                 vantage_cluster_ctx = vantage_ctx_data
             else:
-                logger.warning(f"Missing or invalid vantage_cluster_ctx data for deployment {deployment_id}")
+                logger.warning(
+                    f"Missing or invalid vantage_cluster_ctx data for deployment {deployment_id}"
+                )
                 return None
 
             # Handle cloud field - can be Cloud object or cloud name string (for backward compatibility)
@@ -142,18 +145,22 @@ class DeploymentSDK:
             if cloud_data is None:
                 # Backward compatibility: try cloud_provider
                 cloud_data = deployment_data.get("cloud_provider", "unknown")
-            
+
             # Convert cloud data to Cloud object
             from vantage_cli.sdk.cloud import cloud_sdk
+
             if isinstance(cloud_data, str):
                 # If it's a string, get the Cloud object from SDK
                 cloud = cloud_sdk.get(cloud_data)
                 if not cloud:
-                    logger.warning(f"Cloud '{cloud_data}' not found for deployment {deployment_id}, using localhost")
+                    logger.warning(
+                        f"Cloud '{cloud_data}' not found for deployment {deployment_id}, using localhost"
+                    )
                     cloud = cloud_sdk.get("localhost")
             elif isinstance(cloud_data, dict):
                 # If it's a dict (from YAML), reconstruct Cloud object
                 from vantage_cli.sdk.cloud.schema import Cloud as CloudModel
+
                 cloud = CloudModel(**cloud_data)
             else:
                 # Already a Cloud object
@@ -175,7 +182,9 @@ class DeploymentSDK:
                 additional_metadata=deployment_data.get("metadata"),
             )
         except Exception as e:
-            logger.warning(f"Failed to convert deployment {deployment_id} to Deployment object: {e}")
+            logger.warning(
+                f"Failed to convert deployment {deployment_id} to Deployment object: {e}"
+            )
             return None
 
     async def list(self, ctx: typer.Context, **kwargs: Any) -> List[Deployment]:
@@ -204,9 +213,7 @@ class DeploymentSDK:
         # Apply filters
         cloud_filter = kwargs.get("cloud")
         if cloud_filter and cloud_filter != "all":
-            deployments = [
-                d for d in deployments if d.cloud.name.lower() == cloud_filter.lower()
-            ]
+            deployments = [d for d in deployments if d.cloud.name.lower() == cloud_filter.lower()]
 
         status_filter = kwargs.get("status")
         if status_filter and status_filter != "all":
@@ -249,7 +256,7 @@ class DeploymentSDK:
             return None
 
         deployment_record = all_deployments[deployment_id]
-        
+
         # Use the helper method to convert dict to Deployment object
         return self._dict_to_deployment(deployment_id, deployment_record)
 
@@ -344,7 +351,9 @@ class DeploymentSDK:
         deployment.write()
 
         if verbose:
-            logger.debug(f"Created deployment '{deployment.id}' for app '{app_name}' on cluster '{cluster.name}'")
+            logger.debug(
+                f"Created deployment '{deployment.id}' for app '{app_name}' on cluster '{cluster.name}'"
+            )
 
         return deployment
 

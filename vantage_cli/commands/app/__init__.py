@@ -34,18 +34,20 @@ app_app.add_typer(deployment_app, name="deployment")
 # Add deployments as an alias for "deployment list"
 app_app.command("deployments", hidden=True)(list_deployments)
 
+
 # Dynamically register each app as a subcommand
 def _register_app_commands():
     """Register all discovered apps as subcommands."""
     from vantage_cli.sdk.deployment_app import deployment_app_sdk
-    
+
     available_apps = deployment_app_sdk.list()
-    
+
     for app in available_apps:
         if app.module and hasattr(app.module, "app"):
             # The app module has a typer app - register it as a subcommand
             app_typer = getattr(app.module, "app")
             app_app.add_typer(app_typer, name=app.name)
+
 
 # Register app commands when this module is imported
 _register_app_commands()

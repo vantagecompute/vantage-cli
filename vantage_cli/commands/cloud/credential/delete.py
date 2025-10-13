@@ -21,16 +21,8 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 async def delete_command(
     ctx: typer.Context,
-    credential_id: str = typer.Argument(
-        ...,
-        help="ID of the credential to delete"
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Skip confirmation prompt"
-    ),
+    credential_id: str = typer.Argument(..., help="ID of the credential to delete"),
+    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
 ) -> None:
     """Delete a cloud provider credential.
 
@@ -82,10 +74,8 @@ async def delete_command(
         ctx.obj.formatter.render_delete(
             resource_name="Cloud Credential",
             resource_id=credential.id,
-            success_message=f"Successfully deleted credential '{credential.name}'"
+            success_message=f"Successfully deleted credential '{credential.name}'",
         )
     else:
-        ctx.obj.formatter.render_error(
-            f"Failed to delete credential '{credential.name}'"
-        )
+        ctx.obj.formatter.render_error(f"Failed to delete credential '{credential.name}'")
         raise typer.Exit(1)

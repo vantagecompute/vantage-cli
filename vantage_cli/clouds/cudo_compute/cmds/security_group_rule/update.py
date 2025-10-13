@@ -68,7 +68,7 @@ async def update_security_group_rule(
         # Use default project if not specified
         if not project_id:
             project_id = ctx.obj.settings.cudo_compute_project_id
-        
+
         result = await ctx.obj.cudo_sdk.update_security_group_rule(
             project_id=project_id,
             security_group_id=security_group_id,
@@ -79,9 +79,9 @@ async def update_security_group_rule(
             ports=ports,
             icmp_type=icmp_type,
         )
-        
+
         typer.echo(f"✓ Security group rule updated successfully")
-        
+
         # Show the updated security group
         ctx.obj.formatter.render_get(
             data=result,

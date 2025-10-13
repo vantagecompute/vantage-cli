@@ -35,12 +35,11 @@ async def list_clusters(
     """List clusters within a Cudo Compute project."""
 
     try:
-        result = await ctx.obj.cudo_sdk.list_clusters(
+        clusters = await ctx.obj.cudo_sdk.list_clusters(
             project_id=project_id,
             page_number=page_number,
             page_size=page_size,
         )
-        clusters = result.get("clusters", [])
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list clusters: {e}")
         raise typer.Exit(code=1)
@@ -48,8 +47,11 @@ async def list_clusters(
     if not clusters:
         logger.debug(f"No clusters found in project '{project_id}'.")
         return
-    
+
+    # Convert Pydantic models to dicts for the formatter
+    clusters_data = [c.model_dump() for c in clusters]
+
     ctx.obj.formatter.render_list(
-        data=clusters,
+        data=clusters_data,
         resource_name="Cudo Compute Clusters",
     )

@@ -14,25 +14,18 @@
 # See LICENSE file for licensing details.
 """Cudo Compute SLURM on Metal deployment app for Vantage CLI."""
 
-import asyncio
-import copy
-import os
-import tempfile
-from pathlib import Path
-from typing import Any, Optional
-
 import logging
+from typing import Annotated, Optional
 
-from vantage_cli.clouds.cudo_compute.apps.slurm_metal.constants import CLOUD
-from vantage_cli.sdk.cloud.crud import cloud_sdk
-from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
-from vantage_cli.sdk.cloud_credential.schema import CloudCredential
-from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
-
-logger = logging.getLogger(__name__)
 import typer
-import yaml
-from typing_extensions import Annotated
+
+from vantage_cli.clouds.cudo_compute.apps.slurm_metal.templates import head_node_init_script
+from vantage_cli.clouds.cudo_compute.apps.slurm_metal.utils import init_project_and_head_node
+from vantage_cli.clouds.cudo_compute.apps.slurm_metal.constants import CLOUD
+
+from vantage_cli.clouds.cudo_compute.cmds import attach_cudo_compute_client
+from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
+from vantage_cli.clouds.cudo_compute.utils import get_datacenter_id_from_credentials
 
 from vantage_cli.clouds.common import (
     create_deployment_with_init_status,
@@ -44,9 +37,11 @@ from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
-from vantage_cli.sdk.deployment.schema import Deployment
-
+from vantage_cli.sdk.cloud.crud import cloud_sdk
+from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
+from vantage_cli.sdk.cloud_credential.schema import CloudCredential
 from vantage_cli.sdk.deployment.crud import deployment_sdk
+from vantage_cli.sdk.deployment.schema import Deployment
 
 from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
@@ -54,7 +49,12 @@ from .constants import APP_NAME, SUBSTRATE
 from .render import success_create_message, success_destroy_message
 
 
-async def _deploy_slurm_metal_cudo(ctx: typer.Context) -> None:
+logger = logging.getLogger("vantage_cli.clouds.cudo_compute.apps.slurm_metal")
+
+
+async def _deploy_slurm_metal_cudo(
+    ctx: typer.Context, vantage_cluster_ctx: VantageClusterContext, deployment: Deployment
+) -> None:
     """Deploy SLURM on metal using Cudo Compute.
 
     Args:
@@ -63,45 +63,22 @@ async def _deploy_slurm_metal_cudo(ctx: typer.Context) -> None:
     Raises:
         Exception: If deployment fails
     """
-    cudo_credential: Optional[CloudCredential] = None
+    cudo_sdk = ctx.obj.cudo_sdk
 
-    # Get the Cudo Compute cloud configuration
-    cloud = cloud_sdk.get(CLOUD)
-    if cloud is None:
-        logger.debug(f"[bold red]Error:[/bold red] Cloud '{CLOUD}' not found. Please debug")
-        raise typer.Exit(code=1)
-
-    # Get the default credential for Cudo Compute
-    cudo_credential = cloud_credential_sdk.get_default(cloud_name=CLOUD)
-    if cudo_credential is None:
-        logger.debug(f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'")
-        logger.debug(f"Run: vantage cloud credential create --cloud {CLOUD}")
-        raise typer.Exit(code=1)
-
-    # Initialize Cudo Compute SDK
-    cudo_sdk = CudoComputeSDK(api_key=cudo_credential.credentials_data["api_key"])
-    if cudo_sdk is None:
-        logger.debug("[bold red]Error:[/bold red] Failed to initialize Cudo Compute SDK")
-        raise typer.Exit(code=1)
-    
-    logger.debug(f"Using Cudo Compute credential: {cudo_credential.name} (ID: {cudo_credential.id})")
-    logger.debug(f"Using credential {cudo_credential.name} (ID: {cudo_credential.id}) for cloud: {cloud.name} (ID: {cloud.id})")
     logger.debug(f"{await cudo_sdk.whoami()}")
 
-    # Create a project
-    project = await cudo_sdk.create_project(
-        name="vantage-slurm-metal-project",
-        description="Project for Vantage SLURM deployment",
-        tags=["vantage", "slurm", "metal"],
+    slurm_head_node_init_script = head_node_init_script(
+        vantage_cluster_ctx=vantage_cluster_ctx,
     )
-
-    logger.debug(f"Created project: {project['name']} (ID: {project['id']})")
-
-    # Create 
-
-    await cudo_sdk.create_vm(
-        name="vantage-slurm-metal",
+    from pathlib import Path
+    Path("/home/bdx/slurm_head_node_init_script.sh").write_text(slurm_head_node_init_script)
+    vm_id = await init_project_and_head_node(
+        ctx,
+        project_name=deployment.name,
+        init_script=slurm_head_node_init_script,
+        data_center_id=deployment.additional_metadata["cudo_datacenter_id"],
     )
+    logger.debug(f"Created head node VM: {vm_id}")
 
 
 async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
@@ -147,6 +124,24 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         org_id=org_id,
     )
 
+    cudo_credential: Optional[CloudCredential] = cloud_credential_sdk.get_default(cloud_name=CLOUD)
+    if cudo_credential is None:
+        logger.debug(f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'")
+        logger.debug(f"Run: vantage cloud credential create --cloud {CLOUD}")
+        return typer.Exit(code=1)
+
+    cudo_datacenter_id: str = get_datacenter_id_from_credentials()
+    if cudo_datacenter_id is None:
+        logger.debug(f"[bold red]Error:[/bold red] No default datacenter found for '{CLOUD}'")
+        logger.debug(f"Run: vantage cloud datacenter create --cloud {CLOUD}")
+        return typer.Exit(code=1)
+
+    # Get the Cudo Compute cloud configuration
+    cloud = cloud_sdk.get(CLOUD)
+    if cloud is None:
+        logger.debug(f"[bold red]Error:[/bold red] Cloud '{CLOUD}' not found. Please debug")
+        raise typer.Exit(code=1)
+
     deployment = create_deployment_with_init_status(
         app_name=APP_NAME,
         cluster=cluster,
@@ -155,12 +150,12 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         cloud=cloud,
         credential=cudo_credential,
         substrate=SUBSTRATE,
-        additional_metadata={"credential_id": cudo_credential.id},
+        additional_metadata={"cudo_datacenter_id": cudo_datacenter_id},
     )
     deployment.write()
 
     try:
-        await _deploy_slurm_metal_cudo(vantage_cluster_ctx)
+        await _deploy_slurm_metal_cudo(ctx, vantage_cluster_ctx, deployment)
     except Exception as e:
         deployment.status = "error"
         deployment.write()
@@ -179,6 +174,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
 @attach_settings
 @attach_persona
 @attach_vantage_rest_client
+@attach_cudo_compute_client
 async def create_command(
     ctx: typer.Context,
     cluster_name: Annotated[
@@ -249,7 +245,9 @@ async def remove_command(
     if deployment is not None:
         await remove(ctx=ctx, deployment=deployment)
         await deployment_sdk.delete(deployment.id)
-        ctx.obj.console.print(f"[green]✓[/green] Deployment '{deployment.name}' removed successfully")
+        ctx.obj.console.print(
+            f"[green]✓[/green] Deployment '{deployment.name}' removed successfully"
+        )
         return
 
     ctx.obj.console.print(f"[bold red]Error:[/bold red] Deployment '{deployment_id}' not found.")
@@ -304,18 +302,3 @@ async def list_vm_datacenters_command(ctx: typer.Context) -> None:
         data=datacenters,
         resource_name="Cudo Compute Datacenters",
     )
-
-
-# Create typer app for this deployment app
-from vantage_cli import AsyncTyper
-
-app = AsyncTyper(
-    name="slurm-metal-cudo",
-    help="SLURM on Metal for Cudo Compute",
-    no_args_is_help=True,
-)
-
-# Register commands
-app.command("list-vm-datacenters", help="List available Cudo Compute datacenters")(
-    list_vm_datacenters_command
-)

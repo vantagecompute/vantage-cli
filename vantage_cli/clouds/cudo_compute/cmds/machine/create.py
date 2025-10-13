@@ -33,7 +33,9 @@ async def create_machine(
     data_center_id: str = typer.Option(..., "--data-center-id", help="Data center ID"),
     machine_type_id: str = typer.Option(..., "--machine-type-id", help="Machine type ID"),
     os: str = typer.Option(..., "--os", help="Operating system"),
-    custom_ssh_keys: str = typer.Option(None, "--custom-ssh-keys", help="Comma-separated SSH keys"),
+    custom_ssh_keys: str = typer.Option(
+        None, "--custom-ssh-keys", help="Comma-separated SSH keys"
+    ),
     start_script: str = typer.Option(None, "--start-script", help="Start script"),
 ) -> None:
     """Create a new Cudo Compute bare-metal machine."""
@@ -44,7 +46,7 @@ async def create_machine(
             kwargs["customSshKeys"] = custom_ssh_keys.split(",")
         if start_script:
             kwargs["startScript"] = start_script
-        
+
         machine = await ctx.obj.cudo_sdk.create_machine(
             project_id=project_id,
             machine_id=machine_id,
@@ -53,7 +55,9 @@ async def create_machine(
             os=os,
             **kwargs,
         )
-        logger.debug(f"[bold green]Success:[/bold green] Created bare-metal machine '{machine_id}'")
+        logger.debug(
+            f"[bold green]Success:[/bold green] Created bare-metal machine '{machine_id}'"
+        )
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to create bare-metal machine: {e}")
         raise typer.Exit(code=1)

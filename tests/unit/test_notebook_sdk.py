@@ -21,8 +21,7 @@ async def test_notebook_sdk_create_notebook_calls_graphql(monkeypatch: pytest.Mo
 
     mock_client = Mock()
     mock_client.execute_async = AsyncMock(
-        return_value=
-        {
+        return_value={
             "createJupyterServer": {
                 "__typename": "NotebookServer",
                 "name": "nb1",
@@ -79,7 +78,9 @@ async def test_notebook_sdk_create_notebook_calls_graphql(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
-async def test_notebook_sdk_create_notebook_returns_existing_when_duplicate(monkeypatch: pytest.MonkeyPatch):
+async def test_notebook_sdk_create_notebook_returns_existing_when_duplicate(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Duplicate notebook creation should return the existing record instead of failing."""
     ctx = Mock(spec=typer.Context)
     ctx.obj = SimpleNamespace(profile="default", settings=Mock())
@@ -129,7 +130,9 @@ async def test_notebook_sdk_create_notebook_returns_existing_when_duplicate(monk
 
 
 @pytest.mark.asyncio
-async def test_notebook_sdk_create_notebook_handles_other_union_errors(monkeypatch: pytest.MonkeyPatch):
+async def test_notebook_sdk_create_notebook_handles_other_union_errors(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Non-success union responses should still raise Abort errors."""
     ctx = Mock(spec=typer.Context)
     ctx.obj = SimpleNamespace(profile="default", settings=Mock())
@@ -164,13 +167,17 @@ async def test_notebook_sdk_create_notebook_handles_other_union_errors(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_notebook_sdk_create_notebook_falls_back_on_transport_error(monkeypatch: pytest.MonkeyPatch):
+async def test_notebook_sdk_create_notebook_falls_back_on_transport_error(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Transport failures should attempt to return an existing notebook record."""
     ctx = Mock(spec=typer.Context)
     ctx.obj = SimpleNamespace(profile="default", settings=Mock())
 
     mock_client = Mock()
-    mock_client.execute_async = AsyncMock(side_effect=GraphQLError("Transport error during CreateJupyterServer: TimeoutError"))
+    mock_client.execute_async = AsyncMock(
+        side_effect=GraphQLError("Transport error during CreateJupyterServer: TimeoutError")
+    )
 
     monkeypatch.setattr(
         "vantage_cli.sdk.notebook.crud.create_async_graphql_client",
@@ -254,12 +261,16 @@ async def test_notebook_sdk_create_notebook_uses_jupyterhub_fallback_when_needed
 
 
 @pytest.mark.asyncio
-async def test_notebook_sdk_create_notebook_rejects_invalid_memory(monkeypatch: pytest.MonkeyPatch):
+async def test_notebook_sdk_create_notebook_rejects_invalid_memory(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Invalid memory specifications should surface a user-friendly Abort."""
     ctx = Mock(spec=typer.Context)
     ctx.obj = SimpleNamespace(profile="default", settings=Mock())
 
-    def _fail_client(*_args: object, **_kwargs: object) -> None:  # pragma: no cover - ensure not called
+    def _fail_client(
+        *_args: object, **_kwargs: object
+    ) -> None:  # pragma: no cover - ensure not called
         raise AssertionError("GraphQL should not be invoked when memory parsing fails")
 
     monkeypatch.setattr(

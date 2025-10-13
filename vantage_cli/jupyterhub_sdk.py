@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional
 
 import typer
 import logging
+
 logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort

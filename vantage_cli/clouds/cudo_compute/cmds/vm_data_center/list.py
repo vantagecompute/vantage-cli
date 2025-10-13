@@ -26,9 +26,12 @@ async def list_vm_data_centers(
     """List all data centers available for virtual machines."""
     try:
         data_centers = await ctx.obj.cudo_sdk.list_vm_data_centers()
-        
+
+        # Convert Pydantic models to dicts for the formatter
+        data_centers_data = [dc.model_dump() for dc in data_centers]
+
         ctx.obj.formatter.render_list(
-            data=data_centers,
+            data=data_centers_data,
             resource_name="VM Data Centers",
         )
     except Exception as e:
