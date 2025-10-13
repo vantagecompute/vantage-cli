@@ -16,6 +16,7 @@ import datetime
 import inspect
 import json
 from functools import wraps
+from textwrap import dedent
 from typing import Any, Callable, Union
 
 import httpx
@@ -240,14 +241,23 @@ def refresh_token_if_needed(profile: str, token_set: TokenSet) -> TokenSet:
             save_tokens_to_cache(profile, token_set)
             return token_set
         else:
-            raise Exception("Token refresh returned False")
+            logger.warning("Token refresh failed - check error logs above for details")
+            raise Exception("Token refresh failed")
 
     except Exception as e:
-        logger.debug(f"Failed to refresh token: {e}")
+        logger.error(f"Token refresh error: {e}")
         raise Abort(
-            "Your authentication session has expired.\n\nToken refresh failed"
-            "Please log in again by running:\n\n"
-            "    vantage login\n",
+            dedent(
+                """\
+                Your authentication session has expired and could not be automatically refreshed.
+
+                Please log in again by running:
+
+                    vantage login
+
+                If this problem persists, check your network connection and try again.
+                """
+            ),
             subject="Authentication Required",
             log_message=f"Token refresh failed: {e}",
         )
@@ -354,8 +364,20 @@ def refresh_access_token_standalone(token_set: TokenSet, settings: "Settings") -
             logger.debug("Successfully refreshed access token")
             return True
 
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Token refresh failed with status {e.response.status_code}: {e.response.text}")
+        return False
+    except httpx.TimeoutException as e:
+        logger.error(f"Token refresh timed out: {e}")
+        return False
+    except httpx.RequestError as e:
+        logger.error(f"Token refresh request error: {e}")
+        return False
+    except KeyError as e:
+        logger.error(f"Token refresh response missing required field: {e}")
+        return False
     except Exception as e:
-        logger.debug(f"Failed to refresh token: {e}")
+        logger.error(f"Unexpected error during token refresh: {type(e).__name__}: {e}")
         return False
 
 

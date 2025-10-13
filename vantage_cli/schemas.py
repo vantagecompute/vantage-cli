@@ -27,7 +27,7 @@ import httpx
 from pydantic import BaseModel
 from rich.console import Console
 
-from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
+from cudo_compute_sdk import CudoComputeSDK
 from vantage_cli.config import Settings
 
 if TYPE_CHECKING:

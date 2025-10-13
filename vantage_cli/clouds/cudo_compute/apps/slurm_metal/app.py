@@ -24,8 +24,8 @@ from vantage_cli.clouds.cudo_compute.apps.slurm_metal.utils import init_project_
 from vantage_cli.clouds.cudo_compute.apps.slurm_metal.constants import CLOUD
 
 from vantage_cli.clouds.cudo_compute.cmds import attach_cudo_compute_client
-from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
-from vantage_cli.clouds.cudo_compute.utils import get_datacenter_id_from_credentials
+from cudo_compute_sdk import CudoComputeSDK
+from cudo_compute_sdk.utils import get_datacenter_id_from_credentials
 
 from vantage_cli.clouds.common import (
     create_deployment_with_init_status,

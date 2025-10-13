@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test get_datacenter_id_from_credentials method."""
 
-from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
+from cudo_compute_sdk import CudoComputeSDK
 
 # Test the new method
 datacenter_id = CudoComputeSDK.get_datacenter_id_from_credentials()

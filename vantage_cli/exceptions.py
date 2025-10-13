@@ -118,10 +118,10 @@ def _handle_abort_error(err: Abort, console: Console) -> None:
     """Handle abort errors with consistent messaging."""
     if not err.warn_only:
         if err.log_message is not None:
-            logger.error(err.log_message)
+            logger.debug(err.log_message)
 
         if err.original_error is not None:
-            logger.error(f"Original exception: {err.original_error}")
+            logger.debug(f"Original exception: {err.original_error}")
 
     panel_kwargs = {}
     if err.subject is not None:

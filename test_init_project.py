@@ -19,7 +19,7 @@ async def test_init_project():
     import json
     import yaml
     from pathlib import Path
-    from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
+    from cudo_compute_sdk import CudoComputeSDK
     from vantage_cli.clouds.cudo_compute.apps.slurm_metal.utils import init_project_and_head_node
     
     # Get API key from environment or credentials file

@@ -33,7 +33,7 @@ import typer
 
 from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
 
-from ..sdk import CudoComputeSDK
+from cudo_compute_sdk import CudoComputeSDK
 
 
 logger = logging.getLogger(__name__)
@@ -43,12 +43,12 @@ CLOUD = "cudo-compute"
 
 def attach_cudo_compute_client(func: Callable[..., Any]) -> Callable[..., Any]:
     """Attach CudoComputeSDK client to the command context.
-
+    
     This decorator:
     1. Retrieves the default Cudo Compute credential
     2. Initializes the CudoComputeSDK with the API key
     3. Injects the SDK as 'cudo_sdk' into the context object
-
+    
     The decorated function can then access the SDK via ctx.obj.cudo_sdk.
     """
     if inspect.iscoroutinefunction(func):
@@ -58,15 +58,15 @@ def attach_cudo_compute_client(func: Callable[..., Any]) -> Callable[..., Any]:
             # Get default credential for Cudo Compute
             cudo_credential = cloud_credential_sdk.get_default(cloud_name=CLOUD)
             if cudo_credential is None:
-                logger.debug(
-                    f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'"
-                )
+                logger.debug(f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'")
                 logger.debug(f"Run: vantage cloud credential create --cloud {CLOUD}")
                 raise typer.Exit(code=1)
 
             # Initialize SDK and attach to context
-            ctx.obj.cudo_sdk = CudoComputeSDK(api_key=cudo_credential.credentials_data["api_key"])
-
+            ctx.obj.cudo_sdk = CudoComputeSDK(
+                api_key=cudo_credential.credentials_data["api_key"]
+            )
+            
             logger.debug(f"CudoComputeSDK initialized and attached to context")
             return await func(ctx, *args, **kwargs)
 
@@ -78,15 +78,15 @@ def attach_cudo_compute_client(func: Callable[..., Any]) -> Callable[..., Any]:
             # Get default credential for Cudo Compute
             cudo_credential = cloud_credential_sdk.get_default(cloud_name=CLOUD)
             if cudo_credential is None:
-                logger.debug(
-                    f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'"
-                )
+                logger.debug(f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'")
                 logger.debug(f"Run: vantage cloud credential create --cloud {CLOUD}")
                 raise typer.Exit(code=1)
 
             # Initialize SDK and attach to context
-            ctx.obj.cudo_sdk = CudoComputeSDK(api_key=cudo_credential.credentials_data["api_key"])
-
+            ctx.obj.cudo_sdk = CudoComputeSDK(
+                api_key=cudo_credential.credentials_data["api_key"]
+            )
+            
             logger.debug(f"CudoComputeSDK initialized and attached to context")
             return func(ctx, *args, **kwargs)
 

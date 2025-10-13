@@ -7,8 +7,9 @@ authors = [
 ]
 readme = "README.md"
 license = {text = "GPL-3.0"}
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
+    "cudo-compute-sdk",
     "juju ~= 3.6",
     "typer>=0.17.4",
     "rich>=14.1.0",

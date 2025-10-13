@@ -183,7 +183,7 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
         if app.module and hasattr(app.module, "create"):
             # Initialize cloud-specific SDK if needed
             if app.cloud == "cudo-compute":
-                from vantage_cli.clouds.cudo_compute.sdk import CudoComputeSDK
+                from cudo_compute_sdk import CudoComputeSDK
                 
                 # Get default credential for Cudo Compute
                 cudo_credential = cloud_credential_sdk.get_default(cloud_name="cudo-compute")
