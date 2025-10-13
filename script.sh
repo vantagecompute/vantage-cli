@@ -181,7 +181,7 @@ EOF
 
 # /etc/slurm/slurm.conf
 cat > /etc/slurm/slurm.conf << 'EOF'
-ClusterName=$CLUSTER_NAME
+ClusterName=testCluster
 
 # MCS
 MCSPlugin=mcs/label
@@ -626,6 +626,7 @@ pam-auth-update --enable mkhomedir
 sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
 sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{{print $1}}')|g" /etc/slurm/slurm.conf
 sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
+sed -i "s|^ClusterName=.*|ClusterName=$CLUSTER_NAME|g" /etc/slurm/slurm.conf
 
 # Enable and start services
 echo "Enabling and starting services..."
@@ -640,7 +641,7 @@ systemctl disable oddjobd
 systemctl enable --now slurmdbd
 sleep 10
 systemctl enable --now slurmctld
-systemctl enable --now slurmd
+#systemctl enable --now slurmd
 systemctl enable --now slurmrestd
 #scontrol update NodeName=$(hostname) State=RESUME
 

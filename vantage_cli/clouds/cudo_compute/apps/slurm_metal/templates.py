@@ -241,7 +241,7 @@ def head_node_init_script() -> str:
 
         # /etc/slurm/slurm.conf
         cat > /etc/slurm/slurm.conf << 'EOF'
-        ClusterName=$CLUSTER_NAME
+        ClusterName=testCluster
         
         # MCS
         MCSPlugin=mcs/label
@@ -710,6 +710,7 @@ def head_node_init_script() -> str:
         sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
         sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{{print $1}}')|g\" /etc/slurm/slurm.conf
         sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
+        sed -i "s|^ClusterName=.*|ClusterName=$CLUSTER_NAME|g" /etc/slurm/slurm.conf
 
         # Enable and start services
         echo "Enabling and starting services..."
