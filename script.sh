@@ -226,6 +226,9 @@ MinJobAge=86400
 KillWait=30
 Waittime=0
 
+# Slurmctld Parameters
+SlurmctldParameters=enable_configless
+
 # Scheduling
 SchedulerType=sched/backfill
 SelectType=select/cons_tres
@@ -251,9 +254,11 @@ AccountingStorageUser=slurm
 AccountingStoragePort=6839
 
 # Partition Configurations
-PartitionName=compute MaxTime=INFINITE State=UP Default=Yes
+PartitionName=compute Nodes=compute MaxTime=INFINITE State=UP Default=Yes
 
 # Nodeset
+PartitionName=compute Nodes=@HEADNODE_HOSTNAME@ MaxTime=INFINITE State=UP Default=Yes
+NodeName=@HEADNODE_HOSTNAME@
 NodeSet=compute Feature=compute
 EOF
 
@@ -406,9 +411,16 @@ EOF
 mkdir -p /etc/default
 
 cat > /etc/default/slurmd << 'EOF'
-SLURMD_OPTIONS=""
+SLURMD_OPTIONS="--conf 'cpus=@CPUS@ boards=1 socketsperboard=1 corespersocket=@CORES_PER_SOCKET@ threadspercore=@THREADS_PER_CORE@ realmemory=@REAL_MEMORY@ memspeclimit=@MEMSPEC_LIMIT@ features=compute'"
 SLURM_CONF=/etc/slurm/slurm.conf
 EOF
+
+sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{print $1}')|g" /etc/default/slurmd
+sed -i "s|@CPUS@|$(nproc)|g" /etc/default/slurmd
+sed -i "s|@CORES_PER_SOCKET@|$(nproc)|g" /etc/default/slurmd
+sed -i "s|@THREADS_PER_CORE@|1|g" /etc/default/slurmd
+sed -i "s|@REAL_MEMORY@|$(grep MemTotal /proc/meminfo | awk '{print $2}')|g" /etc/default/slurmd
+sed -i "s|@MEMSPEC_LIMIT@|1024|g" /etc/default/slurmd
 
 cat > /etc/default/slurmctld << 'EOF'
 SLURMCTLD_OPTIONS=""
@@ -624,7 +636,7 @@ echo "Configuring PAM for automatic home directory creation..."
 pam-auth-update --enable mkhomedir
 
 sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
-sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{{print $1}}')|g" /etc/slurm/slurm.conf
+sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{print $1}')|g" /etc/slurm/slurm.conf
 sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
 sed -i "s|^ClusterName=.*|ClusterName=$CLUSTER_NAME|g" /etc/slurm/slurm.conf
 
@@ -641,8 +653,9 @@ systemctl disable oddjobd
 systemctl enable --now slurmdbd
 sleep 10
 systemctl enable --now slurmctld
-#systemctl enable --now slurmd
+systemctl enable --now slurmd
 systemctl enable --now slurmrestd
+
 #scontrol update NodeName=$(hostname) State=RESUME
 
 for agent_name in vantage-agent jobbergate-agent; do

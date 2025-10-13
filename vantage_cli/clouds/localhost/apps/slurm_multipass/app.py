@@ -31,6 +31,7 @@ from vantage_cli.clouds.common import (
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.cloud.crud import cloud_sdk
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 from vantage_cli.sdk.deployment.schema import Deployment
 from vantage_cli.sdk.deployment.crud import deployment_sdk
@@ -41,6 +42,7 @@ from .constants import (
     MULTIPASS_CLOUD_IMAGE_LOCAL,
     MULTIPASS_CLOUD_IMAGE_URL,
     SUBSTRATE,
+    CLOUD as CLOUD_LOCALHOST,
 )
 from .render import success_create_message
 from .templates import CloudInitTemplate
@@ -183,15 +185,20 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         org_id=org_id,
     )
 
+    cloud = cloud_sdk.get(CLOUD_LOCALHOST)
+    if cloud is None:
+        logger.debug(f"[bold red]Error:[/bold red] Cloud '{CLOUD_LOCALHOST}' not found. Please debug")
+        raise typer.Exit(code=1)
+
+
     deployment = create_deployment_with_init_status(
         app_name=APP_NAME,
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
         verbose=verbose,
-        cloud_name="localhost",
+        cloud=cloud,
         substrate=SUBSTRATE,
     )
-    deployment.write()
 
     shared_dir = _prepare_shared_directory(verbose, console)
     cloud_init_config, image_origin = _generate_cloud_init_configuration(vantage_cluster_ctx)

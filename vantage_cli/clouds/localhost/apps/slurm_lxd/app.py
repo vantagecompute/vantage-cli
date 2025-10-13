@@ -39,6 +39,7 @@ from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
 from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
+from vantage_cli.sdk.cloud.crud import cloud_sdk
 from vantage_cli.sdk.cluster.schema import Cluster, VantageClusterContext
 from vantage_cli.sdk.deployment.schema import Deployment
 
@@ -54,8 +55,6 @@ from .constants import (
     SSSD_APPLICATION_NAME,
     SSSD_SECRET_NAME,
     SUBSTRATE,
-)
-from .constants import (
     CLOUD as CLOUD_LOCALHOST,
 )
 from .render import success_create_message, success_destroy_message
@@ -264,15 +263,19 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         org_id=org_id,
     )
 
+    cloud = cloud_sdk.get(CLOUD_LOCALHOST)
+    if cloud is None:
+        logger.debug(f"[bold red]Error:[/bold red] Cloud '{CLOUD_LOCALHOST}' not found. Please debug")
+        raise typer.Exit(code=1)
+    
     deployment = create_deployment_with_init_status(
         app_name=APP_NAME,
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
         verbose=verbose,
-        cloud_name="localhost",
+        cloud=cloud,
         substrate=SUBSTRATE,
     )
-    deployment.write()
 
     try:
         await _deploy_juju_localhost(vantage_cluster_ctx)
