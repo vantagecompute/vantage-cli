@@ -89,6 +89,8 @@ from textual.widgets import (
     TabPane,
 )
 
+from vantage_cli.auth import extract_persona, fetch_auth_tokens, is_token_expired
+from vantage_cli.cache import clear_token_cache, load_tokens_from_cache
 from vantage_cli.schemas import CliContext
 from vantage_cli.sdk.cluster.schema import Cluster
 from vantage_cli.sdk.deployment.schema import Deployment
@@ -99,6 +101,7 @@ from .cluster_management_tab_pane import ClusterManagementTabPane, CreateCluster
 from .credential_management_tab_pane import CredentialManagementTabPane, CreateCredentialModal, RemoveCredentialModal
 from .dependency_tracker import DependencyTracker, Worker, WorkerState
 from .deployment_management_tab_pane import DeploymentManagementTabPane
+from .login_modal import LoginModal
 from .profile_management_tab_pane import ProfileManagementTabPane, CreateProfileModal, RemoveProfileModal
 
 
@@ -552,8 +555,7 @@ class DashboardApp(App):
         self.services = services or self._get_default_services()
         self.custom_handlers = custom_handlers or {}
         self.platform_info = platform_info or self._get_default_platform_info()
-        self.ctx = ctx
-
+        self.ctx = ctx 
         # SDK data
         self.clusters = clusters or []
         self.deployments = deployments or []
@@ -792,6 +794,9 @@ class DashboardApp(App):
                     yield Button(
                         "Remove", id="restart-btn", variant="primary", classes="tab-button"
                     )
+                    yield Button(
+                        "Logout", id="auth-btn", variant="warning", classes="tab-button"
+                    )
 
         # Footer
         yield Static(
@@ -828,6 +833,9 @@ class DashboardApp(App):
         
         # Load credentials from SDK
         self.load_credentials()
+        
+        # Update auth button based on login status
+        self.call_later(self._update_auth_button)
         
         # Try setup_tables here too
         self.call_later(self.setup_tables)
@@ -1245,6 +1253,9 @@ class DashboardApp(App):
         elif event.button.id == "restart-btn":
             # Context-aware Remove button based on active tab
             self.handle_remove_action()
+        elif event.button.id == "auth-btn":
+            # Handle Login/Logout button
+            self.handle_auth_action()
         elif event.button.id == "clear-all-btn":
             self.action_clear_logs()
         elif event.button.id == "export-btn":
@@ -1713,6 +1724,311 @@ class DashboardApp(App):
             logger.debug(f"Error handling remove action: {e}")
             # Fallback to default action
             self.action_restart()
+    
+    def handle_auth_action(self):
+        """Handle Login/Logout button"""
+        # Check if user is logged in
+        if self._is_logged_in():
+            # User is logged in, perform logout
+            self.perform_logout()
+        else:
+            # User is not logged in, show login modal
+            self.open_login_modal()
+    
+    def _is_logged_in(self) -> bool:
+        """Check if user is currently logged in with a valid token.
+        
+        Returns:
+            True if valid token exists, False otherwise
+        """
+        if not self.ctx:
+            return False
+            
+        try:
+            # Try to load tokens from cache
+            token_set = load_tokens_from_cache(self.ctx.obj.profile)
+            
+            # Check if access token is valid (not expired)
+            if token_set.access_token and not is_token_expired(token_set.access_token):
+                return True
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Error checking login status: {e}")
+        
+        return False
+    
+    def _get_logged_in_email(self) -> Optional[str]:
+        """Get the email of the currently logged in user.
+        
+        Returns:
+            Email if logged in, None otherwise
+        """
+        if not self.ctx:
+            return None
+            
+        try:
+            token_set = load_tokens_from_cache(self.ctx.obj.profile)
+            if token_set.access_token and not is_token_expired(token_set.access_token):
+                persona = extract_persona(self.ctx.obj.profile, token_set)
+                return persona.identity_data.email
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Error getting logged in email: {e}")
+        
+        return None
+    
+    def _update_auth_button(self):
+        """Update the auth button text based on login status"""
+        try:
+            auth_btn = self.query_one("#auth-btn", Button)
+            if self._is_logged_in():
+                auth_btn.label = "Logout"
+                auth_btn.variant = "warning"
+            else:
+                auth_btn.label = "Login"
+                auth_btn.variant = "success"
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Error updating auth button: {e}")
+    
+    def open_login_modal(self):
+        """Open the login modal and start authentication"""
+        def handle_login_result(success: Optional[bool]) -> None:
+            """Handle the result from login modal"""
+            if success:
+                self.add_log("✅ Login successful", "SUCCESS")
+                self._update_auth_button()
+            elif success is False:
+                self.add_log("❌ Login cancelled", "INFO")
+        
+        # Create and show the modal
+        login_modal = LoginModal()
+        self.push_screen(login_modal, handle_login_result)
+        
+        # Start the login process
+        self.perform_login(login_modal)
+    
+    @work(exclusive=True)
+    async def perform_login(self, modal: LoginModal) -> None:
+        """Perform login authentication with modal updates
+        
+        Args:
+            modal: The LoginModal instance to update with progress
+        """
+        if not self.ctx:
+            modal.set_status("No context available for login", is_error=True)
+            self.add_log("❌ No context available for login", "ERROR")
+            return
+        
+        try:
+            # Check if ctx is a CliContext or has the profile attribute
+            if not hasattr(self.ctx.obj, 'profile'):
+                error_msg = "Context does not have profile information. Cannot authenticate."
+                modal.set_status(error_msg, is_error=True)
+                self.add_log(f"❌ {error_msg}", "ERROR")
+                return
+            
+            # Check if already logged in
+            existing_email = self._get_logged_in_email()
+            if existing_email:
+                modal.set_status(f"Already authenticated as {existing_email}", is_complete=True)
+                self.add_log(f"✅ Already logged in as: {existing_email}", "INFO")
+                return
+            
+            modal.set_status("Initializing authentication...")
+            
+            # Ensure settings are loaded
+            if not hasattr(self.ctx.obj, 'settings') or self.ctx.obj.settings is None:
+                import json
+                from vantage_cli.constants import USER_CONFIG_FILE
+                from vantage_cli.config import init_settings
+                
+                try:
+                    modal.set_status("Loading settings...")
+                    settings_all_profiles = json.loads(USER_CONFIG_FILE.read_text())
+                    settings_values = settings_all_profiles.get(self.ctx.obj.profile)
+                    if not settings_values:
+                        error_msg = f"No settings found for profile '{self.ctx.obj.profile}'. Run 'vantage config set' first."
+                        modal.set_status(error_msg, is_error=True)
+                        raise Exception(error_msg)
+                    self.ctx.obj.settings = init_settings(**settings_values)
+                except FileNotFoundError:
+                    error_msg = (
+                        f"No settings file found. "
+                        "Run 'vantage config set' first to establish your OIDC settings."
+                    )
+                    modal.set_status(error_msg, is_error=True)
+                    raise Exception(error_msg)
+            
+            modal.set_status("Setting up authentication client...")
+            
+            # Create HTTP client and perform authentication
+            import httpx
+            import datetime
+            from vantage_cli.constants import OIDC_DEVICE_PATH, OIDC_TOKEN_PATH
+            from vantage_cli.schemas import DeviceCodeData, TokenSet
+            from vantage_cli.client import make_oauth_request
+            
+            async with httpx.AsyncClient(
+                base_url=self.ctx.obj.settings.get_auth_url(),
+                headers={"content-type": "application/x-www-form-urlencoded"},
+            ) as client:
+                self.ctx.obj.client = client
+                
+                # Get device code
+                modal.set_status("Requesting authentication code...")
+                device_code_data: DeviceCodeData = await make_oauth_request(
+                    client,
+                    OIDC_DEVICE_PATH,
+                    data={"client_id": self.ctx.obj.settings.oidc_client_id},
+                    response_model_cls=DeviceCodeData,
+                    abort_message="Could not retrieve device verification code",
+                    abort_subject="COULD NOT RETRIEVE TOKEN",
+                )
+                
+                # Show URL to user
+                auth_url = device_code_data.verification_uri_complete
+                modal.set_status(
+                    "Waiting for browser authentication...",
+                    show_url=True,
+                    url=auth_url
+                )
+                self.add_log(f"🔗 Authentication URL: {auth_url}", "INFO")
+                
+                # Poll for token
+                start_time = datetime.datetime.now()
+                timeout_seconds = self.ctx.obj.settings.oidc_max_poll_time
+                interval = device_code_data.interval
+                
+                while True:
+                    elapsed = (datetime.datetime.now() - start_time).total_seconds()
+                    
+                    # Check timeout
+                    if elapsed >= timeout_seconds:
+                        modal.set_status("Authentication timed out", is_error=True)
+                        raise Exception("Authentication timed out")
+                    
+                    # Wait for interval
+                    await asyncio.sleep(interval)
+                    
+                    # Try to get token
+                    try:
+                        response = await client.post(
+                            OIDC_TOKEN_PATH,
+                            data={
+                                "client_id": self.ctx.obj.settings.oidc_client_id,
+                                "device_code": device_code_data.device_code,
+                                "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                            },
+                        )
+                        
+                        if response.status_code == 200:
+                            # Success! Got the token
+                            token_data = response.json()
+                            token_set = TokenSet(
+                                access_token=token_data.get("access_token", ""),
+                                refresh_token=token_data.get("refresh_token"),
+                            )
+                            
+                            # Extract persona and save
+                            from vantage_cli.cache import save_tokens_to_cache
+                            save_tokens_to_cache(self.ctx.obj.profile, token_set)
+                            persona = extract_persona(self.ctx.obj.profile, token_set)
+                            
+                            # Update modal to success
+                            modal.set_status(
+                                f"Successfully authenticated as {persona.identity_data.email}",
+                                is_complete=True
+                            )
+                            self.add_log(
+                                f"✅ Successfully authenticated as: {persona.identity_data.email}",
+                                "SUCCESS"
+                            )
+                            
+                            # Update the button
+                            self._update_auth_button()
+                            break
+                        
+                        elif response.status_code == 400:
+                            error_data = response.json()
+                            error_code = error_data.get("error", "")
+                            
+                            if error_code == "authorization_pending":
+                                # Still waiting
+                                continue
+                            elif error_code == "slow_down":
+                                # Server asked to slow down
+                                interval += 5
+                                continue
+                            elif error_code in ("expired_token", "access_denied"):
+                                # Terminal errors
+                                modal.set_status(f"Authentication failed: {error_code}", is_error=True)
+                                raise Exception(f"Authentication {error_code}")
+                            else:
+                                # Unknown error
+                                modal.set_status(f"Authentication error: {error_code}", is_error=True)
+                                raise Exception(f"Authentication error: {error_code}")
+                        else:
+                            # Unexpected status code
+                            modal.set_status(f"Unexpected response: {response.status_code}", is_error=True)
+                            raise Exception(f"Unexpected status code: {response.status_code}")
+                            
+                    except httpx.HTTPError as e:
+                        modal.set_status(f"Network error: {str(e)}", is_error=True)
+                        raise
+                        
+        except Exception as e:
+            error_msg = f"Login failed: {str(e)}"
+            modal.set_status(error_msg, is_error=True)
+            self.add_log(f"❌ {error_msg}", "ERROR")
+            
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Login failed")
+    
+    @work(exclusive=True)
+    async def perform_logout(self) -> None:
+        """Perform logout and clear credentials"""
+        if not self.ctx:
+            self.add_log("❌ No context available for logout", "ERROR")
+            self.notify("Cannot logout: No context available", severity="error")
+            return
+        
+        try:
+            existing_email = self._get_logged_in_email()
+            
+            if not existing_email:
+                self.add_log("ℹ️  Not currently logged in", "INFO")
+                self.notify("No active session found", severity="information")
+                return
+            
+            # Clear the token cache
+            clear_token_cache(self.ctx.obj.profile)
+
+            self.add_log(
+                f"✅ Successfully logged out user: {existing_email}",
+                "SUCCESS"
+            )
+            self.notify(
+                f"Logged out {existing_email}",
+                severity="information",
+                timeout=5
+            )
+            
+            # Update the button
+            self._update_auth_button()
+            
+        except Exception as e:
+            error_msg = f"Logout failed: {str(e)}"
+            self.add_log(f"❌ {error_msg}", "ERROR")
+            self.notify(error_msg, severity="error", timeout=10)
+            
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.exception("Logout failed")
     
     def open_remove_cluster_modal(self):
         """Open the cluster removal modal"""
