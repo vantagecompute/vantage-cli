@@ -424,10 +424,12 @@ class ProfileManagementTabPane(TabPane):
 
     def on_mount(self) -> None:
         """Initialize the profile table when the tab is mounted."""
+        logger.info("ProfileManagementTabPane.on_mount() called")
         self.setup_profiles_table()
         self.setup_details_table()
 
         # Debug the context structure
+        logger.debug(f"ProfileManagementTabPane context type: {type(self.ctx)}")
         logger.debug(f"ProfileManagementTabPane context: {self.ctx}")
 
         # Auto-refresh profiles on mount
@@ -449,17 +451,18 @@ class ProfileManagementTabPane(TabPane):
     @work(exclusive=True)
     async def refresh_profiles(self) -> None:
         """Refresh the profiles list from the local storage."""
+        logger.info("refresh_profiles() called")
         self.is_loading = True
         status_widget = self.query_one("#profile-status", Static)
         status_widget.update("Status: Loading profiles...")
 
         try:
             # Fetch profiles using the SDK
-            logger.debug("Starting profile refresh...")
+            logger.info("Starting profile refresh...")
 
             # Get profiles as Profile objects
             profiles_data = await profile_sdk.get_profiles(self.ctx)
-            logger.debug(f"Fetched {len(profiles_data)} profiles")
+            logger.info(f"Fetched {len(profiles_data)} profiles: {[p.name for p in profiles_data]}")
 
             self.profiles = profiles_data
 
@@ -467,14 +470,17 @@ class ProfileManagementTabPane(TabPane):
             self.active_profile = next(
                 (profile for profile in profiles_data if profile.is_active), None
             )
+            logger.info(f"Active profile: {self.active_profile.name if self.active_profile else 'None'}")
 
             self.last_refresh = datetime.now()
 
             # Update the UI
+            logger.info("Updating profiles table...")
             self.update_profiles_table()
+            logger.info("Updating status display...")
             self.update_status_display()
 
-            logger.debug("Profile refresh completed successfully")
+            logger.info("Profile refresh completed successfully")
 
         except Abort as e:
             error_msg = f"Failed to fetch profiles: {e.message}"
@@ -491,6 +497,7 @@ class ProfileManagementTabPane(TabPane):
 
         finally:
             self.is_loading = False
+            logger.info(f"is_loading set to False, profiles count: {len(self.profiles)}")
 
     def update_profiles_table(self) -> None:
         """Update the profiles table with current data."""
