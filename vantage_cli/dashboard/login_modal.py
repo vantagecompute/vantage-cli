@@ -19,9 +19,10 @@ logger = logging.getLogger(__name__)
 
 from textual.app import ComposeResult
 from textual.containers import Vertical, Horizontal, ScrollableContainer
-from textual.widgets import Button, Static, Label
+from textual.widgets import Button, Static, Label, RichLog
 from textual.screen import ModalScreen
 from textual.reactive import reactive
+from rich.text import Text
 
 
 class LoginModal(ModalScreen[Optional[bool]]):
@@ -33,11 +34,11 @@ class LoginModal(ModalScreen[Optional[bool]]):
     }
     
     #login-dialog {
-        width: 80;
-        height: auto;
+        width: 90;
+        height: 30;
         border: thick $success;
         background: $surface;
-        padding: 2 3;
+        padding: 1 2;
     }
     
     #login-dialog .modal-title {
@@ -45,77 +46,47 @@ class LoginModal(ModalScreen[Optional[bool]]):
         text-style: bold;
         color: $success;
         margin-bottom: 1;
+        height: 1;
     }
     
-    #login-dialog .section-header {
-        text-style: bold;
-        color: $accent;
-        margin-top: 1;
-        margin-bottom: 1;
-    }
-    
-    #login-dialog .url-container {
-        margin: 1 0;
-        padding: 1 2;
-        background: $panel;
+    #login-dialog #auth-url-box {
+        height: 7;
         border: solid $primary;
+        background: $panel;
+        padding: 1;
+        margin: 1 0;
     }
     
-    #login-dialog .url-header {
+    #login-dialog .url-label {
         text-align: center;
         text-style: bold;
         color: $accent;
-        margin-bottom: 1;
+        height: 1;
     }
     
-    #login-dialog .url-text {
+    #login-dialog .url-display {
         text-align: center;
         color: $primary;
         text-style: bold;
+        height: 3;
         margin: 1 0;
     }
     
     #login-dialog .url-instruction {
         text-align: center;
         color: $text-muted;
-        margin-top: 1;
         text-style: italic;
+        height: 1;
     }
     
-    #login-dialog #copy-url-btn {
-        margin-top: 1;
-    }
-    
-    #login-dialog .status-text {
-        text-align: center;
-        color: $text;
+    #login-dialog #progress-log {
+        height: 12;
+        border: solid $accent;
         margin: 1 0;
-    }
-    
-    #login-dialog .spinner-text {
-        text-align: center;
-        color: $warning;
-        margin: 1 0;
-        text-style: bold;
-    }
-    
-    #login-dialog .success-text {
-        text-align: center;
-        color: $success;
-        margin: 1 0;
-        text-style: bold;
-    }
-    
-    #login-dialog .error-text {
-        text-align: center;
-        color: $error;
-        margin: 1 0;
-        text-style: bold;
     }
     
     #login-dialog #button-row {
-        margin-top: 2;
-        height: auto;
+        height: 3;
         align: center middle;
     }
     
@@ -125,21 +96,21 @@ class LoginModal(ModalScreen[Optional[bool]]):
     """
     
     # Reactive properties for updating the modal content
-    status_message: reactive[str] = reactive("Initializing authentication...")
     auth_url: reactive[str] = reactive("")
-    show_url: reactive[bool] = reactive(False)
-    is_complete: reactive[bool] = reactive(False)
-    is_error: reactive[bool] = reactive(False)
     
     def compose(self) -> ComposeResult:
         """Create the modal layout."""
         with Vertical(id="login-dialog"):
             yield Static("🔐 Vantage Authentication", classes="modal-title")
             
-            yield Static("", id="status-message", classes="status-text")
+            # URL display box
+            with Vertical(id="auth-url-box"):
+                yield Static("Authentication URL:", classes="url-label")
+                yield Static("", id="url-display", classes="url-display")
+                yield Static("Click 'Copy URL' or open this link in your browser", classes="url-instruction")
             
-            # URL section (shown when available)
-            yield Vertical(id="auth-url-container")
+            # Progress log
+            yield RichLog(id="progress-log", highlight=True, markup=True)
             
             with Horizontal(id="button-row"):
                 yield Button("📋 Copy URL", variant="primary", id="copy-url-btn", disabled=True)
@@ -147,155 +118,124 @@ class LoginModal(ModalScreen[Optional[bool]]):
     
     def on_mount(self) -> None:
         """Called when the modal is mounted."""
-        self.update_display()
+        log = self.query_one("#progress-log", RichLog)
+        log.write("⏳ Initializing authentication...")
     
-    def watch_status_message(self, new_message: str) -> None:
-        """Update status message when it changes."""
-        self.update_display()
-    
-    def watch_show_url(self, show: bool) -> None:
-        """Update URL visibility when it changes."""
-        self.update_display()
-    
-    def watch_is_complete(self, complete: bool) -> None:
-        """Handle completion state."""
-        if complete:
-            # Auto-dismiss after a short delay
-            self.set_timer(1.5, lambda: self.dismiss(True))
-    
-    def update_display(self) -> None:
-        """Update the modal display based on current state."""
+    def add_message(self, message: str) -> None:
+        """Add a message to the progress log."""
         try:
-            # Update status message
-            status_widget = self.query_one("#status-message", Static)
-            if self.is_error:
-                status_widget.update(f"❌ {self.status_message}")
-                status_widget.add_class("error-text")
-                status_widget.remove_class("status-text")
-                status_widget.remove_class("spinner-text")
-                status_widget.remove_class("success-text")
-            elif self.is_complete:
-                status_widget.update(f"✅ {self.status_message}")
-                status_widget.add_class("success-text")
-                status_widget.remove_class("status-text")
-                status_widget.remove_class("spinner-text")
-                status_widget.remove_class("error-text")
-            else:
-                status_widget.update(f"⏳ {self.status_message}")
-                status_widget.add_class("spinner-text")
-                status_widget.remove_class("status-text")
-                status_widget.remove_class("success-text")
-                status_widget.remove_class("error-text")
-            
-            # Update URL section
-            url_container = self.query_one("#auth-url-container", Vertical)
-            copy_btn = self.query_one("#copy-url-btn", Button)
-            
-            # Clear existing content
-            url_container.remove_children()
-            
-            if self.show_url and self.auth_url:
-                # Show URL with better formatting
-                url_container.mount(
-                    Static("🔗 Authentication URL", classes="url-header")
-                )
-                url_container.mount(
-                    Static(self.auth_url, classes="url-text")
-                )
-                url_container.mount(
-                    Static(
-                        "Click the URL above to copy it, then paste in your browser",
-                        classes="url-instruction"
-                    )
-                )
-                url_container.add_class("url-container")
-                
-                # Enable copy button
-                copy_btn.disabled = False
-            else:
-                url_container.remove_class("url-container")
-                # Disable copy button
-                copy_btn.disabled = True
-                
+            log = self.query_one("#progress-log", RichLog)
+            log.write(message)
         except Exception as e:
-            logger.debug(f"Error updating login modal display: {e}")
+            logger.error(f"Failed to add message to log: {e}")
+    
+    def set_url(self, url: str) -> None:
+        """Set the authentication URL and enable copy button."""
+        self.auth_url = url
+        try:
+            url_display = self.query_one("#url-display", Static)
+            url_display.update(url)
+            
+            # Enable copy button
+            copy_btn = self.query_one("#copy-url-btn", Button)
+            copy_btn.disabled = False
+            
+            self.add_message(f"🔗 Authentication URL ready")
+            self.add_message(f"   {url}")
+        except Exception as e:
+            logger.error(f"Failed to set URL: {e}")
+    
+    def set_complete(self, message: str) -> None:
+        """Mark authentication as complete."""
+        self.add_message(f"✅ {message}")
+        
+        # Schedule dismiss using call_later to avoid event loop conflicts
+        def close_modal():
+            self.dismiss(True)
+        
+        self.call_later(close_modal)
+    
+    def set_error(self, message: str) -> None:
+        """Mark authentication as failed."""
+        self.add_message(f"❌ {message}")
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses in the modal."""
+        """Handle button presses."""
         if event.button.id == "cancel-btn":
+            self.add_message("❌ Authentication cancelled by user")
             self.dismiss(False)
         elif event.button.id == "copy-url-btn":
-            if self.auth_url:
-                # Copy URL to clipboard
-                self.copy_url_to_clipboard()
+            self.copy_url_to_clipboard()
     
     def copy_url_to_clipboard(self) -> None:
-        """Copy the authentication URL to the system clipboard."""
+        """Copy the authentication URL to clipboard."""
+        if not self.auth_url:
+            self.add_message("⚠️  No URL available to copy")
+            return
+        
         try:
-            # Try using pyperclip if available
+            # Try multiple clipboard methods
+            import subprocess
+            import shutil
+            
+            # Method 1: Try pyperclip (cross-platform)
             try:
                 import pyperclip
                 pyperclip.copy(self.auth_url)
-                self.notify("✅ URL copied to clipboard!", severity="information", timeout=3)
+                self.add_message("✅ URL copied to clipboard!")
                 return
             except ImportError:
                 pass
+            except Exception as e:
+                logger.debug(f"pyperclip failed: {e}")
             
-            # Fallback: Try using subprocess with common clipboard commands
-            import subprocess
-            import platform
-            
-            system = platform.system()
-            
-            if system == "Darwin":  # macOS
-                subprocess.run(['pbcopy'], input=self.auth_url.encode(), check=True)
-                self.notify("✅ URL copied to clipboard!", severity="information", timeout=3)
-            elif system == "Linux":
-                # Try xclip first
+            # Method 2: Try xclip (Linux)
+            if shutil.which("xclip"):
                 try:
-                    subprocess.run(['xclip', '-selection', 'clipboard'], 
-                                 input=self.auth_url.encode(), check=True)
-                    self.notify("✅ URL copied to clipboard!", severity="information", timeout=3)
-                except FileNotFoundError:
-                    # Try xsel as fallback
-                    try:
-                        subprocess.run(['xsel', '--clipboard', '--input'], 
-                                     input=self.auth_url.encode(), check=True)
-                        self.notify("✅ URL copied to clipboard!", severity="information", timeout=3)
-                    except FileNotFoundError:
-                        # No clipboard tool available
-                        self.notify(
-                            "⚠️ Could not copy to clipboard. Please install xclip or xsel.",
-                            severity="warning",
-                            timeout=5
-                        )
-            elif system == "Windows":
-                subprocess.run(['clip'], input=self.auth_url.encode(), check=True)
-                self.notify("✅ URL copied to clipboard!", severity="information", timeout=3)
-            else:
-                self.notify("⚠️ Clipboard not supported on this system", severity="warning", timeout=5)
-                
+                    subprocess.run(
+                        ["xclip", "-selection", "clipboard"],
+                        input=self.auth_url.encode(),
+                        check=True,
+                        capture_output=True
+                    )
+                    self.add_message("✅ URL copied to clipboard!")
+                    return
+                except Exception as e:
+                    logger.debug(f"xclip failed: {e}")
+            
+            # Method 3: Try xsel (Linux)
+            if shutil.which("xsel"):
+                try:
+                    subprocess.run(
+                        ["xsel", "--clipboard", "--input"],
+                        input=self.auth_url.encode(),
+                        check=True,
+                        capture_output=True
+                    )
+                    self.add_message("✅ URL copied to clipboard!")
+                    return
+                except Exception as e:
+                    logger.debug(f"xsel failed: {e}")
+            
+            # Method 4: Try pbcopy (macOS)
+            if shutil.which("pbcopy"):
+                try:
+                    subprocess.run(
+                        ["pbcopy"],
+                        input=self.auth_url.encode(),
+                        check=True,
+                        capture_output=True
+                    )
+                    self.add_message("✅ URL copied to clipboard!")
+                    return
+                except Exception as e:
+                    logger.debug(f"pbcopy failed: {e}")
+            
+            # If we get here, all methods failed
+            self.add_message("⚠️  Could not copy to clipboard")
+            self.add_message("   Please manually copy the URL above")
+            
         except Exception as e:
-            logger.debug(f"Error copying URL to clipboard: {e}")
-            self.notify(
-                f"⚠️ Failed to copy URL: {str(e)}",
-                severity="warning",
-                timeout=5
-            )
-    
-    def set_status(self, message: str, show_url: bool = False, url: str = "", 
-                   is_complete: bool = False, is_error: bool = False) -> None:
-        """Update the modal status.
-        
-        Args:
-            message: Status message to display
-            show_url: Whether to show the authentication URL
-            url: The authentication URL
-            is_complete: Whether authentication is complete
-            is_error: Whether there was an error
-        """
-        self.status_message = message
-        self.show_url = show_url
-        self.auth_url = url
-        self.is_complete = is_complete
-        self.is_error = is_error
+            logger.error(f"Failed to copy URL: {e}")
+            self.add_message(f"❌ Copy failed: {str(e)}")
+

@@ -1819,7 +1819,7 @@ class DashboardApp(App):
             modal: The LoginModal instance to update with progress
         """
         if not self.ctx:
-            modal.set_status("No context available for login", is_error=True)
+            modal.set_error("No context available for login")
             self.add_log("❌ No context available for login", "ERROR")
             return
         
@@ -1827,18 +1827,18 @@ class DashboardApp(App):
             # Check if ctx is a CliContext or has the profile attribute
             if not hasattr(self.ctx.obj, 'profile'):
                 error_msg = "Context does not have profile information. Cannot authenticate."
-                modal.set_status(error_msg, is_error=True)
+                modal.set_error(error_msg)
                 self.add_log(f"❌ {error_msg}", "ERROR")
                 return
             
             # Check if already logged in
             existing_email = self._get_logged_in_email()
             if existing_email:
-                modal.set_status(f"Already authenticated as {existing_email}", is_complete=True)
+                modal.set_complete(f"Already authenticated as {existing_email}")
                 self.add_log(f"✅ Already logged in as: {existing_email}", "INFO")
                 return
             
-            modal.set_status("Initializing authentication...")
+            modal.add_message("⏳ Initializing authentication...")
             
             # Ensure settings are loaded
             if not hasattr(self.ctx.obj, 'settings') or self.ctx.obj.settings is None:
@@ -1847,12 +1847,12 @@ class DashboardApp(App):
                 from vantage_cli.config import init_settings
                 
                 try:
-                    modal.set_status("Loading settings...")
+                    modal.add_message("⏳ Loading settings...")
                     settings_all_profiles = json.loads(USER_CONFIG_FILE.read_text())
                     settings_values = settings_all_profiles.get(self.ctx.obj.profile)
                     if not settings_values:
                         error_msg = f"No settings found for profile '{self.ctx.obj.profile}'. Run 'vantage config set' first."
-                        modal.set_status(error_msg, is_error=True)
+                        modal.set_error(error_msg)
                         raise Exception(error_msg)
                     self.ctx.obj.settings = init_settings(**settings_values)
                 except FileNotFoundError:
@@ -1860,10 +1860,10 @@ class DashboardApp(App):
                         f"No settings file found. "
                         "Run 'vantage config set' first to establish your OIDC settings."
                     )
-                    modal.set_status(error_msg, is_error=True)
+                    modal.set_error(error_msg)
                     raise Exception(error_msg)
             
-            modal.set_status("Setting up authentication client...")
+            modal.add_message("⏳ Setting up authentication client...")
             
             # Create HTTP client and perform authentication
             import httpx
@@ -1879,7 +1879,7 @@ class DashboardApp(App):
                 self.ctx.obj.client = client
                 
                 # Get device code
-                modal.set_status("Requesting authentication code...")
+                modal.add_message("⏳ Requesting authentication code...")
                 device_code_data: DeviceCodeData = await make_oauth_request(
                     client,
                     OIDC_DEVICE_PATH,
@@ -1891,11 +1891,9 @@ class DashboardApp(App):
                 
                 # Show URL to user
                 auth_url = device_code_data.verification_uri_complete
-                modal.set_status(
-                    "Waiting for browser authentication...",
-                    show_url=True,
-                    url=auth_url
-                )
+                modal.set_url(auth_url)
+                modal.add_message("🔗 Please open the URL above in your browser")
+                modal.add_message("⏳ Waiting for you to complete authentication...")
                 self.add_log(f"🔗 Authentication URL: {auth_url}", "INFO")
                 
                 # Poll for token
@@ -1903,16 +1901,23 @@ class DashboardApp(App):
                 timeout_seconds = self.ctx.obj.settings.oidc_max_poll_time
                 interval = device_code_data.interval
                 
+                poll_count = 0
                 while True:
                     elapsed = (datetime.datetime.now() - start_time).total_seconds()
                     
                     # Check timeout
                     if elapsed >= timeout_seconds:
-                        modal.set_status("Authentication timed out", is_error=True)
+                        modal.set_error("Authentication timed out")
                         raise Exception("Authentication timed out")
                     
                     # Wait for interval
                     await asyncio.sleep(interval)
+                    poll_count += 1
+                    
+                    # Show progress
+                    remaining_minutes = (timeout_seconds - elapsed) / 60
+                    if poll_count % 5 == 0:  # Update every 5 polls
+                        modal.add_message(f"⏳ Still waiting... ({remaining_minutes:.1f}m remaining)")
                     
                     # Try to get token
                     try:
@@ -1927,6 +1932,7 @@ class DashboardApp(App):
                         
                         if response.status_code == 200:
                             # Success! Got the token
+                            modal.add_message("✅ Authentication successful!")
                             token_data = response.json()
                             token_set = TokenSet(
                                 access_token=token_data.get("access_token", ""),
@@ -1934,15 +1940,13 @@ class DashboardApp(App):
                             )
                             
                             # Extract persona and save
+                            modal.add_message("⏳ Saving credentials...")
                             from vantage_cli.cache import save_tokens_to_cache
                             save_tokens_to_cache(self.ctx.obj.profile, token_set)
                             persona = extract_persona(self.ctx.obj.profile, token_set)
                             
                             # Update modal to success
-                            modal.set_status(
-                                f"Successfully authenticated as {persona.identity_data.email}",
-                                is_complete=True
-                            )
+                            modal.set_complete(f"Successfully authenticated as {persona.identity_data.email}")
                             self.add_log(
                                 f"✅ Successfully authenticated as: {persona.identity_data.email}",
                                 "SUCCESS"
@@ -1961,28 +1965,29 @@ class DashboardApp(App):
                                 continue
                             elif error_code == "slow_down":
                                 # Server asked to slow down
+                                modal.add_message("⚠️  Server requested slowdown, waiting longer...")
                                 interval += 5
                                 continue
                             elif error_code in ("expired_token", "access_denied"):
                                 # Terminal errors
-                                modal.set_status(f"Authentication failed: {error_code}", is_error=True)
+                                modal.set_error(f"Authentication failed: {error_code}")
                                 raise Exception(f"Authentication {error_code}")
                             else:
                                 # Unknown error
-                                modal.set_status(f"Authentication error: {error_code}", is_error=True)
+                                modal.set_error(f"Authentication error: {error_code}")
                                 raise Exception(f"Authentication error: {error_code}")
                         else:
                             # Unexpected status code
-                            modal.set_status(f"Unexpected response: {response.status_code}", is_error=True)
+                            modal.set_error(f"Unexpected response: {response.status_code}")
                             raise Exception(f"Unexpected status code: {response.status_code}")
                             
                     except httpx.HTTPError as e:
-                        modal.set_status(f"Network error: {str(e)}", is_error=True)
+                        modal.set_error(f"Network error: {str(e)}")
                         raise
                         
         except Exception as e:
             error_msg = f"Login failed: {str(e)}"
-            modal.set_status(error_msg, is_error=True)
+            modal.set_error(error_msg)
             self.add_log(f"❌ {error_msg}", "ERROR")
             
             import logging
