@@ -69,7 +69,7 @@ async def create_vm(
         logger.debug(f"[bold red]Error:[/bold red] Failed to create VM: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=vm,
         resource_name=f"Created VM: {vm_id}",
     )

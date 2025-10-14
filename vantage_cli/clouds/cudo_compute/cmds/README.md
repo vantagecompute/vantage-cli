@@ -123,7 +123,7 @@ async def <operation>_<resource>(
         logger.debug(f"[bold red]Error:[/bold red] Failed to <operation> <resource>: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_list(  # or render_single
+    ctx.obj.formatter.render_list(
         data=result,
         resource_name="<Resource Name>",
     )
@@ -136,6 +136,7 @@ Commands are automatically discovered and registered by the parent `app.py` if t
 ## Testing
 
 Test each command with:
+
 ```bash
 uv run vantage cloud cudo-compute <resource> <operation> --help
 ```

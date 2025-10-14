@@ -53,7 +53,7 @@ async def update_network(
         logger.debug(f"[bold red]Error:[/bold red] Failed to update network: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=network,
         resource_name=f"Updated Network: {network_id}",
     )

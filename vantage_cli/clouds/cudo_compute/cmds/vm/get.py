@@ -45,7 +45,7 @@ async def get_vm(
     # Convert Pydantic model to dict for the formatter
     vm_data = vm.model_dump() if vm else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=vm_data,
         resource_name=f"VM: {vm_id}",
     )

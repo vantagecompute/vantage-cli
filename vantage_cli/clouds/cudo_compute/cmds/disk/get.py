@@ -45,7 +45,7 @@ async def get_disk(
     # Convert Pydantic model to dict for the formatter
     disk_data = disk.model_dump() if disk else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=disk_data,
         resource_name="Cudo Compute Disk",
     )

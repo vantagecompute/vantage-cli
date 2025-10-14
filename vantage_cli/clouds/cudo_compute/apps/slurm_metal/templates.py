@@ -1,17 +1,21 @@
 """Templates for Slurm Metal app."""
 
 from textwrap import dedent
+from typing import Dict
 
 from vantage_cli.sdk.cluster.schema import VantageClusterContext
 
 
-def init_script_curl(vantage_cluster_ctx: VantageClusterContext) -> str:
+def init_script_curl(vantage_cluster_ctx: VantageClusterContext, cudo_ctx: Dict[str, str]) -> str:
     """Return a curl command to fetch the initialization script for the head node."""
+
+    cudo_api_key = cudo_ctx.get("api_key", "")
+    cudo_data_center = cudo_ctx.get("data_center_id", "")
+
     return dedent(f"""\
         #!/bin/bash
         set -euo pipefail
         
-        # Set environment variables
         CLUSTER_NAME="{vantage_cluster_ctx.cluster_name}"
         SSSD_BINDER_PASSWORD="{vantage_cluster_ctx.sssd_binder_password}"
         LDAP_URL="{vantage_cluster_ctx.ldap_url}"
@@ -23,8 +27,9 @@ def init_script_curl(vantage_cluster_ctx: VantageClusterContext) -> str:
         TUNNEL_API_URL="{vantage_cluster_ctx.tunnel_api_url}"
         VANTAGE_API_URL="{vantage_cluster_ctx.base_api_url}"
         OIDC_DOMAIN="{vantage_cluster_ctx.oidc_domain}"
+        CUDO_API_KEY="{cudo_api_key}"
+        CUDO_DATA_CENTER="{cudo_data_center}"
         
-        # Download and execute the initialization script
         curl -fsSL https://vantage-public-assets.s3.us-west-2.amazonaws.com/vantage-cli/clouds/cudo-compute/head_node_init_script.sh | bash -s -- \
             --cluster-name "$CLUSTER_NAME" \
             --sssd-binder-password "$SSSD_BINDER_PASSWORD" \
@@ -36,7 +41,9 @@ def init_script_curl(vantage_cluster_ctx: VantageClusterContext) -> str:
             --oidc-base-url "$OIDC_BASE_URL" \
             --tunnel-api-url "$TUNNEL_API_URL" \
             --vantage-api-url "$VANTAGE_API_URL" \
-            --oidc-domain "$OIDC_DOMAIN"
+            --oidc-domain "$OIDC_DOMAIN" \
+            --cudo-api-key "$CUDO_API_KEY" \
+            --cudo-data-center "$CUDO_DATA_CENTER"
         """
     )
 
@@ -46,8 +53,6 @@ def head_node_init_script() -> str:
     return dedent("""\
         #!/bin/bash
         set -euo pipefail
-
-        # Parse command-line arguments
         while [[ $# -gt 0 ]]; do
             case $1 in
                 --cluster-name)
@@ -94,14 +99,20 @@ def head_node_init_script() -> str:
                     OIDC_DOMAIN="$2"
                     shift 2
                     ;;
+                --cudo-api-key)
+                    CUDO_API_KEY="$2"
+                    shift 2
+                    ;;
+                --cudo-data-center)
+                    CUDO_DATA_CENTER="$2"
+                    shift 2
+                    ;;
                 *)
                     echo "Unknown parameter: $1"
                     exit 1
                     ;;
             esac
         done
-
-        # Export environment variables
         export CLUSTER_NAME
         export SSSD_BINDER_PASSWORD
         export LDAP_URL
@@ -113,51 +124,27 @@ def head_node_init_script() -> str:
         export TUNNEL_API_URL
         export VANTAGE_API_URL
         export OIDC_DOMAIN
+        export CUDO_DATA_CENTER
+        export CUDO_API_KEY
 
-        # Provisioning script converted from cloud-init user-data
-        # This script performs the same operations as the cloud-init configuration
-        
-        echo "=== Starting provisioning ==="
- 
-        # Create users
-        echo "Creating system users..."
-        
-        # Create slurm user
         if ! id slurm &>/dev/null; then
             useradd --system --uid 64031 --no-create-home --shell /usr/sbin/nologin slurm
         fi
-        
-        # Create slurmrestd user
+
         if ! id slurmrestd &>/dev/null; then
             useradd --system --uid 64032 --no-create-home --shell /usr/sbin/nologin slurmrestd
         fi
-        
-        # Create ubuntu user if it doesn't exist
+
         if ! id ubuntu &>/dev/null; then
             useradd --shell /bin/bash --create-home --groups adm,cdrom,dip,lxd,sudo ubuntu
             echo 'ubuntu:ubuntu' | chpasswd
             echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ubuntu
         fi
-        
-        ## Set root password
-        #echo 'root:$6$canonical.$0zWaW71A9ke9ASsaOcFTdQ2tx1gSmLxMPrsH0rF0Yb.2AEKNPV1lrF94n6YuPJmnUy2K2/JSDtxuiBDey6Lpa/' | chpasswd -e
-        
-        # Enable SSH password authentication
-        echo "Configuring SSH..."
-        #sed -i -e '/^[#]*PermitRootLogin/s/^.*$/PermitRootLogin yes/' /etc/ssh/sshd_config
-        #sed -i -e '/^[#]*PasswordAuthentication/s/^.*$/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        #systemctl restart ssh || systemctl restart sshd
-        
-        # Update package lists
-        echo "Updating package lists..."
-        apt-get update
-        
-        # Add Apptainer PPA
-        echo "Adding Apptainer PPA..."
+
         cat > /etc/apt/sources.list.d/apptainer.list << 'EOF'
         deb https://ppa.launchpadcontent.net/apptainer/ppa/ubuntu noble main
         EOF
-        
+
         cat > /etc/apt/trusted.gpg.d/apptainer.asc << 'EOF'
         -----BEGIN PGP PUBLIC KEY BLOCK-----
         Comment: Hostname:
@@ -190,37 +177,21 @@ def head_node_init_script() -> str:
         =E71P
         -----END PGP PUBLIC KEY BLOCK-----
         EOF
-        
+
         apt-get update
-        
-        # Install packages
-        echo "Installing packages..."
-        DEBIAN_FRONTEND=noninteractive apt-get install -y \
-            libpmix-dev \
-            openmpi-bin \
-            parallel \
-            mysql-server \
-            apptainer-suid \
-            influxdb \
-            influxdb-client \
-            wget \
-            autossh \
-            lmod \
-            oddjob-mkhomedir \
-            sssd-ldap \
-            ldap-utils \
-            snapd
-        
-        # Install snaps
-        echo "Installing snap packages..."
+
+        DEBIAN_FRONTEND=noninteractive apt-get install -y libpmix-dev openmpi-bin parallel mysql-server apptainer-suid influxdb influxdb-client wget autossh lmod oddjob-mkhomedir sssd-ldap ldap-utils snapd
+
         snap install vantage-agent --channel=edge --classic
+
         snap install jobbergate-agent --channel=edge --classic
-        
-        # Write configuration files
-        echo "Writing configuration files..."
-        
-        # /etc/slurm/oci.conf
+
+        snap install just --classic
+
+        snap install astral-uv --classic
+
         mkdir -p /etc/slurm
+
         cat > /etc/slurm/oci.conf << 'EOF'
         ignorefileconfigjson=true
         envexclude="^(SLURM_CONF|SLURM_CONF_SERVER)="
@@ -229,8 +200,7 @@ def head_node_init_script() -> str:
         runtimekill="kill -s SIGTERM %p"
         runtimedelete="kill -s SIGKILL %p"
         EOF
-        
-        # /etc/slurm/cgroup.conf
+
         cat > /etc/slurm/cgroup.conf << 'EOF'
         constraincores=yes
         constraindevices=yes
@@ -239,87 +209,54 @@ def head_node_init_script() -> str:
         signalchildrenprocesses=yes
         EOF
 
-        # /etc/slurm/slurm.conf
         cat > /etc/slurm/slurm.conf << 'EOF'
         ClusterName=testCluster
-        
-        # MCS
         MCSPlugin=mcs/label
         MCSParameters=ondemand,ondemandselect
-        
         SlurmUser=slurm
         SlurmdUser=root
         SlurmdPort=6818
         SlurmctldPort=6817
         SlurmctldHost=@HEADNODE_HOSTNAME@
         SlurmctldAddr=@HEADNODE_ADDRESS@
-
         AuthType=auth/slurm
         CredType=auth/slurm
-        
         AuthInfo=use_client_ids
-        
         SlurmctldPidFile=/run/slurmctld/slurmctld.pid
         SlurmdPidFile=/run/slurmd/slurmd.pid
-        
         SlurmctldLogFile=/var/log/slurm/slurmctld.log
         SlurmdLogFile=/var/log/slurm/slurmd.log
-        
         SlurmdSpoolDir=/var/lib/slurm/slurmd
         StateSaveLocation=/var/lib/slurm/checkpoint
-        
         PluginDir=/opt/slurm/software/lib/slurm
-        
         PlugStackConfig=/etc/slurm/plugstack.conf
-        
         ProctrackType=proctrack/cgroup
-        
         ReturnToService=2
         RebootProgram="/usr/sbin/reboot --reboot"
         MailProg=/usr/bin/mail.mailutils
-        
-        # Timers
         SlurmctldTimeout=300
         SlurmdTimeout=60
         InactiveLimit=0
         MinJobAge=86400
         KillWait=30
         Waittime=0
-
-        # Slurmctld Parameters
         SlurmctldParameters=enable_configless
-
-        # Scheduling
         SchedulerType=sched/backfill
         SelectType=select/cons_tres
         SelectTypeParameters=CR_CPU_Memory
-        
-        # Logging
         SlurmctldDebug=debug5
         SlurmdDebug=debug5
-        
-        # Accounting
-        # InfluxDB profiling disabled due to libslurm_curl linking issues
         AcctGatherProfileType=acct_gather_profile/influxdb
         AcctGatherNodeFreq=10
         JobAcctGatherType=jobacct_gather/cgroup
         JobAcctGatherFrequency="task=5"
-        
         TaskPlugin="task/cgroup,task/affinity"
-        
-        # Slurmdbd
         AccountingStorageType=accounting_storage/slurmdbd
         AccountingStorageHost=@HEADNODE_ADDRESS@
         AccountingStorageUser=slurm
         AccountingStoragePort=6839
-
-        # Node Configurations
         NodeName=@HEADNODE_HOSTNAME@ NodeAddr=@HEADNODE_ADDRESS@ CPUs=@CPUs@ ThreadsPerCore=@THREADS_PER_CORE@ CoresPerSocket=@CORES_PER_SOCKET@ Sockets=@SOCKETS@ RealMemory=@REAL_MEMORY@ MemSpecLimit=@MEMSPEC_LIMIT@ State=UNKNOWN Feature=compute
-
-        # Partition Configurations
         PartitionName=compute Nodes=@HEADNODE_HOSTNAME@ MaxTime=INFINITE State=UP Default=Yes
-
-        # NodeSet Configurations
         NodeSet=compute Feature=compute
         EOF
 
@@ -339,36 +276,28 @@ def head_node_init_script() -> str:
         SOCKETS=$(echo $cpu_info | jq -r '.lscpu | .[] | select(.field == "Socket(s):") | .data')
         sed -i "s|@SOCKETS@|$SOCKETS|g" /etc/slurm/slurm.conf
 
-        REAL_MEMORY=$(free -m | grep -oP '\d+' | head -n 1)
-        sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf
-
         sed -i "s|@REAL_MEMORY@|$(grep MemTotal /proc/meminfo | awk '{print $2}')|g" /etc/slurm/slurm.conf
         sed -i "s|@MEMSPEC_LIMIT@|1024|g" /etc/slurm/slurm.conf
-        
-        # /etc/slurm/slurmdbd.conf
+
         cat > /etc/slurm/slurmdbd.conf << 'EOF'
         DbdHost=@HEADNODE_HOSTNAME@
         DbdPort=6839
-        
         AuthType=auth/slurm
         SlurmUser=slurm
         PluginDir=/opt/slurm/software/lib/slurm
         PidFile=/run/slurmdbd/slurmdbd.pid
         LogFile=/var/log/slurm/slurmdbd.log
-        
         StorageType=accounting_storage/mysql
         StorageHost=127.0.0.1
         StoragePort=3306
         StoragePass=rats
         StorageUser=slurm
         StorageLoc=slurm
-        
         DebugLevel=info
         EOF
 
         sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
-        
-        # /etc/slurm/acct_gather.conf
+
         cat > /etc/slurm/acct_gather.conf << 'EOF'
         ProfileInfluxDBDatabase=slurm-job-metrics
         ProfileInfluxDBDefault=All
@@ -377,11 +306,9 @@ def head_node_init_script() -> str:
         ProfileInfluxDBUser=slurm
         ProfileInfluxDBRTPolicy=three_days
         EOF
-        
-        # Systemd service files
+
         mkdir -p /usr/lib/systemd/system
-        
-        # slurmctld.service
+
         cat > /usr/lib/systemd/system/slurmctld.service << 'EOF'
         [Unit]
         Description=Slurm controller daemon
@@ -405,33 +332,26 @@ def head_node_init_script() -> str:
         [Install]
         WantedBy=multi-user.target
         EOF
-        
-        # slurmrestd.service
+
         cat > /usr/lib/systemd/system/slurmrestd.service << 'EOF'
         [Unit]
         Description=Slurmrest API daemon
         After=network.target slurmctld.service
         ConditionPathExists=/etc/slurm/slurm.conf
         Documentation=man:slurmrestd(8)
-        
+
         [Service]
         Type=simple
         EnvironmentFile=-/etc/default/slurmrestd
         Environment=SLURM_JWT=daemon
-        
         User=slurmrestd
         Group=slurmrestd
-        
         RuntimeDirectory=slurmrestd
         RuntimeDirectoryMode=0755
-        
         ExecStart=/bin/bash -lc 'source /etc/profile.d/z00_lmod.sh; exec /usr/sbin/slurmrestd $SLURMRESTD_OPTIONS -vv 0.0.0.0:6820'
-        
         ExecReload=/bin/kill -HUP $MAINPID
-        
         Restart=on-failure
         RestartSec=30s
-        
         LimitMEMLOCK=infinity
         LimitNOFILE=65536
         TasksMax=infinity
@@ -439,8 +359,7 @@ def head_node_init_script() -> str:
         [Install]
         WantedBy=multi-user.target
         EOF
-        
-        # slurmdbd.service
+
         cat > /usr/lib/systemd/system/slurmdbd.service << 'EOF'
         [Unit]
         Description=Slurm database daemon
@@ -464,8 +383,7 @@ def head_node_init_script() -> str:
         [Install]
         WantedBy=multi-user.target
         EOF
-        
-        # slurmd.service
+
         cat > /usr/lib/systemd/system/slurmd.service << 'EOF'
         [Unit]
         Description=Slurm compute daemon
@@ -493,10 +411,9 @@ def head_node_init_script() -> str:
         [Install]
         WantedBy=multi-user.target
         EOF
-        
-        # Default environment files
+
         mkdir -p /etc/default
-        
+
         cat > /etc/default/slurmd << 'EOF'
         SLURMD_OPTIONS=""
         SLURM_CONF=/etc/slurm/slurm.conf
@@ -506,38 +423,36 @@ def head_node_init_script() -> str:
         SLURMCTLD_OPTIONS=""
         SLURM_CONF=/etc/slurm/slurm.conf
         EOF
-        
+
         cat > /etc/default/slurmdbd << 'EOF'
         SLURMDBD_OPTIONS=""
         SLURMDBD_CONF=/etc/slurm/slurmdbd.conf
         EOF
-        
+
         cat > /etc/default/slurmrestd << 'EOF'
         SLURMRESTD_OPTIONS=""
         SLURM_CONF=/etc/slurm/slurm.conf
         EOF
-        
-        # tmpfiles.d configs
+
         mkdir -p /etc/tmpfiles.d
-        
         cat > /etc/tmpfiles.d/slurmrestd.conf << 'EOF'
         d /run/slurmrestd 0755 slurmrestd slurmrestd -
         EOF
-        
+
         cat > /etc/tmpfiles.d/slurmdbd.conf << 'EOF'
         d /run/slurmdbd 0755 slurm slurm -
         EOF
-        
+
         cat > /etc/tmpfiles.d/slurmd.conf << 'EOF'
         d /run/slurmd 0755 root root -
         EOF
-        
+
         cat > /etc/tmpfiles.d/slurmctld.conf << 'EOF'
         d /run/slurmctld 0755 slurm slurm -
         EOF
-        
-        # MySQL configuration
+
         mkdir -p /etc/mysql/mysql.conf.d
+
         cat > /etc/mysql/mysql.conf.d/slurm.cnf << 'EOF'
         [mysqld]
         innodb_buffer_pool_size = 1024M
@@ -546,74 +461,48 @@ def head_node_init_script() -> str:
         innodb_flush_log_at_trx_commit = 1
         innodb_file_per_table = 1
         EOF
-        
-        # Lmod profile
+
         mkdir -p /etc/profile.d
+
         cat > /etc/profile.d/z00_lmod.sh << 'EOF'
         . /usr/share/lmod/lmod/init/profile
         module load slurm
         EOF
-        
-        # SSSD configuration
+
         mkdir -p /etc/sssd
+
         cat > /etc/sssd/sssd.conf << 'EOF'
         [sssd]
-        # Core configuration
         config_file_version = 2
         services = nss, pam, ssh
         domains  = vantagecompute.ai
-        
-        # Debugging (for NSS)
         [nss]
         debug_level = 7
-        
-        # -----------------------------------------------------------------------------
-        # Domain-specific settings for vantagecompute.ai
-        # -----------------------------------------------------------------------------
         [domain/vantagecompute.ai]
-        # ─── Identity and Authentication ─────────────────────────────────────────────
         id_provider      = ldap
         auth_provider    = ldap
         chpass_provider  = ldap
         access_provider  = ldap
-        
-        # LDAP servers and search bases
         ldap_uri               = $LDAP_URL
         ldap_search_base       = ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
         ldap_user_search_base  = ou=People,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
         ldap_group_search_base = ou=Groups,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
-
-        # Credentials for binding to LDAP
         ldap_default_bind_dn      = cn=sssd-binder,ou=ServiceAccounts,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
         ldap_default_authtok      = $SSSD_BINDER_PASSWORD
         ldap_default_authtok_type = password
-        
-        # ─── Access control ───────────────────────────────────────────────────────────
-        # Only allow slurm-users to log in
         ldap_access_filter = memberOf=cn=slurm-users,ou=Groups,ou=$ORG_ID,ou=organizations,dc=vantagecompute,dc=ai
-        
-        # ─── SSH public key lookup ────────────────────────────────────────────────────
         ldap_user_ssh_public_key = sshPublicKey
-        
-        # ─── Group mapping ─────────────────────────────────────────────────────────────
         ldap_group_object_class = groupOfNames
         ldap_group_member       = member
         ldap_group_name         = cn
         ldap_group_gid_number   = gidNumber
-        
-        # ─── Caching and performance ──────────────────────────────────────────────────
         cache_credentials   = true
         entry_cache_timeout = 600
         enumerate           = false
-        
-        # ─── Schema type ───────────────────────────────────────────────────────────────
         ldap_schema = rfc2307bis
         EOF
-        
-        # Configure MySQL
-        echo "Configuring MySQL..."
-        systemctl restart mysql.service
 
+        systemctl restart mysql.service
         mysql << END_SQL
 
         CREATE USER IF NOT EXISTS 'slurm'@'localhost' IDENTIFIED BY 'rats';
@@ -621,19 +510,16 @@ def head_node_init_script() -> str:
         GRANT ALL PRIVILEGES ON  slurm.* TO 'slurm'@'localhost';
 
         END_SQL
-        
-        # Configure InfluxDB
-        echo "Configuring InfluxDB..."
+
         systemctl start influxdb.service
+
         sleep 5
-        
+
         influx -execute "CREATE USER slurm WITH PASSWORD 'rats'"
         influx -execute 'CREATE DATABASE "slurm-job-metrics"'
         influx -execute 'GRANT ALL ON "slurm-job-metrics" TO "slurm"'
         influx -execute 'CREATE RETENTION POLICY "three_days" ON "slurm-job-metrics" DURATION 3d REPLICATION 1 DEFAULT'
 
-        # Setup Slurm directories
-        echo "Setting up Slurm directories..."
         mkdir -p /etc/slurm
         mkdir -p /opt/slurm
         mkdir -p /var/lib/slurm
@@ -642,13 +528,9 @@ def head_node_init_script() -> str:
         mkdir -p /var/lib/slurm/slurmctld
         mkdir -p /var/log/slurm
         mkdir -p /var/spool/slurmd
-        
-        # Create slurm.key
-        echo "Generating Slurm authentication key..."
+
         openssl rand 2048 | base64 | tr -d '\\n' > /etc/slurm/slurm.key
-        
-        # Set permissions
-        echo "Setting Slurm permissions..."
+
         chown -R slurm:slurm /var/log/slurm
         chown -R slurm:slurm /var/lib/slurm
         chown slurm /etc/slurm/slurmdbd.conf
@@ -656,20 +538,13 @@ def head_node_init_script() -> str:
         chown slurm /etc/slurm/slurm.conf
         chown slurm /etc/slurm/slurm.key
         chmod 600 /etc/slurm/slurm.key
-        
-        # Download and install Slurm Lmod module
-        echo "Installing Slurm Lmod module..."
+
         wget -qO- https://vantage-public-assets.s3.us-west-2.amazonaws.com/slurm/25.05/slurm-module-latest.tar.gz | \\
             tar --no-same-owner --no-same-permissions --touch -xz -C /usr/share/lmod/lmod/modulefiles
-        
-        # Download Slurm
-        echo "Downloading and installing Slurm..."
+
         wget -qO- https://vantage-public-assets.s3.us-west-2.amazonaws.com/slurm/25.05/slurm-latest.tar.gz | \\
             tar --no-same-owner --no-same-permissions --touch -xz -C /opt/slurm
-        
-        # Create wrapper scripts for Slurm binaries
-        echo "Creating Slurm wrapper scripts..."
-        
+
         for i in /opt/slurm/software/bin/sacct \
           /opt/slurm/software/bin/sacctmgr \
           /opt/slurm/software/bin/salloc \
@@ -695,9 +570,9 @@ def head_node_init_script() -> str:
           /opt/slurm/software/sbin/slurmdbd \
           /opt/slurm/software/sbin/slurmrestd \
           /opt/slurm/software/sbin/slurmstepd; do
-        
+
           BASENAME=$(basename $i)
-          
+
           case $i in
             *sbin*)
               TARGET_DIR="/usr/sbin"
@@ -706,37 +581,26 @@ def head_node_init_script() -> str:
               TARGET_DIR="/usr/bin"
               ;;
           esac
-          
-          echo "Creating wrapper for $BASENAME in $TARGET_DIR"
-          
-          # Create wrapper script that sources z00_lmod.sh (which loads slurm module) before executing
+
           cat > ${TARGET_DIR}/${BASENAME} << WRAPPER_EOF
         #!/bin/bash
         source /etc/profile.d/z00_lmod.sh
         exec $i "\\$@"
         WRAPPER_EOF
-          
-          # Make wrapper executable
           chmod +x ${TARGET_DIR}/${BASENAME}
-        
         done
-        
-        # Setup Vantage JupyterHub
-        echo "Setting up Vantage JupyterHub..."
+
         mkdir -p /srv/vantage-nfs/working
         mkdir -p /srv/vantage-nfs/logs
         chmod -R 777 /srv/vantage-nfs
-        
+
         wget -qO- https://vantage-public-assets.s3.amazonaws.com/vantage-jupyterhub/vantage-jupyterhub-venv-latest.tar.gz | \\
             tar --dereference --no-same-owner --no-same-permissions --touch -xz -C /srv/vantage-nfs
-        
+
         cp /srv/vantage-nfs/vantage-jupyterhub/vantage-jupyterhub.service /usr/lib/systemd/system/vantage-jupyterhub.service
-        
-        # Reload systemd
+
         systemctl daemon-reload
-        
-        # Configure PAM for mkhomedir
-        echo "Configuring PAM for automatic home directory creation..."
+
         pam-auth-update --enable mkhomedir
 
         sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
@@ -744,39 +608,32 @@ def head_node_init_script() -> str:
         sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
         sed -i "s|^ClusterName=.*|ClusterName=$CLUSTER_NAME|g" /etc/slurm/slurm.conf
 
-        # Enable and start services
-        echo "Enabling and starting services..."
         systemctl enable --now mysql
         systemctl enable --now influxdb
-
         systemctl stop sssd
         systemctl stop oddjobd
         systemctl disable sssd
         systemctl disable oddjobd
-
         systemctl enable --now slurmdbd
         sleep 10
+
         systemctl enable --now slurmctld
         systemctl enable --now slurmd
         systemctl enable --now slurmrestd
 
-        #scontrol update NodeName=$(hostname) State=RESUME
-
         for agent_name in vantage-agent jobbergate-agent; do
             snap set $agent_name base-api-url=$VANTAGE_API_URL
-            snap set $agent_name cluster-name=$CLUSTER_NAME
             snap set $agent_name oidc-domain=$OIDC_DOMAIN
             snap set $agent_name oidc-client-id=$OIDC_CLIENT_ID
             snap set $agent_name oidc-client-secret=$OIDC_CLIENT_SECRET
             snap set $agent_name task-jobs-interval-seconds=10
         done
         snap set vantage-agent cluster-name=$CLUSTER_NAME
-        snap set jobbergate-agent x-slurm-user-name=ubuntu
         snap set jobbergate-agent influx-dsn=influxdb://slurm:rats@localhost:8086/slurm-job-metrics
+
         snap start vantage-agent.start --enable
         snap start jobbergate-agent.start --enable
 
-        echo "Configuring JupyterHub..."
         cat > /etc/default/vantage-jupyterhub << EOF
         JUPYTERHUB_VENV_DIR=/srv/vantage-nfs/vantage-jupyterhub
         OIDC_CLIENT_ID=$OIDC_CLIENT_ID
@@ -787,8 +644,15 @@ def head_node_init_script() -> str:
         VANTAGE_API_URL=$VANTAGE_API_URL
         OIDC_DOMAIN=$OIDC_DOMAIN
         EOF
+
         systemctl --now enable vantage-jupyterhub.service
 
-        echo "=== Provisioning complete ==="
+        cat > /etc/default/cudo << EOF
+        CUDO_API_KEY=$CUDO_API_KEY
+        CUDO_DATA_CENTER=$CUDO_DATA_CENTER
+        EOF
+
+        uv venv /srv/vantage-nfs/cudo
+        source /srv/vantage-nfs/cudo/bin/activate && uv pip install cudo-compute-sdk
         """
     )

@@ -45,7 +45,7 @@ async def get_cluster(
     # Convert Pydantic model to dict for the formatter
     cluster_data = cluster.model_dump() if cluster else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=cluster_data,
         resource_name=f"Cluster: {cluster_id}",
     )

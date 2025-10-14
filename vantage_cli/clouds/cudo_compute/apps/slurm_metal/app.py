@@ -19,13 +19,14 @@ from typing import Annotated, Optional
 
 import typer
 
-from vantage_cli.clouds.cudo_compute.apps.slurm_metal.templates import head_node_init_script, init_script_curl
+from cudo_compute_sdk import CudoComputeSDK
+
+from vantage_cli.clouds.cudo_compute.apps.slurm_metal.templates import init_script_curl, head_node_init_script
 from vantage_cli.clouds.cudo_compute.apps.slurm_metal.utils import init_project_and_head_node
 from vantage_cli.clouds.cudo_compute.apps.slurm_metal.constants import CLOUD
 
 from vantage_cli.clouds.cudo_compute.cmds import attach_cudo_compute_client
-from cudo_compute_sdk import CudoComputeSDK
-from cudo_compute_sdk.utils import get_datacenter_id_from_credentials
+from vantage_cli.clouds.cudo_compute.utils import get_datacenter_id_from_credentials
 
 from vantage_cli.clouds.common import (
     create_deployment_with_init_status,
@@ -67,12 +68,16 @@ async def _deploy_slurm_metal_cudo(
 
     logger.debug(f"{await cudo_sdk.whoami()}")
 
-    #slurm_head_node_init_script = head_node_init_script(
     slurm_head_node_init_script = init_script_curl(
         vantage_cluster_ctx=vantage_cluster_ctx,
+        cudo_ctx={
+            "api_key": cudo_sdk.api_key,
+            "data_center_id": deployment.additional_metadata["cudo_datacenter_id"]
+        },
     )
     from pathlib import Path
-    Path("/home/bdx/slurm_head_node_init_script.sh").write_text(slurm_head_node_init_script)
+    Path("/home/bdx/slurm_head_node_init_script.sh").write_text(head_node_init_script())
+    Path("/home/bdx/slurm_head_node_init_script_1.sh").write_text(slurm_head_node_init_script)
     vm_id = await init_project_and_head_node(
         ctx,
         project_name=deployment.name,

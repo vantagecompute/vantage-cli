@@ -45,7 +45,7 @@ async def get_machine(
     # Convert Pydantic model to dict for the formatter
     machine_data = machine.model_dump() if machine else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=machine_data,
         resource_name=f"Bare-Metal Machine: {machine_id}",
     )

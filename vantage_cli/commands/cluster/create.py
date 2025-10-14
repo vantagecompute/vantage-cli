@@ -152,7 +152,7 @@ async def create_cluster(
         raise
     except Exception as e:
         raise Abort(
-            "An unexpected error occurred while creating the cluster.",
+            f"An unexpected error occurred while creating the cluster.\n\nError details: {type(e).__name__}: {e}",
             subject="Unexpected Error",
             log_message=f"Unexpected error: {e}",
         )

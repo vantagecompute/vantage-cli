@@ -55,7 +55,7 @@ async def update_security_group(
         logger.debug(f"[bold red]Error:[/bold red] Failed to update security group: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=security_group,
         resource_name=f"Updated Security Group: {security_group_id}",
     )

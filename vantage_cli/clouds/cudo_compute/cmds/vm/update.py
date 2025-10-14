@@ -61,7 +61,7 @@ async def update_vm(
         logger.debug(f"[bold red]Error:[/bold red] Failed to update VM: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=vm,
         resource_name=f"Updated VM: {vm_id}",
     )

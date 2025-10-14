@@ -45,7 +45,7 @@ async def get_security_group(
     # Convert Pydantic model to dict for the formatter
     security_group_data = security_group.model_dump() if security_group else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=security_group_data,
         resource_name=f"Security Group: {security_group_id}",
     )

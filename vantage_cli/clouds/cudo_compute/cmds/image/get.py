@@ -45,7 +45,7 @@ async def get_image(
     # Convert Pydantic model to dict for the formatter
     image_data = image.model_dump() if image else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=image_data,
         resource_name=f"VM Image: {image_id}",
     )

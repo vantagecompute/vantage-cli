@@ -45,7 +45,7 @@ async def get_data_center(
     # Convert Pydantic model to dict for the formatter
     data_center_data = data_center.model_dump()
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=data_center_data,
         resource_name=f"Data Center: {data_center_id}",
     )

@@ -47,7 +47,7 @@ async def create_volume(
         raise typer.Exit(code=1)
 
     logger.info(f"Volume '{volume_id}' created successfully.")
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=volume,
         resource_name="Cudo Compute Volume",
     )

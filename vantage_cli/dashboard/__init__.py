@@ -656,12 +656,17 @@ class DashboardApp(App):
         # Deployment state for dashboard
         self.deployments: List[Deployment] = []
         self.selected_deployment: Optional[Deployment] = None
+        
+        # Deployment apps state
+        self.deployment_apps: List[DeploymentApp] = []
+        self.selected_app: Optional[DeploymentApp] = None
 
     @classmethod
     def from_sdk_data(
         cls,
         clusters: Optional[List[Cluster]] = None,
         deployments: Optional[List[Deployment]] = None,
+        apps: Optional[List[DeploymentApp]] = None,
         config: Optional[DashboardConfig] = None,
         custom_handlers: Optional[Dict[str, Callable[..., Any]]] = None,
         platform_info: Optional[Dict[str, str]] = None,
@@ -675,6 +680,7 @@ class DashboardApp(App):
         Args:
             clusters: List of Cluster objects from cluster SDK
             deployments: List of Deployment objects from deployment SDK
+            apps: List of DeploymentApp objects
             config: Dashboard configuration
             custom_handlers: Optional custom worker handlers
             platform_info: Platform information to display
@@ -687,13 +693,16 @@ class DashboardApp(App):
             ```python
             from vantage_cli.sdk.cluster import cluster_sdk
             from vantage_cli.sdk.deployment import deployment_sdk
+            from vantage_cli.sdk.deployment_app import deployment_app_sdk
 
             clusters = await cluster_sdk.list_clusters(ctx)
             deployments = await deployment_sdk.list(ctx)
+            apps = deployment_app_sdk.list()
 
             app = DashboardApp.from_sdk_data(
                 clusters=clusters,
                 deployments=deployments,
+                apps=apps,
                 ctx=ctx
             )
             app.run()
@@ -707,13 +716,19 @@ class DashboardApp(App):
         if deployments:
             services.extend([ServiceConfig.from_deployment(d) for d in deployments])
 
-        return cls(
+        dashboard_app = cls(
             config=config,
             services=services,
             custom_handlers=custom_handlers,
             platform_info=platform_info,
             ctx=ctx,
         )
+        
+        # Store deployment apps if provided
+        if apps:
+            dashboard_app.deployment_apps = apps
+        
+        return dashboard_app
 
     def _get_default_services(self) -> List[ServiceConfig]:
         """Get default service configuration"""

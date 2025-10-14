@@ -45,7 +45,7 @@ async def get_network(
     # Convert Pydantic model to dict for the formatter
     network_data = network.model_dump() if network else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=network_data,
         resource_name=f"Network: {network_id}",
     )

@@ -57,7 +57,7 @@ async def update_machine(
         logger.debug(f"[bold red]Error:[/bold red] Failed to update bare-metal machine: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=machine,
         resource_name=f"Updated Bare-Metal Machine: {machine_id}",
     )

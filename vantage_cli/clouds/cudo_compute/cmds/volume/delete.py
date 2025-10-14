@@ -43,7 +43,7 @@ async def delete_volume(
         raise typer.Exit(code=1)
 
     logger.info(f"Volume '{volume_id}' deleted successfully.")
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data={"status": "deleted", "volumeId": volume_id},
         resource_name="Cudo Compute Volume",
     )

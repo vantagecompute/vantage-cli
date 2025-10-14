@@ -45,7 +45,7 @@ async def update_disk(
         raise typer.Exit(code=1)
 
     logger.info(f"Disk '{disk_id}' updated successfully.")
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=disk,
         resource_name="Cudo Compute Disk",
     )

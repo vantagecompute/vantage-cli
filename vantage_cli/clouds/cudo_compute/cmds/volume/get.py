@@ -45,7 +45,7 @@ async def get_volume(
     # Convert Pydantic model to dict for the formatter
     volume_data = volume.model_dump() if volume else {}
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=volume_data,
         resource_name="Cudo Compute Volume",
     )

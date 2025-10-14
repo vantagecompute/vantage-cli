@@ -51,7 +51,7 @@ async def create_security_group(
         logger.debug(f"[bold red]Error:[/bold red] Failed to create security group: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=security_group,
         resource_name=f"Created Security Group: {security_group_id}",
     )

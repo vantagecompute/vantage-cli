@@ -45,7 +45,7 @@ async def update_project(
         logger.debug(f"[bold red]Error:[/bold red] Failed to update project: {e}")
         raise typer.Exit(code=1)
 
-    ctx.obj.formatter.render_single(
+    ctx.obj.formatter.render_get(
         data=project,
         resource_name=f"Updated Project: {project_id}",
     )
