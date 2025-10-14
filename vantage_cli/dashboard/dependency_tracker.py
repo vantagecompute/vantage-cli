@@ -44,9 +44,10 @@ class Worker:
             return False
 
         # Check if all dependencies are completed
-        for dep in self.depends_on:
-            if dep not in completed_workers:
-                return False
+        if self.depends_on:
+            for dep in self.depends_on:
+                if dep not in completed_workers:
+                    return False
 
         return True
 
@@ -80,13 +81,23 @@ class DependencyTracker:
 
     def validate_dependencies(self):
         """Validate that all dependencies exist and there are no cycles"""
-        # Check that all dependencies exist
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Check that all dependencies exist and remove invalid ones
         for worker in self.workers.values():
-            for dep in worker.depends_on:
-                if dep not in self.workers:
-                    raise ValueError(
-                        f"Worker '{worker.id}' depends on non-existent worker '{dep}'"
-                    )
+            if worker.depends_on:
+                valid_deps = []
+                for dep in worker.depends_on:
+                    if dep not in self.workers:
+                        logger.warning(
+                            f"Worker '{worker.id}' depends on non-existent worker '{dep}'. "
+                            f"This dependency will be ignored. Available workers: {list(self.workers.keys())}"
+                        )
+                    else:
+                        valid_deps.append(dep)
+                # Update worker with only valid dependencies
+                worker.depends_on = valid_deps
 
         # Check for circular dependencies using DFS
         def has_cycle(worker_id: str, visited: Set[str], rec_stack: Set[str]) -> bool:
@@ -98,9 +109,11 @@ class DependencyTracker:
             visited.add(worker_id)
             rec_stack.add(worker_id)
 
-            for dep in self.workers[worker_id].depends_on:
-                if has_cycle(dep, visited, rec_stack):
-                    return True
+            worker_depends = self.workers[worker_id].depends_on
+            if worker_depends:
+                for dep in worker_depends:
+                    if has_cycle(dep, visited, rec_stack):
+                        return True
 
             rec_stack.remove(worker_id)
             return False
@@ -145,7 +158,7 @@ class DependencyTracker:
             current_layer = []
             for worker_id in remaining.copy():
                 worker = self.workers[worker_id]
-                if all(dep in completed for dep in worker.depends_on):
+                if worker.depends_on is None or all(dep in completed for dep in worker.depends_on):
                     current_layer.append(worker_id)
                     remaining.remove(worker_id)
 
@@ -183,10 +196,11 @@ class DependencyTracker:
         for worker in self.workers.values():
             if worker.state == WorkerState.INIT:
                 # Check if any dependency failed
-                for dep in worker.depends_on:
-                    if dep in self.failed_workers:
-                        blocked.append(worker)
-                        break
+                if worker.depends_on:
+                    for dep in worker.depends_on:
+                        if dep in self.failed_workers:
+                            blocked.append(worker)
+                            break
         return blocked
 
 

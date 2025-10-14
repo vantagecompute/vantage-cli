@@ -365,10 +365,7 @@ class NotebookSDK:
         graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
 
         variables = {"input": input_payload}
-        logger.debug(
-            "Executing createJupyterServer mutation with payload: {payload}",
-            payload=variables,
-        )
+        logger.debug("Executing createJupyterServer mutation with input: %s", variables)
 
         try:
             response_data = await graphql_client.execute_async(mutation, variables)

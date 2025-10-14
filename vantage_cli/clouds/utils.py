@@ -268,9 +268,9 @@ async def get_cluster_data(
 
     cluster_obj = generate_dev_cluster_data(cluster_name)
     if not dev_run:
-        from vantage_cli.commands.cluster import utils as cluster_utils
+        from vantage_cli.sdk.cluster.crud import cluster_sdk
 
-        fetched_cluster = await cluster_utils.get_cluster_by_name(
+        fetched_cluster = await cluster_sdk.get_cluster_by_name(
             ctx=ctx, cluster_name=cluster_name
         )
         if fetched_cluster is None:

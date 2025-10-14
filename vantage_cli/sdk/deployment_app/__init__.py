@@ -40,10 +40,6 @@ class _DeploymentAppSDKProxy:
         sdk = _get_deployment_app_sdk()
         return getattr(sdk, name)
 
-    def __call__(self, *args, **kwargs):
-        sdk = _get_deployment_app_sdk()
-        return sdk(*args, **kwargs)
-
 
 # Create the proxy instance
 deployment_app_sdk = _DeploymentAppSDKProxy()

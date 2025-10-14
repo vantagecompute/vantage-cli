@@ -16,7 +16,7 @@ A reusable TabPane widget for managing Vantage profiles in the dashboard.
 """
 
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import typer
 import logging
@@ -26,7 +26,8 @@ from textual import work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
-from textual.widgets import Button, DataTable, Input, Label, Static, TabPane
+from textual.widgets import Button, DataTable, Input, Label, Static, TabPane, Select
+from textual.screen import ModalScreen
 
 from vantage_cli.exceptions import Abort
 from vantage_cli.sdk.profile import profile_sdk
@@ -34,8 +35,337 @@ from vantage_cli.sdk.profile.schema import Profile
 from vantage_cli.utils import get_dev_apps_gh_url
 
 
+class CreateProfileModal(ModalScreen[Optional[dict]]):
+    """Modal screen for creating a new profile."""
+    
+    DEFAULT_CSS = """
+    CreateProfileModal {
+        align: center middle;
+    }
+    
+    #create-profile-dialog {
+        width: 80;
+        height: auto;
+        border: thick $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+    
+    #create-profile-dialog .modal-title {
+        text-align: center;
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+    
+    #create-profile-dialog Label {
+        margin-top: 1;
+        color: $text;
+    }
+    
+    #create-profile-dialog Input {
+        margin-bottom: 1;
+    }
+    
+    #create-profile-dialog Select {
+        margin-bottom: 1;
+    }
+    
+    #create-profile-dialog #button-row {
+        margin-top: 1;
+        height: auto;
+        align: center middle;
+    }
+    
+    #create-profile-dialog Button {
+        margin: 0 1;
+    }
+    """
+    
+    def compose(self) -> ComposeResult:
+        """Create the modal layout."""
+        with Vertical(id="create-profile-dialog"):
+            yield Static("👤 Create New Profile", classes="modal-title")
+            
+            yield Label("Profile Name:")
+            yield Input(
+                placeholder="Enter profile name (e.g., production, dev)",
+                id="profile-name-input"
+            )
+            
+            yield Label("Vantage URL:")
+            yield Input(
+                placeholder="Enter Vantage API URL",
+                value="https://app.vantagecompute.ai",
+                id="vantage-url-input"
+            )
+            
+            yield Label("OIDC Max Poll Time (seconds):")
+            yield Input(
+                placeholder="Default: 300",
+                value="300",
+                id="oidc-poll-time-input"
+            )
+            
+            yield Label("Activate Profile:")
+            yield Select(
+                options=[
+                    ("No", "false"),
+                    ("Yes", "true"),
+                ],
+                value="false",
+                id="activate-select",
+            )
+            
+            with Horizontal(id="button-row"):
+                yield Button("✅ Create", variant="success", id="create-btn")
+                yield Button("❌ Cancel", variant="error", id="cancel-btn")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses in the modal."""
+        if event.button.id == "create-btn":
+            # Gather form data
+            name_input = self.query_one("#profile-name-input", Input)
+            url_input = self.query_one("#vantage-url-input", Input)
+            poll_time_input = self.query_one("#oidc-poll-time-input", Input)
+            activate_select = self.query_one("#activate-select", Select)
+            
+            profile_name = name_input.value.strip()
+            vantage_url = url_input.value.strip()
+            poll_time_str = poll_time_input.value.strip()
+            
+            # Validate required fields
+            if not profile_name:
+                self.notify("Profile name is required", severity="error")
+                return
+            
+            if not vantage_url:
+                self.notify("Vantage URL is required", severity="error")
+                return
+            
+            # Parse poll time
+            try:
+                poll_time = int(poll_time_str) if poll_time_str else 300
+            except ValueError:
+                self.notify("OIDC poll time must be a number", severity="error")
+                return
+            
+            # Return the profile data
+            profile_data = {
+                "name": profile_name,
+                "settings": {
+                    "vantage_url": vantage_url,
+                    "oidc_max_poll_time": poll_time,
+                },
+                "activate": str(activate_select.value) == "true",
+            }
+            
+            self.dismiss(profile_data)
+        
+        elif event.button.id == "cancel-btn":
+            self.dismiss(None)
+
+
+class RemoveProfileModal(ModalScreen[Optional[str]]):
+    """Modal screen for removing a profile."""
+    
+    DEFAULT_CSS = """
+    RemoveProfileModal {
+        align: center middle;
+    }
+    
+    #remove-profile-dialog {
+        width: 70;
+        height: auto;
+        border: thick $error;
+        background: $surface;
+        padding: 1 2;
+    }
+    
+    #remove-profile-dialog .modal-title {
+        text-align: center;
+        text-style: bold;
+        color: $error;
+        margin-bottom: 1;
+    }
+    
+    #remove-profile-dialog .warning-text {
+        text-align: center;
+        color: $warning;
+        margin-bottom: 1;
+    }
+    
+    #remove-profile-dialog Label {
+        margin-top: 1;
+        color: $text;
+    }
+    
+    #remove-profile-dialog Select {
+        margin-bottom: 1;
+    }
+    
+    #remove-profile-dialog #button-row {
+        margin-top: 1;
+        height: auto;
+        align: center middle;
+    }
+    
+    #remove-profile-dialog Button {
+        margin: 0 1;
+    }
+    """
+    
+    def __init__(self, profiles: List[Profile], **kwargs):
+        """Initialize the remove profile modal.
+        
+        Args:
+            profiles: List of available profiles
+        """
+        super().__init__(**kwargs)
+        self.profiles = profiles
+    
+    def compose(self) -> ComposeResult:
+        """Create the modal layout."""
+        with Vertical(id="remove-profile-dialog"):
+            yield Static("🗑️  Remove Profile", classes="modal-title")
+            yield Static("⚠️  Warning: This will permanently delete the profile and its data!", classes="warning-text")
+            
+            yield Label("Select Profile to Remove:")
+            
+            # Create dropdown options from profiles
+            profile_options = [
+                (f"{prof.name}{'  (active)' if prof.is_active else ''}", prof.name)
+                for prof in self.profiles
+            ]
+            
+            if not profile_options:
+                yield Static("No profiles available to remove", classes="warning-text")
+            else:
+                yield Select(
+                    options=profile_options,
+                    prompt="Select profile to remove",
+                    id="profile-select",
+                )
+            
+            with Horizontal(id="button-row"):
+                yield Button("🗑️  Remove", variant="error", id="remove-btn", disabled=not profile_options)
+                yield Button("❌ Cancel", variant="primary", id="cancel-btn")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses in the modal."""
+        if event.button.id == "remove-btn":
+            # Get selected profile
+            profile_select = self.query_one("#profile-select", Select)
+            
+            if not profile_select.value:
+                self.notify("Please select a profile to remove", severity="error")
+                return
+            
+            # Return the selected profile name
+            profile_name = str(profile_select.value)
+            self.dismiss(profile_name)
+        
+        elif event.button.id == "cancel-btn":
+            self.dismiss(None)
+
+
 class ProfileManagementTabPane(TabPane):
     """A TabPane widget for profile management functionality."""
+
+    DEFAULT_CSS = """
+    ProfileManagementTabPane {
+        height: 100%;
+        width: 100%;
+    }
+    
+    ProfileManagementTabPane .header {
+        height: auto;
+        width: 100%;
+        align: center middle;
+        padding: 1;
+        background: $panel;
+    }
+    
+    ProfileManagementTabPane .title {
+        text-style: bold;
+        color: $accent;
+    }
+    
+    ProfileManagementTabPane .content {
+        height: 1fr;
+        width: 100%;
+    }
+    
+    ProfileManagementTabPane .left-panel {
+        width: 1fr;
+        height: 100%;
+        border-right: solid $primary;
+    }
+    
+    ProfileManagementTabPane .right-panel {
+        width: 1fr;
+        height: 100%;
+        padding: 0 1;
+    }
+    
+    ProfileManagementTabPane .management-section {
+        height: auto;
+        width: 100%;
+        border: solid $primary;
+        padding: 1;
+        margin: 1;
+    }
+    
+    ProfileManagementTabPane .profiles-section {
+        height: 1fr;
+        width: 100%;
+        padding: 1;
+        margin: 1;
+    }
+    
+    ProfileManagementTabPane .details-section {
+        height: 100%;
+        width: 100%;
+    }
+    
+    ProfileManagementTabPane .section-title {
+        text-style: bold;
+        color: $text;
+        margin-bottom: 1;
+    }
+    
+    ProfileManagementTabPane #profiles-table {
+        height: 1fr;
+        width: 100%;
+    }
+    
+    ProfileManagementTabPane #profile-details-table {
+        height: 1fr;
+        width: 100%;
+    }
+    
+    ProfileManagementTabPane .action-buttons {
+        height: auto;
+        width: 100%;
+        align: center middle;
+        margin-top: 1;
+    }
+    
+    ProfileManagementTabPane .action-buttons Button {
+        margin: 0 1;
+    }
+    
+    ProfileManagementTabPane #profile-status-bar {
+        height: auto;
+        width: 100%;
+        align: left middle;
+        padding: 0 1;
+    }
+    
+    ProfileManagementTabPane #profile-status-bar Static {
+        margin: 0 1;
+    }
+    """
 
     # Reactive attributes for profile data
     profiles: reactive[List[Profile]] = reactive([])
@@ -54,50 +384,43 @@ class ProfileManagementTabPane(TabPane):
         self.ctx = ctx
 
     def compose(self) -> ComposeResult:
-        """Create the profile management layout."""
+        """Create the profile management layout with split panels."""
         with Vertical():
-            yield Static("👤 Profile Management", classes="section-header")
+            # Header with title and refresh button
+            with Horizontal(classes="header"):
+                yield Static("👤 Profile Management", classes="title")
+                yield Button("🔄 Refresh", id="refresh-profiles-btn", variant="success")
 
-            # Status and controls section
-            with Horizontal(id="profile-status-bar"):
-                yield Static("Status: Ready", id="profile-status")
-                yield Static("Last refresh: Never", id="profile-last-refresh-display")
-                yield Button("🔄 Refresh", id="refresh-profiles-btn", variant="primary")
+            # Main content area - split into left and right panels
+            with Horizontal(classes="content"):
+                # Left panel: Profile Management and Available Profiles
+                with Vertical(classes="left-panel"):
+                    # Profile Management section
+                    with Vertical(classes="management-section"):
+                        yield Static("⚙️  Profile Status", classes="section-title")
+                        with Horizontal(id="profile-status-bar"):
+                            yield Static("Status: Ready", id="profile-status")
+                            yield Static("Last refresh: Never", id="profile-last-refresh-display")
 
-            # Profiles table
-            with Vertical(id="profiles-section"):
-                yield Static("📋 Available Profiles", classes="subsection-header")
-                yield DataTable(id="profiles-table", zebra_stripes=True)
+                    # Available Profiles section
+                    with Vertical(classes="profiles-section"):
+                        yield Static("📋 Available Profiles", classes="section-title")
+                        yield DataTable(id="profiles-table", zebra_stripes=True)
 
-            # Profile creation section
-            with Vertical(id="profile-creation-section"):
-                yield Static("➕ Create New Profile", classes="subsection-header")
-                with Horizontal(id="profile-creation-form"):
-                    yield Label("Name:")
-                    yield Input(placeholder="Profile name", id="profile-name-input")
-                    yield Label("API Key:")
-                    yield Input(placeholder="API key", password=True, id="profile-api-key-input")
-                    yield Label("URL:")
-                    yield Input(
-                        placeholder="Vantage URL",
-                        id="profile-url-input",
-                        value="https://api.vantage.com",
-                    )
-                    yield Button("➕ Create", id="create-profile-btn", variant="success")
+                # Right panel: Profile Details
+                with Vertical(classes="right-panel"):
+                    with Vertical(classes="details-section"):
+                        yield Static("📄 Profile Details", classes="section-title")
+                        yield DataTable(id="profile-details-table", show_header=False)
 
-            # Selected profile details
-            with Vertical(id="profile-details-section"):
-                yield Static("📄 Profile Details", classes="subsection-header")
-                yield DataTable(id="profile-details-table")
-
-            # Action buttons
-            with Horizontal(id="profile-actions"):
-                yield Button(
-                    "🎯 Activate", id="activate-profile-btn", disabled=True, variant="primary"
-                )
-                yield Button("📊 View Details", id="view-profile-details-btn", disabled=True)
-                yield Button("✏️ Edit", id="edit-profile-btn", disabled=True)
-                yield Button("🗑️ Delete", id="delete-profile-btn", disabled=True, variant="error")
+                        # Action buttons
+                        with Horizontal(classes="action-buttons"):
+                            yield Button(
+                                "🎯 Activate", id="activate-profile-btn", disabled=True, variant="primary"
+                            )
+                            yield Button("📊 View Details", id="view-profile-details-btn", disabled=True)
+                            yield Button("✏️ Edit", id="edit-profile-btn", disabled=True)
+                            yield Button("🗑️ Delete", id="delete-profile-btn", disabled=True, variant="error")
 
     def on_mount(self) -> None:
         """Initialize the profile table when the tab is mounted."""
@@ -317,7 +640,7 @@ class ProfileManagementTabPane(TabPane):
             profile_data = {"name": name, "api_key": api_key, "vantage_url": url}
 
             # Create the profile using the SDK
-            created_profile = await profile_sdk.create(self.ctx, name, profile_data)
+            created_profile = await profile_sdk.create(self.ctx, profile_data)
 
             if created_profile:
                 # Clear form inputs
@@ -326,9 +649,9 @@ class ProfileManagementTabPane(TabPane):
                 url_input.value = "https://api.vantage.com"
 
                 # Refresh profiles
-                await self.refresh_profiles()
+                self.refresh_profiles()
 
-                self.notify(f"Created profile: {name}", severity="success")
+                self.notify(f"Created profile: {name}", severity="information")
             else:
                 self.notify(f"Failed to create profile: {name}", severity="error")
 
@@ -354,9 +677,9 @@ class ProfileManagementTabPane(TabPane):
             # await profile_sdk.activate(self.ctx, profile_name)
 
             # For now, just refresh to show the change
-            await self.refresh_profiles()
+            self.refresh_profiles()
 
-            self.notify(f"Activated profile: {profile_name}", severity="success")
+            self.notify(f"Activated profile: {profile_name}", severity="information")
 
         except Exception as e:
             logger.error(f"Failed to activate profile: {e}")
@@ -391,7 +714,7 @@ class ProfileManagementTabPane(TabPane):
                 details_table = self.query_one("#profile-details-table", DataTable)
                 details_table.clear()
 
-                self.notify(f"Deleted profile: {profile_name}", severity="success")
+                self.notify(f"Deleted profile: {profile_name}", severity="information")
             else:
                 self.notify(f"Failed to delete profile: {profile_name}", severity="error")
 

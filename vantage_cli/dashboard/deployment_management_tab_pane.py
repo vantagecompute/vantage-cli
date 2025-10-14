@@ -197,13 +197,14 @@ class DeploymentManagementTabPane(TabPane):
             return
 
         for i, deployment in enumerate(self.deployments):
-            logger.debug(f"Processing deployment {i}: {deployment.deployment_id}")
+            logger.debug(f"Processing deployment {i}: {deployment.id}")
 
             # Use the Deployment schema object properties
-            name = deployment.deployment_name
+            name = deployment.name
             app_name = deployment.app_name
             cluster_name = deployment.cluster_name
-            cloud = deployment.cloud.upper() if deployment.cloud else "Unknown"
+            cloud_name = deployment.cloud.name if hasattr(deployment.cloud, 'name') else str(deployment.cloud)
+            cloud = cloud_name.upper() if cloud_name else "Unknown"
             status = deployment.status
             created = deployment.formatted_created_at  # Using computed field
             is_active = "✅" if deployment.is_active else "❌"  # Using computed field
@@ -219,7 +220,7 @@ class DeploymentManagementTabPane(TabPane):
                 status,
                 created,
                 is_active,
-                key=deployment.deployment_id,
+                key=deployment.id,
             )
 
     def update_status_display(self) -> None:
@@ -246,7 +247,7 @@ class DeploymentManagementTabPane(TabPane):
         details_table.add_row("Status", "Loading deployment details...")
 
         # Use an async worker to get the deployment object from the SDK
-        self.run_worker(self._fetch_deployment_object(deployment.deployment_id), exclusive=True)
+        self.run_worker(self._fetch_deployment_object(deployment.id), exclusive=True)
 
     async def _fetch_deployment_object(self, deployment_id: str) -> None:
         """Fetch deployment object from the SDK."""
@@ -271,12 +272,12 @@ class DeploymentManagementTabPane(TabPane):
 
         # Display all the deployment object properties from the schema
         display_items = [
-            ("Deployment ID", deployment.deployment_id),
-            ("Deployment Name", deployment.deployment_name),
+            ("Deployment ID", deployment.id),
+            ("Deployment Name", deployment.name),
             ("App Name", deployment.app_name),
             ("Cluster Name", deployment.cluster_name),
             ("Cluster ID", deployment.cluster_id),
-            ("Cloud Provider", deployment.cloud.upper() if deployment.cloud else "Unknown"),
+            ("Cloud Provider", deployment.cloud.name.upper() if hasattr(deployment.cloud, 'name') else str(deployment.cloud).upper()),
             ("Status", deployment.status),
             ("Created At", deployment.formatted_created_at),
             ("Is Active", "✅ Yes" if deployment.is_active else "❌ No"),
@@ -323,7 +324,7 @@ class DeploymentManagementTabPane(TabPane):
                 (
                     deployment
                     for deployment in self.deployments
-                    if deployment.deployment_id == deployment_id
+                    if deployment.id == deployment_id
                 ),
                 None,
             )
@@ -333,7 +334,7 @@ class DeploymentManagementTabPane(TabPane):
                 self.selected_deployment = selected
                 self.update_deployment_details(selected)
                 self.enable_deployment_actions(True)
-                self.notify(f"Selected deployment: {selected.deployment_name}")
+                self.notify(f"Selected deployment: {selected.name}")
             else:
                 logger.warning(f"Could not find deployment data for {deployment_id}")
         else:
@@ -359,13 +360,13 @@ class DeploymentManagementTabPane(TabPane):
             self.refresh_deployments()
 
         elif event.button.id == "view-deployment-details-btn" and self.selected_deployment:
-            self.notify(f"Viewing details for {self.selected_deployment.deployment_name}")
+            self.notify(f"Viewing details for {self.selected_deployment.name}")
 
         elif event.button.id == "refresh-deployment-status-btn" and self.selected_deployment:
             self.refresh_deployment_status()
 
         elif event.button.id == "manage-deployment-btn" and self.selected_deployment:
-            self.notify(f"Managing deployment {self.selected_deployment.deployment_name}")
+            self.notify(f"Managing deployment {self.selected_deployment.name}")
 
         elif event.button.id == "delete-deployment-btn" and self.selected_deployment:
             self.delete_deployment()
@@ -376,7 +377,7 @@ class DeploymentManagementTabPane(TabPane):
         if not self.selected_deployment:
             return
 
-        deployment_id = self.selected_deployment.deployment_id
+        deployment_id = self.selected_deployment.id
 
         try:
             # Fetch updated deployment object
@@ -385,14 +386,14 @@ class DeploymentManagementTabPane(TabPane):
             if updated_deployment:
                 # Update the deployment in our list
                 for i, deployment in enumerate(self.deployments):
-                    if deployment.deployment_id == deployment_id:
+                    if deployment.id == deployment_id:
                         self.deployments[i] = updated_deployment
                         break
 
                 self.selected_deployment = updated_deployment
                 self.update_deployments_table()
                 self.update_deployment_details(updated_deployment)
-                self.notify(f"Refreshed status for {updated_deployment.deployment_name}")
+                self.notify(f"Refreshed status for {updated_deployment.name}")
             else:
                 self.notify(f"Deployment {deployment_id} not found", severity="warning")
 
@@ -406,8 +407,8 @@ class DeploymentManagementTabPane(TabPane):
         if not self.selected_deployment:
             return
 
-        deployment_id = self.selected_deployment.deployment_id
-        deployment_name = self.selected_deployment.deployment_name
+        deployment_id = self.selected_deployment.id
+        deployment_name = self.selected_deployment.name
 
         try:
             # Delete the deployment using the SDK
@@ -416,7 +417,7 @@ class DeploymentManagementTabPane(TabPane):
             if success:
                 # Remove from our list
                 self.deployments = [
-                    d for d in self.deployments if d.deployment_id != deployment_id
+                    d for d in self.deployments if d.id != deployment_id
                 ]
                 self.selected_deployment = None
                 self.update_deployments_table()

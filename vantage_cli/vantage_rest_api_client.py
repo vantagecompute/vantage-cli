@@ -137,7 +137,7 @@ class VantageRestApiClient:
 
 
 def attach_vantage_rest_client(
-    func: Callable[..., Any] = None, base_path: str = ""
+    func: Optional[Callable[..., Any]] = None, base_path: str = ""
 ) -> Callable[..., Any]:
     """Attach VantageRestApiClient to the CLI context.
 

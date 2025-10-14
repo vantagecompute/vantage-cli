@@ -22,14 +22,17 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 @handle_abort
 async def update_team(
-    ctx: typer.Context, team_id: Annotated[str, typer.Argument(help="ID of the team to update")]
+    ctx: typer.Context,
+    team_id: Annotated[str, typer.Argument(help="ID of the team to update")],
+    name: str = typer.Option(None, help="New name of the team"),
+    description: str = typer.Option(None, help="New description of the team"),
 ):
     """Update team settings."""
     # Mock team update result
     result = {
         "team_id": team_id,
-        "name": name,
-        "description": description,
+        "name": name or "Existing Name",
+        "description": description or "Existing Description",
         "updated_at": "2025-09-15T14:30:00Z",
     }
 

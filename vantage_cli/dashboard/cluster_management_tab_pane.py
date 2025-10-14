@@ -24,21 +24,237 @@ import logging
 logger = logging.getLogger(__name__)
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, Grid
 from textual.reactive import reactive
-from textual.widgets import Button, DataTable, Static, TabPane
+from textual.widgets import Button, DataTable, Static, TabPane, Input, Label, Select
+from textual.screen import ModalScreen
 
 from vantage_cli.exceptions import Abort
 from vantage_cli.sdk.cluster import get as get_cluster
-from vantage_cli.sdk.cluster import list as list_clusters
+from vantage_cli.sdk.cluster.crud import cluster_sdk
+from vantage_cli.sdk.cluster.schema import Cluster
+
+
+class CreateClusterModal(ModalScreen[Optional[Dict[str, str]]]):
+    """Modal screen for creating a new cluster."""
+    
+    DEFAULT_CSS = """
+    CreateClusterModal {
+        align: center middle;
+    }
+    
+    #create-cluster-dialog {
+        width: 70;
+        height: auto;
+        border: thick $primary;
+        background: $surface;
+        padding: 1 2;
+    }
+    
+    #create-cluster-dialog .modal-title {
+        text-align: center;
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+    
+    #create-cluster-dialog Label {
+        margin-top: 1;
+        color: $text;
+    }
+    
+    #create-cluster-dialog Input {
+        margin-bottom: 1;
+    }
+    
+    #create-cluster-dialog Select {
+        margin-bottom: 1;
+    }
+    
+    #create-cluster-dialog #button-row {
+        margin-top: 1;
+        height: auto;
+        align: center middle;
+    }
+    
+    #create-cluster-dialog Button {
+        margin: 0 1;
+    }
+    """
+    
+    def compose(self) -> ComposeResult:
+        """Create the modal layout."""
+        with Vertical(id="create-cluster-dialog"):
+            yield Static("🖥️ Create New Cluster", classes="modal-title")
+            
+            yield Label("Cluster Name:")
+            yield Input(
+                placeholder="Enter cluster name (e.g., my-cluster)",
+                id="cluster-name-input"
+            )
+            
+            yield Label("Description (optional):")
+            yield Input(
+                placeholder="Enter cluster description",
+                id="cluster-description-input"
+            )
+            
+            yield Label("Cloud Provider:")
+            yield Select(
+                options=[
+                    ("AWS", "aws"),
+                    ("GCP", "gcp"),
+                    ("Azure", "azure"),
+                    ("CUDO Compute", "cudo-compute"),
+                    ("On-Premises", "on-premises"),
+                    ("Kubernetes", "k8s"),
+                    ("Localhost", "localhost"),
+                ],
+                prompt="Select cloud provider",
+                id="cloud-provider-select",
+            )
+            
+            with Horizontal(id="button-row"):
+                yield Button("✅ Create", variant="success", id="create-btn")
+                yield Button("❌ Cancel", variant="error", id="cancel-btn")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses in the modal."""
+        if event.button.id == "create-btn":
+            # Gather form data
+            name_input = self.query_one("#cluster-name-input", Input)
+            description_input = self.query_one("#cluster-description-input", Input)
+            cloud_select = self.query_one("#cloud-provider-select", Select)
+            
+            cluster_name = name_input.value.strip()
+            
+            # Validate name
+            if not cluster_name:
+                self.notify("Cluster name is required", severity="error")
+                return
+            
+            # Return the cluster data
+            cluster_data = {
+                "name": cluster_name,
+                "description": description_input.value.strip(),
+                "cloud": str(cloud_select.value) if cloud_select.value else "",
+            }
+            
+            self.dismiss(cluster_data)
+        
+        elif event.button.id == "cancel-btn":
+            self.dismiss(None)
+
+
+class RemoveClusterModal(ModalScreen[Optional[str]]):
+    """Modal screen for removing a cluster."""
+    
+    DEFAULT_CSS = """
+    RemoveClusterModal {
+        align: center middle;
+    }
+    
+    #remove-cluster-dialog {
+        width: 70;
+        height: auto;
+        border: thick $error;
+        background: $surface;
+        padding: 1 2;
+    }
+    
+    #remove-cluster-dialog .modal-title {
+        text-align: center;
+        text-style: bold;
+        color: $error;
+        margin-bottom: 1;
+    }
+    
+    #remove-cluster-dialog .warning-text {
+        text-align: center;
+        color: $warning;
+        margin-bottom: 1;
+    }
+    
+    #remove-cluster-dialog Label {
+        margin-top: 1;
+        color: $text;
+    }
+    
+    #remove-cluster-dialog Select {
+        margin-bottom: 1;
+    }
+    
+    #remove-cluster-dialog #button-row {
+        margin-top: 1;
+        height: auto;
+        align: center middle;
+    }
+    
+    #remove-cluster-dialog Button {
+        margin: 0 1;
+    }
+    """
+    
+    def __init__(self, clusters: List[Cluster], **kwargs):
+        """Initialize the remove cluster modal.
+        
+        Args:
+            clusters: List of available clusters
+        """
+        super().__init__(**kwargs)
+        self.clusters = clusters
+    
+    def compose(self) -> ComposeResult:
+        """Create the modal layout."""
+        with Vertical(id="remove-cluster-dialog"):
+            yield Static("🗑️  Remove Cluster", classes="modal-title")
+            yield Static("⚠️  Warning: This will remove the cluster and all associated deployments!", classes="warning-text")
+            
+            yield Label("Select Cluster to Remove:")
+            
+            # Create dropdown options from clusters
+            cluster_options = [
+                (f"{cluster.name} ({cluster.provider})", cluster.name)
+                for cluster in self.clusters
+            ]
+            
+            if not cluster_options:
+                yield Static("No clusters available to remove", classes="warning-text")
+            else:
+                yield Select(
+                    options=cluster_options,
+                    prompt="Select cluster to remove",
+                    id="cluster-select",
+                )
+            
+            with Horizontal(id="button-row"):
+                yield Button("🗑️  Remove", variant="error", id="remove-btn", disabled=not cluster_options)
+                yield Button("❌ Cancel", variant="primary", id="cancel-btn")
+    
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button presses in the modal."""
+        if event.button.id == "remove-btn":
+            # Get selected cluster
+            cluster_select = self.query_one("#cluster-select", Select)
+            
+            if not cluster_select.value:
+                self.notify("Please select a cluster to remove", severity="error")
+                return
+            
+            # Return the selected cluster name
+            cluster_name = str(cluster_select.value)
+            self.dismiss(cluster_name)
+        
+        elif event.button.id == "cancel-btn":
+            self.dismiss(None)
 
 
 class ClusterManagementTabPane(TabPane):
     """A TabPane widget for cluster management functionality."""
 
     # Reactive attributes for cluster data
-    clusters: reactive[List[Dict[str, Any]]] = reactive([])
-    selected_cluster: reactive[Optional[Dict[str, Any]]] = reactive(None)
+    clusters: reactive[List[Cluster]] = reactive([])
+    selected_cluster: reactive[Optional[Cluster]] = reactive(None)
     is_loading: reactive[bool] = reactive(False)
     last_refresh: reactive[Optional[datetime]] = reactive(None)
 
@@ -128,7 +344,7 @@ class ClusterManagementTabPane(TabPane):
         try:
             # Fetch clusters using the SDK
             logger.debug("Starting cluster refresh...")
-            clusters_data = await list_clusters(self.ctx)
+            clusters_data = await cluster_sdk.list_clusters(self.ctx)
             logger.debug(f"Fetched {len(clusters_data)} clusters")
 
             self.clusters = clusters_data
@@ -169,15 +385,15 @@ class ClusterManagementTabPane(TabPane):
             logger.debug("No clusters to display")
             return
 
-        for i, cluster in enumerate(self.clusters):
-            logger.debug(f"Processing cluster {i}: {cluster}")
+        for cluster in self.clusters:
+            logger.debug(f"Processing cluster: {cluster}")
 
             # Extract key information for the table
-            name = cluster.get("name", "Unknown")
-            status = cluster.get("status", "Unknown")
-            provider = cluster.get("provider", "Unknown")
-            owner = cluster.get("ownerEmail", "Unknown")
-            description = cluster.get("description", "No description")
+            name = cluster.name
+            status = cluster.status
+            provider = cluster.provider if cluster.provider else "Unknown"
+            owner = cluster.owner_email if cluster.owner_email else "Unknown"
+            description = cluster.description if cluster.description else "No description"
 
             # Truncate long descriptions
             if len(description) > 50:
@@ -198,13 +414,16 @@ class ClusterManagementTabPane(TabPane):
             refresh_time = self.last_refresh.strftime("%H:%M:%S")
             refresh_widget.update(f"Last refresh: {refresh_time}")
 
-    def update_cluster_details(self, cluster: Dict[str, Any]) -> None:
+    def update_cluster_details(self, cluster: Cluster) -> None:
         """Update the cluster details table with selected cluster info."""
         details_table = self.query_one("#cluster-details-table", DataTable)
         details_table.clear()
 
+        # Convert cluster to dict for display
+        cluster_dict = cluster.model_dump() if hasattr(cluster, "model_dump") else cluster.__dict__
+        
         # Display all cluster properties
-        for key, value in cluster.items():
+        for key, value in cluster_dict.items():
             if value is not None:
                 # Format the key for display
                 display_key = key.replace("_", " ").replace("Id", " ID").title()
@@ -232,7 +451,7 @@ class ClusterManagementTabPane(TabPane):
 
             # Find the selected cluster
             selected = next(
-                (cluster for cluster in self.clusters if cluster.get("name") == cluster_name), None
+                (cluster for cluster in self.clusters if cluster.name == cluster_name), None
             )
 
             if selected:
@@ -253,7 +472,7 @@ class ClusterManagementTabPane(TabPane):
 
         elif event.button.id == "view-details-btn" and self.selected_cluster:
             # Could open a detailed view or modal
-            self.notify(f"Viewing details for {self.selected_cluster.get('name')}")
+            self.notify(f"Viewing details for {self.selected_cluster.name}")
 
         elif event.button.id == "refresh-status-btn" and self.selected_cluster:
             # Refresh the specific cluster's status
@@ -261,7 +480,7 @@ class ClusterManagementTabPane(TabPane):
 
         elif event.button.id == "manage-cluster-btn" and self.selected_cluster:
             # Could open cluster management actions
-            self.notify(f"Managing cluster {self.selected_cluster.get('name')}")
+            self.notify(f"Managing cluster {self.selected_cluster.name}")
 
     @work(exclusive=True)
     async def refresh_cluster_status(self) -> None:
@@ -269,7 +488,7 @@ class ClusterManagementTabPane(TabPane):
         if not self.selected_cluster:
             return
 
-        cluster_name = self.selected_cluster.get("name")
+        cluster_name = self.selected_cluster.name
         if not cluster_name:
             return
 
@@ -280,7 +499,7 @@ class ClusterManagementTabPane(TabPane):
             if updated_cluster:
                 # Update the cluster in our list
                 for i, cluster in enumerate(self.clusters):
-                    if cluster.get("name") == cluster_name:
+                    if cluster.name == cluster_name:
                         self.clusters[i] = updated_cluster
                         break
 

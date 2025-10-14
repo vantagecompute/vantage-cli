@@ -53,7 +53,7 @@ async def init_project_and_head_node(
     # Create project - you'll need to get billing_account_id from settings or pass it
     billing_accounts = await ctx.obj.cudo_sdk.list_billing_accounts()
     if not billing_accounts:
-        raise typer.Exit("No billing accounts available")
+        raise typer.Exit(code=1)
     billing_account_id = billing_accounts[0].id
 
     project_data = {
@@ -130,8 +130,8 @@ async def init_project_and_head_node(
 
     # Create VM with the specified specs
 
-    requested_vcpus = 4
-    requested_memory = 16
+    requested_vcpus = 8
+    requested_memory = 32
     requested_gpus = 0
 
     machine_type = dc_machine_types[0].machine_type

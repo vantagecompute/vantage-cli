@@ -95,7 +95,7 @@ async def delete_cluster(
                             ctx.obj.console.print(
                                 f"\n[blue]Cleaning up orphaned deployment for '{app}'...[/blue]"
                             )
-                        cleanup_result = await _cleanup_single_deployment_object(ctx, deployment)
+                        cleanup_result = await _cleanup_single_deployment(ctx, cluster_name, app)
 
                         output_data = {
                             "cluster_name": cluster_name,

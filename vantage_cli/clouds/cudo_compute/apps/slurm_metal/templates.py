@@ -262,6 +262,7 @@ def head_node_init_script() -> str:
 
         sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{print $1}')|g" /etc/slurm/slurm.conf
         sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
+        sed -i "s|^ClusterName=.*|ClusterName=$CLUSTER_NAME|g" /etc/slurm/slurm.conf
 
         cpu_info=$(lscpu -J | jq)
         CPUs=$(echo $cpu_info | jq -r '.lscpu | .[] | select(.field == "CPU(s):") | .data')
@@ -276,7 +277,8 @@ def head_node_init_script() -> str:
         SOCKETS=$(echo $cpu_info | jq -r '.lscpu | .[] | select(.field == "Socket(s):") | .data')
         sed -i "s|@SOCKETS@|$SOCKETS|g" /etc/slurm/slurm.conf
 
-        sed -i "s|@REAL_MEMORY@|$(grep MemTotal /proc/meminfo | awk '{print $2}')|g" /etc/slurm/slurm.conf
+        REAL_MEMORY=$(free -m | grep -oP '\\d+' | head -n 1)
+        sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf
         sed -i "s|@MEMSPEC_LIMIT@|1024|g" /etc/slurm/slurm.conf
 
         cat > /etc/slurm/slurmdbd.conf << 'EOF'
@@ -602,11 +604,6 @@ def head_node_init_script() -> str:
         systemctl daemon-reload
 
         pam-auth-update --enable mkhomedir
-
-        sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurmdbd.conf
-        sed -i "s|@HEADNODE_ADDRESS@|$(hostname -I | awk '{print $1}')|g\" /etc/slurm/slurm.conf
-        sed -i "s|@HEADNODE_HOSTNAME@|$(hostname)|g" /etc/slurm/slurm.conf
-        sed -i "s|^ClusterName=.*|ClusterName=$CLUSTER_NAME|g" /etc/slurm/slurm.conf
 
         systemctl enable --now mysql
         systemctl enable --now influxdb

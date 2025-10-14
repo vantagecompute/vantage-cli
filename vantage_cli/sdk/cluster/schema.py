@@ -11,9 +11,9 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Cluster schemas for the Vantage CLI."""
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, field_validator
 
 
 class VantageClusterContext(BaseModel):
@@ -39,8 +39,16 @@ class ClusterDetailSchema(VantageClusterContext):
     description: str
     owner_email: str
     provider: str
-    cloud_account_id: Optional[str] = None
+    cloud_account_id: Optional[Union[str, int]] = None
     creation_parameters: Dict[str, Any]
+
+    @field_validator('cloud_account_id', mode='before')
+    @classmethod
+    def convert_cloud_account_id(cls, v):
+        """Convert cloud_account_id to string if it's an int."""
+        if v is not None and not isinstance(v, str):
+            return str(v)
+        return v
 
 
 class Cluster(BaseModel):
@@ -53,9 +61,17 @@ class Cluster(BaseModel):
     description: str
     owner_email: str
     provider: str
-    cloud_account_id: Optional[str] = None
+    cloud_account_id: Optional[Union[str, int]] = None
     creation_parameters: Dict[str, Any] = {}
     sssd_binder_password: Optional[str] = None
+
+    @field_validator('cloud_account_id', mode='before')
+    @classmethod
+    def convert_cloud_account_id(cls, v):
+        """Convert cloud_account_id to string if it's an int."""
+        if v is not None and not isinstance(v, str):
+            return str(v)
+        return v
 
     @computed_field
     @property

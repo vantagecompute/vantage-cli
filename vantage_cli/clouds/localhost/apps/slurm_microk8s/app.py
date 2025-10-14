@@ -110,11 +110,17 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         org_id=org_id,
     )
 
+    from vantage_cli.sdk.cloud.crud import cloud_sdk
+    cloud = cloud_sdk.get("localhost")
+    if cloud is None:
+        console.print("[bold red]Error:[/bold red] Cloud 'localhost' not found. Please debug")
+        return typer.Exit(code=1)
+
     deployment = create_deployment_with_init_status(
         app_name=APP_NAME,
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
-        cloud_name="localhost",
+        cloud=cloud,
         substrate=SUBSTRATE,
         additional_metadata={
             "org_id": org_id,

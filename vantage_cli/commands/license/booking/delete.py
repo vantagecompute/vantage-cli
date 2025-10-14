@@ -15,7 +15,7 @@ async def delete_booking(
     ctx: typer.Context, booking_id: str = typer.Argument(..., help="Booking ID")
 ):
     """Delete a license booking."""
-    client = create_vantage_rest_client()
+    client = create_vantage_rest_client(ctx)
     try:
         await ctx.obj.rest_client.delete(f"/bookings/{booking_id}")
 

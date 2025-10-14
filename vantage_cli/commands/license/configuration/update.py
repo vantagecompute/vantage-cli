@@ -53,7 +53,7 @@ async def update_license_configuration(
     if description is not None:
         payload["description"] = description
 
-    response = await ctx.obj.rest_client.put(f"/configurations/{config_id}", json=update_data)
+    response = await ctx.obj.rest_client.put(f"/configurations/{config_id}", json=payload)
 
     # Use UniversalOutputFormatter for consistent update rendering
 

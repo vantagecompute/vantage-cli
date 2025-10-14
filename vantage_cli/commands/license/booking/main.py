@@ -18,7 +18,8 @@ app = typer.Typer(help="License booking management commands")
 @app.command("list")
 @attach_settings
 @handle_abort
-def list_bookings(
+async def list_bookings(
+    ctx: typer.Context,
     search: Optional[str] = typer.Option(
         None, "--search", "-s", help="Search bookings by name or id"
     ),
@@ -33,25 +34,21 @@ def list_bookings(
     ),
 ):
     """List all license bookings."""
-
-    async def _list_bookings():
-        client = create_vantage_rest_client()
-        try:
-            params = {}
-            if search:
-                params["search"] = search
-            if sort:
-                params["sort"] = sort
-            if limit is not None:
-                params["limit"] = limit
-            if offset is not None:
-                params["offset"] = offset
-            bookings = await ctx.obj.rest_client.get("/bookings", params=params)
-        finally:
-            # Use UniversalOutputFormatter for consistent list rendering\n            from vantage_cli.render import UniversalOutputFormatter\n            from rich.console import Console\n            console = Console()\n            formatter = UniversalOutputFormatter(console=console, json_output=False)  # TODO: Get actual json_output flag\n            formatter.render_list(\n                data=bookings,\n                resource_name=\"License Bookings\",\n                empty_message=\"No license bookings found.\"\n            )
-            await ctx.obj.rest_client.close()
-
-    asyncio.run(_list_bookings())
+    client = create_vantage_rest_client(ctx)
+    try:
+        params = {}
+        if search:
+            params["search"] = search
+        if sort:
+            params["sort"] = sort
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        bookings = await ctx.obj.rest_client.get("/bookings", params=params)
+    finally:
+        # Use UniversalOutputFormatter for consistent list rendering\n        from vantage_cli.render import UniversalOutputFormatter\n        from rich.console import Console\n        console = Console()\n        formatter = UniversalOutputFormatter(console=console, json_output=False)  # TODO: Get actual json_output flag\n        formatter.render_list(\n            data=bookings,\n            resource_name=\"License Bookings\",\n            empty_message=\"No license bookings found.\"\n        )
+        await ctx.obj.rest_client.close()
 
 
 @app.command("get")
@@ -61,7 +58,7 @@ async def get_booking(
     ctx: typer.Context, booking_id: str = typer.Argument(..., help="Booking ID")
 ):
     """Get a specific license booking by ID."""
-    client = create_vantage_rest_client()
+    client = create_vantage_rest_client(ctx)
     try:
         booking = await ctx.obj.rest_client.get(f"/bookings/{booking_id}")
 
@@ -90,7 +87,7 @@ async def create_booking(
     ),
 ):
     """Create a new license booking."""
-    client = create_vantage_rest_client()
+    client = create_vantage_rest_client(ctx)
     try:
         if json_file:
             if not json_file.exists():
@@ -130,7 +127,7 @@ async def delete_booking(
     ctx: typer.Context, booking_id: str = typer.Argument(..., help="Booking ID")
 ):
     """Delete a license booking."""
-    client = create_vantage_rest_client()
+    client = create_vantage_rest_client(ctx)
     try:
         await ctx.obj.rest_client.delete(f"/bookings/{booking_id}")
 

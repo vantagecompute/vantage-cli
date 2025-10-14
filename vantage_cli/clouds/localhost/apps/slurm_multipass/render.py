@@ -29,8 +29,8 @@ def show_deployment_error(console: Console, cluster_name: str, error: Exception)
     error_msg = str(error)
     if error_msg and not error_msg.isdigit():  # Skip if it's just an exit code like "1"
         console.print(f"[red]Error: {error_msg}[/red]")
-    elif hasattr(error, "message"):
-        console.print(f"[red]Error: {error.message}[/red]")
+    elif hasattr(error, "__dict__") and "message" in error.__dict__:
+        console.print(f"[red]Error: {error.__dict__['message']}[/red]")
 
     console.print()
     console.print("[bold]Troubleshooting Steps:[/bold]")

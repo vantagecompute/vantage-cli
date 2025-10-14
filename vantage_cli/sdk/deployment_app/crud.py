@@ -290,6 +290,9 @@ class DeploymentAppSDK:
                     constants_module = importlib.import_module(
                         f"vantage_cli.clouds.localhost.apps.{app_name}.constants"
                     )
+            else:
+                # External apps - no constants module
+                constants_module = None
 
             return constants_module
         except Exception as e:

@@ -135,8 +135,9 @@ def validate_token_and_extract_identity(token_set: TokenSet) -> IdentityData:
         org_id = organization.get(org_key, {}).get("id", "") if org_key else ""
         logger.debug(f"Extracted org_id: {org_id}")
 
+        email = token_data.get("email") or ""
         identity = IdentityData(
-            email=token_data.get("email"),
+            email=email,
             client_id=token_data.get("azp") or "unknown",
             org_id=org_id,
         )

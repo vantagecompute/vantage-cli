@@ -19,7 +19,11 @@ from vantage_cli.exceptions import handle_abort
 
 @attach_settings
 @handle_abort
-async def create_team(ctx: typer.Context):
+async def create_team(
+    ctx: typer.Context,
+    name: str = typer.Argument(..., help="Name of the team"),
+    description: str = typer.Option(None, help="Description of the team"),
+):
     """Create a new team."""
     # Mock team creation result
     result = {

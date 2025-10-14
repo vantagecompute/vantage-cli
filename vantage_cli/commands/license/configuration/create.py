@@ -47,11 +47,11 @@ async def create_license_configuration(
     }
 
     if max_users is not None:
-        payload["max_users"] = max_users
+        payload["max_users"] = str(max_users)
     if description is not None:
         payload["description"] = description
 
-    response = await ctx.obj.rest_client.post("/configurations", json=config_data)
+    response = await ctx.obj.rest_client.post("/configurations", json=payload)
 
     # Use UniversalOutputFormatter for consistent create rendering
 

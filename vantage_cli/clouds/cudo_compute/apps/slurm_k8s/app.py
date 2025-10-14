@@ -47,6 +47,9 @@ from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 from .constants import APP_NAME, SUBSTRATE
 from .render import success_create_message, success_destroy_message
 
+# TODO: Create bundle_yaml.py with VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML
+# For now, using a placeholder
+VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML: dict[str, Any] = {}
 
 def _build_vantage_jupyterhub_secret_args(ctx: Any) -> list[str]:
     return [
@@ -191,12 +194,18 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         org_id=org_id,
     )
 
+    from vantage_cli.sdk.cloud.crud import cloud_sdk
+    cloud = cloud_sdk.get("cudo")
+    if cloud is None:
+        console.print("[bold red]Error:[/bold red] Cloud 'cudo' not found. Please debug")
+        return typer.Exit(code=1)
+
     deployment = create_deployment_with_init_status(
         app_name=APP_NAME,
         cluster=cluster,
         vantage_cluster_ctx=vantage_cluster_ctx,
         verbose=verbose,
-        cloud_name="localhost",
+        cloud=cloud,
         substrate=SUBSTRATE,
     )
     deployment.write()
@@ -235,9 +244,9 @@ async def create_command(
     cluster = generate_dev_cluster_data(cluster_name)
 
     if not dev_run:
-        from vantage_cli.commands.cluster import utils as cluster_utils
+        from vantage_cli.sdk.cluster.crud import cluster_sdk
 
-        if (cluster := await cluster_utils.get_cluster_by_name(ctx, cluster_name)) is not None:
+        if (cluster := await cluster_sdk.get_cluster_by_name(ctx, cluster_name)) is not None:
             if (extra_attrs := await get_extra_attributes(ctx)) is not None:
                 if (sssd_binder_password := extra_attrs.get("sssd_binder_password")) is not None:
                     cluster.sssd_binder_password = sssd_binder_password

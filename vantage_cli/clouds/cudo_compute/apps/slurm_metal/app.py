@@ -68,11 +68,18 @@ async def _deploy_slurm_metal_cudo(
 
     logger.debug(f"{await cudo_sdk.whoami()}")
 
+    if deployment.additional_metadata is None:
+        raise Exception("Deployment missing additional_metadata")
+    
+    default_datacenter_id = deployment.additional_metadata.get("default_datacenter_id")
+    if default_datacenter_id is None:
+        raise Exception("Missing default_datacenter_id in deployment metadata")
+
     slurm_head_node_init_script = init_script_curl(
         vantage_cluster_ctx=vantage_cluster_ctx,
         cudo_ctx={
             "api_key": cudo_sdk.api_key,
-            "data_center_id": deployment.additional_metadata["cudo_datacenter_id"]
+            "data_center_id": default_datacenter_id
         },
     )
     from pathlib import Path
@@ -82,7 +89,7 @@ async def _deploy_slurm_metal_cudo(
         ctx,
         project_name=deployment.name,
         init_script=slurm_head_node_init_script,
-        data_center_id=deployment.additional_metadata["cudo_datacenter_id"],
+        data_center_id=default_datacenter_id,
     )
     logger.debug(f"Created head node VM: {vm_id}")
 
@@ -132,21 +139,21 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
 
     cudo_credential: Optional[CloudCredential] = cloud_credential_sdk.get_default(cloud_name=CLOUD)
     if cudo_credential is None:
-        logger.debug(f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'")
-        logger.debug(f"Run: vantage cloud credential create --cloud {CLOUD}")
+        console.print(f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'")
+        console.print(f"[dim]Run: vantage cloud credential create --cloud {CLOUD}[/dim]")
         return typer.Exit(code=1)
 
-    cudo_datacenter_id: str = get_datacenter_id_from_credentials()
+    cudo_datacenter_id = get_datacenter_id_from_credentials()
     if cudo_datacenter_id is None:
-        logger.debug(f"[bold red]Error:[/bold red] No default datacenter found for '{CLOUD}'")
-        logger.debug(f"Run: vantage cloud datacenter create --cloud {CLOUD}")
+        console.print(f"[bold red]Error:[/bold red] No default datacenter found for '{CLOUD}'")
+        console.print(f"[dim]Run: vantage cloud datacenter create --cloud {CLOUD}[/dim]")
         return typer.Exit(code=1)
 
     # Get the Cudo Compute cloud configuration
     cloud = cloud_sdk.get(CLOUD)
     if cloud is None:
-        logger.debug(f"[bold red]Error:[/bold red] Cloud '{CLOUD}' not found. Please debug")
-        raise typer.Exit(code=1)
+        console.print(f"[bold red]Error:[/bold red] Cloud '{CLOUD}' not found. Please debug")
+        return typer.Exit(code=1)
 
     deployment = create_deployment_with_init_status(
         app_name=APP_NAME,
@@ -156,7 +163,7 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
         cloud=cloud,
         credential=cudo_credential,
         substrate=SUBSTRATE,
-        additional_metadata={"cudo_datacenter_id": cudo_datacenter_id},
+        additional_metadata={"default_datacenter_id": cudo_datacenter_id},
     )
     deployment.write()
 
@@ -175,7 +182,6 @@ async def create(ctx: typer.Context, cluster: Cluster) -> typer.Exit:
     return typer.Exit(0)
 
 
-# Typer CLI commands
 @handle_abort
 @attach_settings
 @attach_persona
@@ -190,23 +196,23 @@ async def create_command(
     dev_run: Annotated[
         bool, typer.Option("--dev-run", help="Use dummy cluster data for local development")
     ] = False,
-) -> None:
+) -> Optional[typer.Exit]:
     """Create a SLURM on metal Cluster and register it with Vantage."""
     cluster = generate_dev_cluster_data(cluster_name)
 
     if not dev_run:
-        from vantage_cli.commands.cluster import utils as cluster_utils
+        from vantage_cli.sdk.cluster.crud import cluster_sdk
 
-        if (cluster := await cluster_utils.get_cluster_by_name(ctx, cluster_name)) is not None:
+        if (cluster := await cluster_sdk.get_cluster_by_name(ctx, cluster_name)) is not None:
             if (extra_attrs := await get_extra_attributes(ctx)) is not None:
                 if (sssd_binder_password := extra_attrs.get("sssd_binder_password")) is not None:
                     cluster.sssd_binder_password = sssd_binder_password
                 else:
-                    raise typer.Exit(code=1)
+                    return typer.Exit(code=1)
             else:
-                raise typer.Exit(code=1)
+                return typer.Exit(code=1)
         else:
-            raise typer.Exit(code=1)
+            return typer.Exit(code=1)
 
     await create(ctx=ctx, cluster=cluster)
 
@@ -280,26 +286,23 @@ async def _remove_deployment(ctx: typer.Context, deployment: Deployment) -> None
 
 @attach_settings
 @attach_persona
-async def list_vm_datacenters_command(ctx: typer.Context) -> None:
+async def list_vm_datacenters_command(ctx: typer.Context) -> Optional[typer.Exit]:
     """List available Cudo Compute datacenters."""
 
     cudo_credential = cloud_credential_sdk.get_default(cloud_name=CLOUD)
     if cudo_credential is None:
         logger.debug(f"[bold red]Error:[/bold red] No default credential found for '{CLOUD}'")
         logger.debug(f"Run: vantage cloud credential create --cloud {CLOUD}")
-        raise typer.Exit(code=1)
+        return typer.Exit(code=1)
 
     # Initialize Cudo Compute SDK
     cudo_sdk = CudoComputeSDK(api_key=cudo_credential.credentials_data["api_key"])
-    if cudo_sdk is None:
-        logger.debug("[bold red]Error:[/bold red] Failed to initialize Cudo Compute SDK")
-        raise typer.Exit(code=1)
 
     try:
         datacenters = await cudo_sdk.list_vm_data_centers()
     except Exception as e:
         logger.debug(f"[bold red]Error:[/bold red] Failed to list datacenters: {e}")
-        raise typer.Exit(code=1)
+        return typer.Exit(code=1)
 
     if not datacenters:
         logger.debug("No datacenters found.")

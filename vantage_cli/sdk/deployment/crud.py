@@ -166,6 +166,14 @@ class DeploymentSDK:
                 # Already a Cloud object
                 cloud = cloud_data
 
+            # Validate required objects
+            if cluster is None or vantage_cluster_ctx is None or cloud is None:
+                logger.error(
+                    f"Missing required data for deployment {deployment_id}: "
+                    f"cluster={cluster}, vantage_cluster_ctx={vantage_cluster_ctx}, cloud={cloud}"
+                )
+                return None
+
             # Create Deployment object (id is a string)
             return Deployment(
                 id=deployment_id,

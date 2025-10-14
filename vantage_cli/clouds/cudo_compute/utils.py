@@ -14,4 +14,4 @@ def get_datacenter_id_from_credentials() -> Optional[str]:
     if cudo_credential is None:
         return None
 
-    return cudo_credential.credentials_data.get("datacenter_id")
+    return cudo_credential.credentials_data.get("default_datacenter_id")

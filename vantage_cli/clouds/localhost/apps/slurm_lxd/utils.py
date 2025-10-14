@@ -168,7 +168,8 @@ async def is_ready(cluster_data: Dict[str, Any]) -> bool:
                 # Check if at least one unit is active
                 has_active_unit = False
                 for unit in app.units.values():
-                    if unit.workload_status == "active":
+                    workload_status = getattr(unit, 'workload_status', None)
+                    if workload_status == "active":
                         has_active_unit = True
                         break
 

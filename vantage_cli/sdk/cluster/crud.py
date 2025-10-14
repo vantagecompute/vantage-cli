@@ -301,8 +301,15 @@ class ClusterSDK(BaseGraphQLResourceSDK):
         Returns:
             List of Cluster objects
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # Get raw cluster data from the base list method
         clusters_raw = await self.list(ctx, **kwargs)
+        
+        logger.debug(f"list_clusters: Got {len(clusters_raw)} raw clusters from API")
+        if clusters_raw:
+            logger.debug(f"list_clusters: First cluster sample: {clusters_raw[0]}")
 
         clusters: List[Cluster] = []
         for cluster_data in clusters_raw:
@@ -321,10 +328,13 @@ class ClusterSDK(BaseGraphQLResourceSDK):
                     creation_parameters=cluster_data.get("creationParameters", {}),
                 )
                 clusters.append(cluster)
-            except Exception:
+            except Exception as e:
                 # Skip clusters that fail to parse
+                logger.warning(f"list_clusters: Failed to parse cluster {cluster_data.get('name')}: {e}")
+                logger.debug(f"list_clusters: Cluster data that failed: {cluster_data}")
                 continue
 
+        logger.debug(f"list_clusters: Returning {len(clusters)} Cluster objects")
         return clusters
 
     async def get_cluster(

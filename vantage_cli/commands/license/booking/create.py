@@ -26,7 +26,7 @@ async def create_booking(
     ),
 ):
     """Create a new license booking."""
-    client = create_vantage_rest_client()
+    client = create_vantage_rest_client(ctx)
     try:
         if json_file:
             if not json_file.exists():

@@ -314,9 +314,9 @@ async def create_command(
     cluster = generate_dev_cluster_data(cluster_name)
 
     if not dev_run:
-        from vantage_cli.commands.cluster import utils as cluster_utils
+        from vantage_cli.sdk.cluster.crud import cluster_sdk
 
-        if (cluster := await cluster_utils.get_cluster_by_name(ctx, cluster_name)) is not None:
+        if (cluster := await cluster_sdk.get_cluster_by_name(ctx, cluster_name)) is not None:
             if (extra_attrs := await get_extra_attributes(ctx)) is not None:
                 if (sssd_binder_password := extra_attrs.get("sssd_binder_password")) is not None:
                     cluster.sssd_binder_password = sssd_binder_password

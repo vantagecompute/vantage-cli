@@ -170,6 +170,7 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
 
         if app_name not in available_apps:
             ctx.obj.console.print(f"[bold red]✗ App '{app_name}' not found[/bold red]")
+            ctx.obj.console.print(f"[dim]Available apps: {', '.join(available_apps.keys())}[/dim]")
             return
 
         ctx.obj.console.print(
@@ -205,16 +206,34 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
             create_function = getattr(app.module, "create")
 
             # Fetch sssd_binder_password from organization extra attributes
-            # if extra_attrs := await get_extra_attributes(ctx):
-            #    if sssd_binder_password := extra_attrs.get("sssd_binder_password"):
-            #        cluster.sssd_binder_password = sssd_binder_password
-            cluster.sssd_binder_password = "rats"
+            # Temporarily hardcoded - should fetch from organization
+            if not cluster.sssd_binder_password:
+                ctx.obj.console.print(
+                    "[bold yellow]⚠ Using default sssd_binder_password - consider configuring organization settings[/bold yellow]"
+                )
+                cluster.sssd_binder_password = "rats"
 
-            await create_function(ctx, cluster)
+            # Call the create function
+            ctx.obj.console.print(f"[dim]Calling {app.name}.create()...[/dim]")
+            result = await create_function(ctx, cluster)
 
-            ctx.obj.console.print(
-                f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
-            )
+            # Check if the function returned an error exit code
+            if isinstance(result, typer.Exit) and result.exit_code != 0:
+                ctx.obj.console.print(
+                    f"[bold red]✗ App '{app_name}' deployment failed (exit code {result.exit_code})[/bold red]"
+                )
+                ctx.obj.console.print(
+                    "[dim]The cluster was created successfully, but app deployment encountered an error.[/dim]"
+                )
+            elif isinstance(result, typer.Exit) and result.exit_code == 0:
+                ctx.obj.console.print(
+                    f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
+                )
+            else:
+                # No exit code returned, assume success
+                ctx.obj.console.print(
+                    f"[bold green]✓ App '{app_name}' deployment completed![/bold green]"
+                )
         else:
             ctx.obj.console.print(
                 f"[bold yellow]! App '{app_name}' does not support automatic deployment[/bold yellow]"
@@ -224,7 +243,11 @@ async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: 
             )
 
     except Exception as e:
-        ctx.obj.console.print(f"[bold red]✗ Failed to deploy app '{app_name}': {e}[/bold red]")
+        import traceback
+        ctx.obj.console.print(f"[bold red]✗ Failed to deploy app '{app_name}':[/bold red]")
+        ctx.obj.console.print(f"[red]{type(e).__name__}: {e}[/red]")
+        if getattr(ctx.obj, "verbose", False):
+            ctx.obj.console.print(f"[dim]{traceback.format_exc()}[/dim]")
         ctx.obj.console.print(
             "[dim]The cluster was created successfully, but app deployment failed.[/dim]"
         )

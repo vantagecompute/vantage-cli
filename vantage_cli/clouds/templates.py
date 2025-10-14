@@ -155,7 +155,7 @@ sed -i "s|@REAL_MEMORY@|$REAL_MEMORY|g" /etc/slurm/slurm.conf""".strip()
 
     def _generate_sssd_config(self, context: VantageClusterContext) -> List[str]:
         """Generate SSSD configuration."""
-        return generate_sssd_conf(context)
+        return [generate_sssd_conf(context)]
 
 
 def generate_sssd_conf(context: VantageClusterContext) -> str:
