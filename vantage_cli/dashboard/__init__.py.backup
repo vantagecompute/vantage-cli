@@ -360,82 +360,27 @@ class DashboardApp(App):
     #deployments-panel {
         height: 1fr;
         layout: horizontal;
+        border: solid green;
     }
     
     #clusters-panel {
         height: 1fr;
         layout: horizontal;
+        border: solid blue;
     }
     
     #apps-panel {
         height: 1fr;
         layout: horizontal;
+        border: solid yellow;
     }
     
     /* List and details sections within each panel - 50/50 split */
-    #deployments-list {
+    #deployments-list, #clusters-list, #apps-list,
+    #deployment-details, #cluster-details, #app-details {
         width: 50%;
         height: 100%;
-        padding: 0;
-        border: solid $accent;
-        border-title-align: center;
-        border-title-color: $accent;
-        border-title-background: $surface;
-        overflow: auto;
-    }
-    
-    #deployment-details {
-        width: 50%;
-        height: 100%;
-        padding: 0;
-        border: solid $accent;
-        border-title-align: center;
-        border-title-color: $accent;
-        border-title-background: $surface;
-        overflow: auto;
-    }
-    
-    #clusters-list {
-        width: 50%;
-        height: 100%;
-        padding: 0;
-        border: solid $accent;
-        border-title-align: center;
-        border-title-color: $accent;
-        border-title-background: $surface;
-        overflow: auto;
-    }
-    
-    #cluster-details {
-        width: 50%;
-        height: 100%;
-        padding: 0;
-        border: solid $accent;
-        border-title-align: center;
-        border-title-color: $accent;
-        border-title-background: $surface;
-        overflow: auto;
-    }
-    
-    #apps-list {
-        width: 50%;
-        height: 100%;
-        padding: 0;
-        border: solid $accent;
-        border-title-align: center;
-        border-title-color: $accent;
-        border-title-background: $surface;
-        overflow: auto;
-    }
-    
-    #app-details {
-        width: 50%;
-        height: 100%;
-        padding: 0;
-        border: solid $accent;
-        border-title-align: center;
-        border-title-color: $accent;
-        border-title-background: $surface;
+        padding: 1;
         overflow: auto;
     }
     
@@ -666,22 +611,28 @@ class DashboardApp(App):
                                 # Panel 1: Deployments (table + details)
                                 with Horizontal(id="deployments-panel"):
                                     with Vertical(id="deployments-list"):
+                                        yield Static("� Deployments", classes="section-header")
                                         yield DataTable(id="deployments-table", zebra_stripes=True)
                                     with Vertical(id="deployment-details"):
+                                        yield Static("📋 Deployment Details", classes="section-header")
                                         yield DataTable(id="deployment-details-table")
                                 
                                 # Panel 2: Clusters (table + details)
                                 with Horizontal(id="clusters-panel"):
                                     with Vertical(id="clusters-list"):
+                                        yield Static("🖥️  Clusters", classes="section-header")
                                         yield DataTable(id="clusters-table", zebra_stripes=True)
                                     with Vertical(id="cluster-details"):
+                                        yield Static("📋 Cluster Details", classes="section-header")
                                         yield DataTable(id="cluster-details-table")
                                 
                                 # Panel 3: Apps (table + details)
                                 with Horizontal(id="apps-panel"):
                                     with Vertical(id="apps-list"):
+                                        yield Static("📱 Apps", classes="section-header")
                                         yield DataTable(id="apps-table", zebra_stripes=True)
                                     with Vertical(id="app-details"):
+                                        yield Static("📋 App Details", classes="section-header")
                                         yield DataTable(id="app-details-table")
 
                             # Right side: Activity log and platform info (unchanged)
@@ -777,14 +728,6 @@ class DashboardApp(App):
 
     def setup_tables(self):
         """Set up the data tables"""
-        # Set border titles for containers
-        self.query_one("#deployments-list").border_title = "📦 Deployments"
-        self.query_one("#deployment-details").border_title = "📋 Deployment Details"
-        self.query_one("#clusters-list").border_title = "🖥️  Clusters"
-        self.query_one("#cluster-details").border_title = "📋 Cluster Details"
-        self.query_one("#apps-list").border_title = "📱 Apps"
-        self.query_one("#app-details").border_title = "📋 App Details"
-        
         # Initialize Deployments table
         deployments_table = self.query_one("#deployments-table", DataTable)
         deployments_table.add_columns("Name", "App", "Cluster", "Status")

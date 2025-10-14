@@ -54,6 +54,8 @@ from vantage_cli.sdk.cluster import cluster_sdk
 from vantage_cli.sdk.cluster.schema import Cluster
 from vantage_cli.sdk.deployment import deployment_sdk
 from vantage_cli.sdk.deployment.schema import Deployment
+from vantage_cli.sdk.deployment_app import deployment_app_sdk
+from vantage_cli.sdk.deployment_app.schema import DeploymentApp
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -157,6 +159,7 @@ async def cli_dash(
 
     clusters: List[Cluster] = []
     deployments: List[Deployment] = []
+    apps: List[DeploymentApp] = []
 
     try:
         clusters = await cluster_sdk.list_clusters(ctx)
@@ -175,6 +178,14 @@ async def cli_dash(
     except Exception as exc:  # pragma: no cover - defensive branch
         logger.exception("Unexpected error loading deployments")
         typer.echo(f"⚠️ Unexpected error loading deployments: {exc}")
+
+    # Load deployment apps using the SDK
+    try:
+        apps = deployment_app_sdk.list()
+        logger.debug(f"Loaded {len(apps)} deployment apps")
+    except Exception as exc:  # pragma: no cover - defensive branch
+        logger.exception("Unexpected error loading deployment apps")
+        typer.echo(f"⚠️ Unexpected error loading deployment apps: {exc}")
 
     # Build custom handlers for worker execution
     custom_handlers = _build_custom_handlers(clusters, deployments)
@@ -201,6 +212,7 @@ async def cli_dash(
     app_instance = DashboardApp.from_sdk_data(
         clusters=clusters,
         deployments=deployments,
+        apps=apps,
         config=config,
         custom_handlers=custom_handlers or None,
         platform_info=platform_info,
