@@ -285,7 +285,32 @@ class UpdateSupportTicketModal(ModalScreen[Optional[dict]]):
 class SupportTicketManagementTabPane(TabPane):
     """TabPane for managing support tickets with list on left and details on right."""
     
+    DEFAULT_CSS = """
+    SupportTicketManagementTabPane #support-ticket-details-section {
+        height: 30%;
+    }
+    
+    SupportTicketManagementTabPane #support-ticket-comments-section {
+        height: 70%;
+    }
+    
+    SupportTicketManagementTabPane #support-ticket-comments-list-section {
+        width: 40%;
+    }
+    
+    SupportTicketManagementTabPane #support-ticket-comment-detail-section {
+        width: 60%;
+    }
+    
+    SupportTicketManagementTabPane #support-ticket-comment-detail-scroll {
+        height: 100%;
+        border: solid $primary;
+    }
+    """
+    
     selected_ticket: reactive[Optional[SupportTicket]] = reactive(None)
+    selected_comment: reactive[Optional[Comment]] = reactive(None)
+    current_comments: List[Comment] = []
     
     def __init__(self, ctx: Optional[typer.Context] = None, **kwargs):
         super().__init__("🎫 Support", id="support-ticket-tab", **kwargs)
@@ -342,11 +367,18 @@ class SupportTicketManagementTabPane(TabPane):
                     yield Static("📄 Ticket Details", classes="subsection-header")
                     yield Static("Select a ticket to view details", id="support-ticket-details")
                 
-                # Comments section
+                # Comments section (split into comment list and comment detail)
                 with Vertical(id="support-ticket-comments-section"):
                     yield Static("💬 Comments", classes="subsection-header")
-                    with ScrollableContainer(id="support-ticket-comments-scroll"):
-                        yield Static("No comments to display", id="support-ticket-comments-display")
+                    with Horizontal(id="support-ticket-comments-content"):
+                        # Comment list (left)
+                        with Vertical(id="support-ticket-comments-list-section"):
+                            yield DataTable(id="support-ticket-comments-table", zebra_stripes=True, cursor_type="row", show_header=True)
+                        
+                        # Comment detail (right)
+                        with Vertical(id="support-ticket-comment-detail-section"):
+                            with ScrollableContainer(id="support-ticket-comment-detail-scroll"):
+                                yield Static("Select a comment to view details", id="support-ticket-comment-detail")
         
         # Action buttons
         with Horizontal(id="support-ticket-actions"):
@@ -359,6 +391,9 @@ class SupportTicketManagementTabPane(TabPane):
         
         # Setup the tickets table
         self.setup_tickets_table()
+        
+        # Setup the comments table
+        self.setup_comments_table()
         
         # Load tickets
         self.refresh_tickets()
@@ -382,6 +417,23 @@ class SupportTicketManagementTabPane(TabPane):
             logger.debug("Support tickets table setup complete.")
         except Exception as e:
             logger.error(f"Failed to setup tickets table: {e}")
+    
+    def setup_comments_table(self) -> None:
+        """Setup the comments table with columns."""
+        try:
+            comments_table = self.query_one("#support-ticket-comments-table", DataTable)
+            comments_table.clear(columns=True)
+            
+            # Add columns
+            comments_table.add_column("User", key="user", width=20)
+            comments_table.add_column("Time", key="time", width=20)
+            
+            comments_table.cursor_type = "row"
+            comments_table.show_cursor = True
+            
+            logger.debug("Comments table setup complete.")
+        except Exception as e:
+            logger.error(f"Failed to setup comments table: {e}")
     
     @work(exclusive=True)
     async def load_ticket_comments(self, ticket_id: str) -> None:
