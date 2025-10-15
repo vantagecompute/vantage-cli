@@ -22,6 +22,7 @@ from typing_extensions import Annotated
 from vantage_cli.config import attach_graphql_client, attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
+from vantage_cli.sdk.support_ticket.schema import SeverityLevel
 
 
 @handle_abort
@@ -34,14 +35,22 @@ async def create_support_ticket(
         str, typer.Option("--description", "-d", help="Ticket description", prompt=True)
     ],
     priority: Annotated[
-        Optional[str],
-        typer.Option("--priority", help="Ticket priority (low, medium, high, critical)"),
-    ] = "medium",
+        str,
+        typer.Option("--priority", help="Ticket priority (LOW, MEDIUM, HIGH, CRITICAL)"),
+    ] = "MEDIUM",
 ):
     """Create a new support ticket."""
     # Use UniversalOutputFormatter for consistent output
 
     try:
+        # Validate and convert priority to uppercase enum value
+        priority = priority.upper()
+        if priority not in [p.value for p in SeverityLevel]:
+            raise Abort(
+                f"Invalid priority '{priority}'. Must be one of: {', '.join([p.value for p in SeverityLevel])}",
+                subject="Invalid Priority"
+            )
+        
         # Use SDK to create support ticket
         logger.debug(f"Creating support ticket with title '{title}'")
         ticket = await support_ticket_sdk.create_ticket(
@@ -53,8 +62,8 @@ async def create_support_ticket(
             "id": ticket.id,
             "title": ticket.title,
             "description": ticket.description,
-            "status": ticket.status,
-            "priority": ticket.priority,
+            "status": ticket.status.value,
+            "priority": ticket.priority.value,
             "user_email": ticket.user_email,
             "created_at": ticket.created_at,
         }

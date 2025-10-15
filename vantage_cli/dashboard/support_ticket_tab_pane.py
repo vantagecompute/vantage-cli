@@ -29,7 +29,7 @@ from textual.reactive import reactive
 from textual.widgets import Button, DataTable, Input, Label, Static, TabPane, Select, TextArea
 from textual.screen import ModalScreen
 
-from vantage_cli.sdk.support_ticket.schema import SupportTicket
+from vantage_cli.sdk.support_ticket.schema import SupportTicket, TicketStatus, SeverityLevel
 from vantage_cli.sdk.support_ticket.crud import SupportTicketSDK
 
 
@@ -105,12 +105,12 @@ class CreateSupportTicketModal(ModalScreen[Optional[dict]]):
             yield Label("Priority:")
             yield Select(
                 options=[
-                    ("Low", "low"),
-                    ("Medium", "medium"),
-                    ("High", "high"),
-                    ("Critical", "critical"),
+                    ("Low", SeverityLevel.LOW.value),
+                    ("Medium", SeverityLevel.MEDIUM.value),
+                    ("High", SeverityLevel.HIGH.value),
+                    ("Critical", SeverityLevel.CRITICAL.value),
                 ],
-                value="medium",
+                value=SeverityLevel.MEDIUM.value,
                 id="priority-select",
             )
             
@@ -226,23 +226,23 @@ class UpdateSupportTicketModal(ModalScreen[Optional[dict]]):
             yield Label("Status:")
             yield Select(
                 options=[
-                    ("Open", "open"),
-                    ("In Progress", "in_progress"),
-                    ("Closed", "closed"),
+                    ("Open", TicketStatus.OPEN.value),
+                    ("In Progress", TicketStatus.IN_PROGRESS.value),
+                    ("Closed", TicketStatus.CLOSED.value),
                 ],
-                value=self.ticket.status or "open",
+                value=self.ticket.status.value,
                 id="status-select",
             )
             
             yield Label("Priority:")
             yield Select(
                 options=[
-                    ("Low", "low"),
-                    ("Medium", "medium"),
-                    ("High", "high"),
-                    ("Critical", "critical"),
+                    ("Low", SeverityLevel.LOW.value),
+                    ("Medium", SeverityLevel.MEDIUM.value),
+                    ("High", SeverityLevel.HIGH.value),
+                    ("Critical", SeverityLevel.CRITICAL.value),
                 ],
-                value=self.ticket.priority or "medium",
+                value=self.ticket.priority.value,
                 id="priority-select",
             )
             
@@ -284,41 +284,6 @@ class UpdateSupportTicketModal(ModalScreen[Optional[dict]]):
 class SupportTicketManagementTabPane(TabPane):
     """TabPane for managing support tickets with list on left and details on right."""
     
-    DEFAULT_CSS = """
-    SupportTicketManagementTabPane {
-        height: 100%;
-    }
-    
-    #support-ticket-status-bar {
-        height: auto;
-        padding: 1;
-    }
-    
-    #support-ticket-content {
-        height: 1fr;
-    }
-    
-    #support-tickets-section {
-        width: 60%;
-    }
-    
-    #support-ticket-details-section {
-        width: 40%;
-        border-left: solid $primary;
-        padding: 1;
-    }
-    
-    #support-ticket-actions {
-        height: auto;
-        padding: 1;
-    }
-    
-    #support-ticket-filters {
-        height: auto;
-        padding: 1;
-    }
-    """
-    
     selected_ticket: reactive[Optional[SupportTicket]] = reactive(None)
     
     def __init__(self, ctx: Optional[typer.Context] = None, **kwargs):
@@ -329,56 +294,58 @@ class SupportTicketManagementTabPane(TabPane):
     
     def compose(self) -> ComposeResult:
         """Create the tab pane layout."""
-        with Vertical():
-            yield Static("🎫 Support Ticket Management", classes="section-header")
+        yield Static("🎫 Support Ticket Management", classes="section-header")
+        
+        # Status and refresh section
+        with Horizontal(id="support-ticket-status-bar"):
+            yield Static("Status: Ready", id="ticket-status")
+            yield Button("🔄 Update", id="refresh-tickets-btn", variant="primary")
+        
+        # Filters
+        with Horizontal(id="support-ticket-filters"):
+            yield Label("Status:")
+            yield Select(
+                options=[
+                    ("All", "all"),
+                    ("Open", TicketStatus.OPEN.value),
+                    ("In Progress", TicketStatus.IN_PROGRESS.value),
+                    ("Closed", TicketStatus.CLOSED.value),
+                ],
+                value="all",
+                id="status-filter",
+            )
+            yield Label("Priority:")
+            yield Select(
+                options=[
+                    ("All", "all"),
+                    ("Low", SeverityLevel.LOW.value),
+                    ("Medium", SeverityLevel.MEDIUM.value),
+                    ("High", SeverityLevel.HIGH.value),
+                    ("Critical", SeverityLevel.CRITICAL.value),
+                ],
+                value="all",
+                id="priority-filter",
+            )
+        
+        # Main content area - split into left and right panels
+        with Horizontal(id="support-ticket-content"):
+            # Left panel: Ticket list
+            with Vertical(id="support-tickets-section"):
+                yield Static("📋 Support Tickets", classes="subsection-header")
+                yield DataTable(id="support-tickets-table", zebra_stripes=True, cursor_type="row")
             
-            # Status and refresh section
-            with Horizontal(id="support-ticket-status-bar"):
-                yield Static("Status: Ready", id="ticket-status")
-                yield Button("🔄 Refresh", id="refresh-tickets-btn", variant="primary")
-            
-            # Filters
-            with Horizontal(id="support-ticket-filters"):
-                yield Label("Status:")
-                yield Select(
-                    options=[
-                        ("All", "all"),
-                        ("Open", "open"),
-                        ("In Progress", "in_progress"),
-                        ("Closed", "closed"),
-                    ],
-                    value="all",
-                    id="status-filter",
-                )
-                yield Label("Priority:")
-                yield Select(
-                    options=[
-                        ("All", "all"),
-                        ("Low", "low"),
-                        ("Medium", "medium"),
-                        ("High", "high"),
-                        ("Critical", "critical"),
-                    ],
-                    value="all",
-                    id="priority-filter",
-                )
-            
-            # Main content area - split into left and right panels
-            with Horizontal(id="support-ticket-content"):
-                # Left panel: Ticket list
-                with Vertical(id="support-tickets-section"):
-                    yield Static("📋 Support Tickets", classes="subsection-header")
-                    yield DataTable(id="support-tickets-table", zebra_stripes=True, cursor_type="row")
+            # Right panel: Ticket details and comments
+            with Vertical(id="support-ticket-details-section"):
+                yield Static("📄 Ticket Details", classes="subsection-header")
+                yield Static("Select a ticket to view details", id="support-ticket-details")
                 
-                # Right panel: Ticket details
-                with Vertical(id="support-ticket-details-section"):
-                    yield Static("📄 Ticket Details", classes="subsection-header")
-                    yield Static("Select a ticket to view details", id="support-ticket-details")
-            
-            # Action buttons
-            with Horizontal(id="support-ticket-actions"):
-                yield Button("➕ Create", id="create-ticket-btn", variant="success")
-                yield Button("✏️ Update", id="update-ticket-btn", variant="primary", disabled=True)
+                yield Static("💬 Comments", classes="subsection-header")
+                yield DataTable(id="support-ticket-comments-table", zebra_stripes=True)
+        
+        # Action buttons
+        with Horizontal(id="support-ticket-actions"):
+            yield Button("➕ Create", id="create-ticket-btn", variant="success")
+            yield Button("✏️ Update", id="update-ticket-btn", variant="primary", disabled=True)
     
     def on_mount(self) -> None:
         """Initialize the tab pane when mounted."""
@@ -386,6 +353,9 @@ class SupportTicketManagementTabPane(TabPane):
         
         # Setup the tickets table
         self.setup_tickets_table()
+        
+        # Setup the comments table
+        self.setup_comments_table()
         
         # Load tickets
         self.refresh_tickets()
@@ -409,6 +379,76 @@ class SupportTicketManagementTabPane(TabPane):
             logger.debug("Support tickets table setup complete.")
         except Exception as e:
             logger.error(f"Failed to setup tickets table: {e}")
+    
+    def setup_comments_table(self) -> None:
+        """Setup the comments table with columns."""
+        try:
+            comments_table = self.query_one("#support-ticket-comments-table", DataTable)
+            comments_table.clear(columns=True)
+            
+            # Add columns
+            comments_table.add_column("User", key="user", width=20)
+            comments_table.add_column("Comment", key="comment", width=50)
+            comments_table.add_column("Time", key="time", width=20)
+            
+            logger.debug("Comments table setup complete.")
+        except Exception as e:
+            logger.error(f"Failed to setup comments table: {e}")
+    
+    @work(exclusive=True)
+    async def load_ticket_comments(self, ticket_id: str) -> None:
+        """Load and display comments for a specific ticket."""
+        if not self.ctx:
+            logger.warning("No context available for loading comments")
+            return
+        
+        try:
+            # Clear the comments table
+            comments_table = self.query_one("#support-ticket-comments-table", DataTable)
+            comments_table.clear()
+            
+            # Fetch comments from API
+            comments = await self.support_ticket_sdk.list_comments(self.ctx, ticket_id)
+            
+            if not comments:
+                comments_table.add_row("No comments", "", "")
+                logger.debug(f"No comments found for ticket {ticket_id}")
+                return
+            
+            # Add comments to the table
+            for comment in comments:
+                # Truncate comment text if too long
+                comment_text = comment.raw_text or ""
+                if len(comment_text) > 100:
+                    comment_text = comment_text[:97] + "..."
+                
+                # Format timestamp
+                created_time = comment.created_at or "Unknown"
+                if created_time != "Unknown":
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(created_time.replace('Z', '+00:00'))
+                        created_time = dt.strftime("%Y-%m-%d %H:%M")
+                    except Exception:
+                        pass
+                
+                comments_table.add_row(
+                    comment.user_email or "Unknown",
+                    comment_text,
+                    created_time,
+                )
+            
+            logger.debug(f"Loaded {len(comments)} comments for ticket {ticket_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to load comments for ticket {ticket_id}: {e}")
+            # Show error in the table
+            try:
+                comments_table = self.query_one("#support-ticket-comments-table", DataTable)
+                comments_table.clear()
+                comments_table.add_row("Error loading comments", str(e), "")
+            except Exception:
+                pass
     
     @work(exclusive=True)
     async def refresh_tickets(self) -> None:
@@ -474,8 +514,8 @@ class SupportTicketManagementTabPane(TabPane):
                 tickets_table.add_row(
                     ticket.id[:8] if len(ticket.id) > 8 else ticket.id,
                     ticket.title,
-                    ticket.status or "open",
-                    ticket.priority or "medium",
+                    ticket.status.value,
+                    ticket.priority.value,
                     created_at,
                     key=ticket.id,
                 )
@@ -496,6 +536,9 @@ class SupportTicketManagementTabPane(TabPane):
             if selected_ticket:
                 self.selected_ticket = selected_ticket
                 self.update_ticket_details(selected_ticket)
+                
+                # Load comments for the selected ticket
+                self.load_ticket_comments(selected_ticket.id)
                 
                 # Enable the update button
                 try:
@@ -518,8 +561,8 @@ class SupportTicketManagementTabPane(TabPane):
 
 [cyan]ID:[/cyan] {ticket.id}
 [cyan]Title:[/cyan] {ticket.title}
-[cyan]Status:[/cyan] {ticket.status or 'open'}
-[cyan]Priority:[/cyan] {ticket.priority or 'medium'}
+[cyan]Status:[/cyan] {ticket.status.value}
+[cyan]Priority:[/cyan] {ticket.priority.value}
 
 [bold]Description:[/bold]
 {ticket.description or 'No description'}
@@ -598,7 +641,8 @@ class SupportTicketManagementTabPane(TabPane):
         
         def handle_ticket_update(update_data: Optional[dict]) -> None:
             if update_data:
-                # Use a worker to update the ticket
+                # The @work decorator on update_ticket_from_modal makes it return a Worker
+                # Just call it directly - no need for run_worker or await
                 self.update_ticket_from_modal(update_data)
         
         self.app.push_screen(
@@ -632,8 +676,8 @@ class SupportTicketManagementTabPane(TabPane):
                 timeout=5
             )
             
-            # Refresh the list
-            await self.refresh_tickets()
+            # Refresh the list - just call it to start the worker, don't await
+            self.refresh_tickets()
             
             # Update the selected ticket
             self.selected_ticket = updated_ticket

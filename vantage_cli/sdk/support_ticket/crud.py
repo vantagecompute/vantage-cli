@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 import typer
 
 from vantage_cli.exceptions import Abort
-from vantage_cli.sdk.support_ticket.schema import Attachment, Comment, SupportTicket
+from vantage_cli.sdk.support_ticket.schema import Attachment, Comment, SupportTicket, TicketStatus, SeverityLevel
 from vantage_cli.gql_client import VantageGQLClient, VantageGraphQLClient
 from vantage_cli.schemas import CliContext
 
@@ -137,8 +137,8 @@ class SupportTicketSDK:
                     id=str(ticket_dict.get("id", "")),
                     title=ticket_dict.get("title", ""),
                     description=ticket_dict.get("description", ""),
-                    status=ticket_dict.get("status", ""),
-                    priority=ticket_dict.get("priority", ""),
+                    status=TicketStatus(ticket_dict.get("status", TicketStatus.OPEN.value)),
+                    priority=SeverityLevel(ticket_dict.get("priority", SeverityLevel.MEDIUM.value)),
                     user_email=ticket_dict.get("userEmail", ""),
                     assigned_to=ticket_dict.get("assignedTo"),
                     created_at=ticket_dict.get("createdAt", ""),
@@ -226,7 +226,7 @@ class SupportTicketSDK:
             "input": {
                 "title": title,
                 "description": description,
-                "priority": priority.upper() if priority else "MEDIUM",
+                "priority": priority if priority else SeverityLevel.MEDIUM.value,
             }
         }
 
@@ -252,8 +252,8 @@ class SupportTicketSDK:
                 id=str(ticket_dict.get("id", "")),
                 title=ticket_dict.get("title", ""),
                 description=ticket_dict.get("description", ""),
-                status=ticket_dict.get("status", ""),
-                priority=ticket_dict.get("priority", ""),
+                status=TicketStatus(ticket_dict.get("status", TicketStatus.OPEN.value)),
+                priority=SeverityLevel(ticket_dict.get("priority", SeverityLevel.MEDIUM.value)),
                 user_email=ticket_dict.get("userEmail", ""),
                 assigned_to=ticket_dict.get("assignedTo"),
                 created_at=ticket_dict.get("createdAt", ""),
@@ -296,35 +296,30 @@ class SupportTicketSDK:
             Updated SupportTicket object
         """
         mutation = """
-        mutation UpdateTicket($id: Int!, $input: UpdateTicketInput!) {
-            updateTicket(id: $id, input: $input) {
-                id
-                title
-                description
-                status
-                priority
-                userEmail
-                assignedTo
-                createdAt
-                updatedAt
+        mutation UpdateTicket($ticketId: Int!, $updateSupportTicketInput: UpdateSupportTicket!) {
+            updateSupportTicket(ticketId: $ticketId, updateSupportTicketInput: $updateSupportTicketInput) {
+                message
             }
         }
         """
 
         # Build input with only provided fields
+        # Note: Backend only accepts description in UpdateSupportTicket input
         input_data: Dict[str, Any] = {}
-        if title is not None:
-            input_data["title"] = title
         if description is not None:
             input_data["description"] = description
+        
+        # TODO: title, status, and priority might need separate mutation or different approach
+        if title is not None:
+            logger.warning("Updating title is not currently supported by the backend")
         if status is not None:
-            input_data["status"] = status.upper()
+            logger.warning("Updating status is not currently supported by the backend")
         if priority is not None:
-            input_data["priority"] = priority.upper()
+            logger.warning("Updating priority is not currently supported by the backend")
 
         variables: Dict[str, Any] = {
-            "id": int(ticket_id),
-            "input": input_data,
+            "ticketId": int(ticket_id),
+            "updateSupportTicketInput": input_data,
         }
 
         try:
@@ -335,30 +330,30 @@ class SupportTicketSDK:
             logger.debug(f"Executing GraphQL mutation to update support ticket '{ticket_id}'")
             response_data = await graphql_client.execute_async(mutation, variables)
 
-            if not response_data or not response_data.get("updateTicket"):
+            if not response_data or not response_data.get("updateSupportTicket"):
                 raise Abort(
                     f"Failed to update support ticket '{ticket_id}': No response from server",
                     subject="Mutation Failed",
                     log_message="GraphQL mutation returned no data",
                 )
 
-            ticket_dict = response_data["updateTicket"]
+            update_response = response_data["updateSupportTicket"]
+            message = update_response.get("message", "")
+            logger.debug(f"Update response: {message}")
 
-            # Map to SupportTicket object
-            ticket = SupportTicket(
-                id=str(ticket_dict.get("id", "")),
-                title=ticket_dict.get("title", ""),
-                description=ticket_dict.get("description", ""),
-                status=ticket_dict.get("status", ""),
-                priority=ticket_dict.get("priority", ""),
-                user_email=ticket_dict.get("userEmail", ""),
-                assigned_to=ticket_dict.get("assignedTo"),
-                created_at=ticket_dict.get("createdAt", ""),
-                updated_at=ticket_dict.get("updatedAt", ""),
-            )
+            # Refetch the ticket to get updated data
+            # The mutation only returns a message, not the full ticket object
+            updated_ticket = await self.get_ticket(ctx, ticket_id)
+            
+            if not updated_ticket:
+                raise Abort(
+                    f"Failed to retrieve updated ticket '{ticket_id}' after update",
+                    subject="Refetch Failed",
+                    log_message="Could not retrieve ticket after successful update",
+                )
 
             logger.debug(f"Successfully updated support ticket '{ticket_id}'")
-            return ticket
+            return updated_ticket
 
         except Abort:
             raise

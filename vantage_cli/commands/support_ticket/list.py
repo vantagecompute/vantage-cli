@@ -22,6 +22,7 @@ from typing_extensions import Annotated
 from vantage_cli.config import attach_graphql_client, attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
+from vantage_cli.sdk.support_ticket.schema import TicketStatus, SeverityLevel
 
 
 @handle_abort
@@ -31,11 +32,11 @@ async def list_support_tickets(
     ctx: typer.Context,
     status: Annotated[
         Optional[str],
-        typer.Option("--status", "-s", help="Filter by status (open, in_progress, closed)"),
+        typer.Option("--status", "-s", help="Filter by status (OPEN, IN_PROGRESS, CLOSED)"),
     ] = None,
     priority: Annotated[
         Optional[str],
-        typer.Option("--priority", help="Filter by priority (low, medium, high, critical)"),
+        typer.Option("--priority", help="Filter by priority (LOW, MEDIUM, HIGH, CRITICAL)"),
     ] = None,
     limit: Annotated[
         Optional[int], typer.Option("--limit", "-l", help="Maximum number of tickets to return")
@@ -45,6 +46,23 @@ async def list_support_tickets(
     # Use UniversalOutputFormatter for consistent output
 
     try:
+        # Validate and convert status/priority to uppercase enum values if provided
+        if status is not None:
+            status = status.upper()
+            if status not in [s.value for s in TicketStatus]:
+                raise Abort(
+                    f"Invalid status '{status}'. Must be one of: {', '.join([s.value for s in TicketStatus])}",
+                    subject="Invalid Status"
+                )
+        
+        if priority is not None:
+            priority = priority.upper()
+            if priority not in [p.value for p in SeverityLevel]:
+                raise Abort(
+                    f"Invalid priority '{priority}'. Must be one of: {', '.join([p.value for p in SeverityLevel])}",
+                    subject="Invalid Priority"
+                )
+        
         # Use the SDK to get support tickets
         logger.debug("Using SDK to list support tickets")
         tickets = await support_ticket_sdk.list_tickets(
@@ -63,8 +81,8 @@ async def list_support_tickets(
             ticket_dict = {
                 "id": ticket.id,
                 "title": ticket.title,
-                "status": ticket.status,
-                "priority": ticket.priority,
+                "status": ticket.status.value,
+                "priority": ticket.priority.value,
                 "user_email": ticket.user_email,
                 "created_at": ticket.created_at,
                 "updated_at": ticket.updated_at,

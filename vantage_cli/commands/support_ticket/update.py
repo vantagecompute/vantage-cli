@@ -22,6 +22,7 @@ from typing_extensions import Annotated
 from vantage_cli.config import attach_graphql_client, attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
+from vantage_cli.sdk.support_ticket.schema import TicketStatus, SeverityLevel
 
 
 @handle_abort
@@ -37,17 +38,34 @@ async def update_support_ticket(
         Optional[str], typer.Option("--description", "-d", help="New ticket description")
     ] = None,
     status: Annotated[
-        Optional[str], typer.Option("--status", help="New status (open, in_progress, closed)")
+        Optional[str], typer.Option("--status", help="New status (OPEN, IN_PROGRESS, CLOSED)")
     ] = None,
     priority: Annotated[
         Optional[str],
-        typer.Option("--priority", help="New priority (low, medium, high, critical)"),
+        typer.Option("--priority", help="New priority (LOW, MEDIUM, HIGH, CRITICAL)"),
     ] = None,
 ):
     """Update a support ticket."""
     # Use UniversalOutputFormatter for consistent output
 
     try:
+        # Validate and convert status/priority to uppercase enum values if provided
+        if status is not None:
+            status = status.upper()
+            if status not in [s.value for s in TicketStatus]:
+                raise Abort(
+                    f"Invalid status '{status}'. Must be one of: {', '.join([s.value for s in TicketStatus])}",
+                    subject="Invalid Status"
+                )
+        
+        if priority is not None:
+            priority = priority.upper()
+            if priority not in [p.value for p in SeverityLevel]:
+                raise Abort(
+                    f"Invalid priority '{priority}'. Must be one of: {', '.join([p.value for p in SeverityLevel])}",
+                    subject="Invalid Priority"
+                )
+        
         # Use SDK to update support ticket
         logger.debug(f"Updating support ticket '{ticket_id}'")
         ticket = await support_ticket_sdk.update_ticket(
@@ -64,8 +82,8 @@ async def update_support_ticket(
             "id": ticket.id,
             "title": ticket.title,
             "description": ticket.description,
-            "status": ticket.status,
-            "priority": ticket.priority,
+            "status": ticket.status.value,
+            "priority": ticket.priority.value,
             "user_email": ticket.user_email,
             "updated_at": ticket.updated_at,
         }

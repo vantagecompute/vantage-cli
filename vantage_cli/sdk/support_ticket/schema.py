@@ -11,9 +11,25 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Support ticket schemas for the Vantage CLI."""
 
+from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel
+
+
+class TicketStatus(str, Enum):
+    """Ticket status values matching the SOS GraphQL API TicketStatus enum."""
+    OPEN = "OPEN"
+    IN_PROGRESS = "IN_PROGRESS"
+    CLOSED = "CLOSED"
+
+
+class SeverityLevel(str, Enum):
+    """Severity level values matching the SOS GraphQL API SeverityLevel enum."""
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
 
 
 class SupportTicket(BaseModel):
@@ -24,7 +40,7 @@ class SupportTicket(BaseModel):
     - id: Int! (ticket ID)
     - title: String! (ticket subject/title)
     - description: String! (ticket description)
-    - status: TicketStatus! (OPEN, IN_PROGRESS, CLOSED, etc.)
+    - status: TicketStatus! (OPEN, IN_PROGRESS, CLOSED)
     - priority: SeverityLevel! (LOW, MEDIUM, HIGH, CRITICAL)
     - userEmail: String! (email of ticket creator)
     - assignedTo: String (email of assigned user, optional)
@@ -35,8 +51,8 @@ class SupportTicket(BaseModel):
     id: str
     title: str  # API field: 'title'
     description: str
-    status: str  # e.g., "OPEN", "IN_PROGRESS", "CLOSED"
-    priority: str  # e.g., "LOW", "MEDIUM", "HIGH", "CRITICAL"
+    status: TicketStatus  # API enum: OPEN, IN_PROGRESS, CLOSED
+    priority: SeverityLevel  # API enum: LOW, MEDIUM, HIGH, CRITICAL
     user_email: str  # API field: 'userEmail'
     assigned_to: Optional[str] = None  # API field: 'assignedTo'
     created_at: str  # API field: 'createdAt'
