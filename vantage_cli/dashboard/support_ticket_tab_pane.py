@@ -29,8 +29,9 @@ from textual.reactive import reactive
 from textual.widgets import Button, DataTable, Input, Label, Static, TabPane, Select, TextArea
 from textual.screen import ModalScreen
 
-from vantage_cli.sdk.support_ticket.schema import SupportTicket, TicketStatus, SeverityLevel
+from vantage_cli.sdk.support_ticket.schema import SupportTicket, TicketStatus, SeverityLevel, Comment
 from vantage_cli.sdk.support_ticket.crud import SupportTicketSDK
+
 
 
 class CreateSupportTicketModal(ModalScreen[Optional[dict]]):
@@ -334,13 +335,17 @@ class SupportTicketManagementTabPane(TabPane):
                 yield Static("📋 Support Tickets", classes="subsection-header")
                 yield DataTable(id="support-tickets-table", zebra_stripes=True, cursor_type="row")
             
-            # Right panel: Ticket details and comments
-            with Vertical(id="support-ticket-details-section"):
-                yield Static("📄 Ticket Details", classes="subsection-header")
-                yield Static("Select a ticket to view details", id="support-ticket-details")
+            # Right panel: Ticket details and comments (vertically stacked)
+            with Vertical(id="support-ticket-right-panel"):
+                # Ticket details section
+                with Vertical(id="support-ticket-details-section"):
+                    yield Static("📄 Ticket Details", classes="subsection-header")
+                    yield Static("Select a ticket to view details", id="support-ticket-details")
                 
-                yield Static("💬 Comments", classes="subsection-header")
-                yield DataTable(id="support-ticket-comments-table", zebra_stripes=True)
+                # Comments section
+                with Vertical(id="support-ticket-comments-section"):
+                    yield Static("💬 Comments", classes="subsection-header")
+                    yield Static("No comments to display", id="support-ticket-comments-display")
         
         # Action buttons
         with Horizontal(id="support-ticket-actions"):
@@ -353,9 +358,6 @@ class SupportTicketManagementTabPane(TabPane):
         
         # Setup the tickets table
         self.setup_tickets_table()
-        
-        # Setup the comments table
-        self.setup_comments_table()
         
         # Load tickets
         self.refresh_tickets()
@@ -398,6 +400,8 @@ class SupportTicketManagementTabPane(TabPane):
     @work(exclusive=True)
     async def load_ticket_comments(self, ticket_id: str) -> None:
         """Load and display comments for a specific ticket."""
+        logger.debug(f"load_ticket_comments called for ticket {ticket_id}")
+        
         if not self.ctx:
             logger.warning("No context available for loading comments")
             return
@@ -405,18 +409,22 @@ class SupportTicketManagementTabPane(TabPane):
         try:
             # Clear the comments table
             comments_table = self.query_one("#support-ticket-comments-table", DataTable)
+            logger.debug(f"Found comments table, clearing it")
             comments_table.clear()
             
             # Fetch comments from API
+            logger.debug(f"Fetching comments for ticket {ticket_id}")
             comments = await self.support_ticket_sdk.list_comments(self.ctx, ticket_id)
+            logger.debug(f"Received {len(comments) if comments else 0} comments")
             
             if not comments:
+                logger.debug("No comments found, adding placeholder row")
                 comments_table.add_row("No comments", "", "")
                 logger.debug(f"No comments found for ticket {ticket_id}")
                 return
             
             # Add comments to the table
-            for comment in comments:
+            for idx, comment in enumerate(comments):
                 # Truncate comment text if too long
                 comment_text = comment.raw_text or ""
                 if len(comment_text) > 100:
@@ -432,16 +440,20 @@ class SupportTicketManagementTabPane(TabPane):
                     except Exception:
                         pass
                 
+                logger.debug(f"Adding comment {idx+1}: user={comment.user_email}, text_len={len(comment_text)}, time={created_time}")
                 comments_table.add_row(
                     comment.user_email or "Unknown",
                     comment_text,
                     created_time,
                 )
             
-            logger.debug(f"Loaded {len(comments)} comments for ticket {ticket_id}")
+            logger.debug(f"Successfully loaded {len(comments)} comments for ticket {ticket_id} into table")
+            logger.debug(f"Comments table now has {comments_table.row_count} rows")
             
         except Exception as e:
             logger.error(f"Failed to load comments for ticket {ticket_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             # Show error in the table
             try:
                 comments_table = self.query_one("#support-ticket-comments-table", DataTable)
