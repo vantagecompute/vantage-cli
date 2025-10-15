@@ -24,7 +24,7 @@ import logging
 logger = logging.getLogger(__name__)
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, Vertical, ScrollableContainer
 from textual.reactive import reactive
 from textual.widgets import Button, DataTable, Input, Label, Static, TabPane, Select, TextArea
 from textual.screen import ModalScreen
@@ -345,7 +345,8 @@ class SupportTicketManagementTabPane(TabPane):
                 # Comments section
                 with Vertical(id="support-ticket-comments-section"):
                     yield Static("💬 Comments", classes="subsection-header")
-                    yield Static("No comments to display", id="support-ticket-comments-display")
+                    with ScrollableContainer(id="support-ticket-comments-scroll"):
+                        yield Static("No comments to display", id="support-ticket-comments-display")
         
         # Action buttons
         with Horizontal(id="support-ticket-actions"):
@@ -382,21 +383,6 @@ class SupportTicketManagementTabPane(TabPane):
         except Exception as e:
             logger.error(f"Failed to setup tickets table: {e}")
     
-    def setup_comments_table(self) -> None:
-        """Setup the comments table with columns."""
-        try:
-            comments_table = self.query_one("#support-ticket-comments-table", DataTable)
-            comments_table.clear(columns=True)
-            
-            # Add columns
-            comments_table.add_column("User", key="user", width=20)
-            comments_table.add_column("Comment", key="comment", width=50)
-            comments_table.add_column("Time", key="time", width=20)
-            
-            logger.debug("Comments table setup complete.")
-        except Exception as e:
-            logger.error(f"Failed to setup comments table: {e}")
-    
     @work(exclusive=True)
     async def load_ticket_comments(self, ticket_id: str) -> None:
         """Load and display comments for a specific ticket."""
@@ -407,10 +393,9 @@ class SupportTicketManagementTabPane(TabPane):
             return
         
         try:
-            # Clear the comments table
-            comments_table = self.query_one("#support-ticket-comments-table", DataTable)
-            logger.debug(f"Found comments table, clearing it")
-            comments_table.clear()
+            # Get the comments display widget
+            comments_display = self.query_one("#support-ticket-comments-display", Static)
+            logger.debug(f"Found comments display widget")
             
             # Fetch comments from API
             logger.debug(f"Fetching comments for ticket {ticket_id}")
@@ -418,18 +403,13 @@ class SupportTicketManagementTabPane(TabPane):
             logger.debug(f"Received {len(comments) if comments else 0} comments")
             
             if not comments:
-                logger.debug("No comments found, adding placeholder row")
-                comments_table.add_row("No comments", "", "")
-                logger.debug(f"No comments found for ticket {ticket_id}")
+                logger.debug("No comments found, showing placeholder")
+                comments_display.update("No comments for this ticket yet.")
                 return
             
-            # Add comments to the table
+            # Format comments for display
+            comments_text = ""
             for idx, comment in enumerate(comments):
-                # Truncate comment text if too long
-                comment_text = comment.raw_text or ""
-                if len(comment_text) > 100:
-                    comment_text = comment_text[:97] + "..."
-                
                 # Format timestamp
                 created_time = comment.created_at or "Unknown"
                 if created_time != "Unknown":
@@ -440,25 +420,31 @@ class SupportTicketManagementTabPane(TabPane):
                     except Exception:
                         pass
                 
-                logger.debug(f"Adding comment {idx+1}: user={comment.user_email}, text_len={len(comment_text)}, time={created_time}")
-                comments_table.add_row(
-                    comment.user_email or "Unknown",
-                    comment_text,
-                    created_time,
-                )
+                # Build comment display with full text
+                comment_text = comment.raw_text or "No comment text"
+                user_email = comment.user_email or "Unknown"
+                
+                comments_text += f"[bold cyan]{user_email}[/bold cyan] - [dim]{created_time}[/dim]\n"
+                comments_text += f"{comment_text}\n"
+                
+                # Add separator between comments (except after the last one)
+                if idx < len(comments) - 1:
+                    comments_text += "\n" + "─" * 80 + "\n\n"
+                
+                logger.debug(f"Formatted comment {idx+1}: user={user_email}, time={created_time}")
             
-            logger.debug(f"Successfully loaded {len(comments)} comments for ticket {ticket_id} into table")
-            logger.debug(f"Comments table now has {comments_table.row_count} rows")
+            # Update the display
+            comments_display.update(comments_text)
+            logger.debug(f"Successfully displayed {len(comments)} comments for ticket {ticket_id}")
             
         except Exception as e:
             logger.error(f"Failed to load comments for ticket {ticket_id}: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            # Show error in the table
+            # Show error in the display
             try:
-                comments_table = self.query_one("#support-ticket-comments-table", DataTable)
-                comments_table.clear()
-                comments_table.add_row("Error loading comments", str(e), "")
+                comments_display = self.query_one("#support-ticket-comments-display", Static)
+                comments_display.update(f"[red]Error loading comments:[/red] {str(e)}")
             except Exception:
                 pass
     
