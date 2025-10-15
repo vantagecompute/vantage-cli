@@ -445,22 +445,28 @@ class SupportTicketManagementTabPane(TabPane):
             return
         
         try:
-            # Get the comments display widget
-            comments_display = self.query_one("#support-ticket-comments-display", Static)
-            logger.debug(f"Found comments display widget")
+            # Get the comments table
+            comments_table = self.query_one("#support-ticket-comments-table", DataTable)
+            logger.debug("Found comments table, clearing it")
+            comments_table.clear()
             
             # Fetch comments from API
             logger.debug(f"Fetching comments for ticket {ticket_id}")
             comments = await self.support_ticket_sdk.list_comments(self.ctx, ticket_id)
             logger.debug(f"Received {len(comments) if comments else 0} comments")
             
+            # Store comments for later use
+            self.current_comments = comments if comments else []
+            
             if not comments:
-                logger.debug("No comments found, showing placeholder")
-                comments_display.update("No comments for this ticket yet.")
+                logger.debug("No comments found, adding placeholder")
+                comments_table.add_row("No comments", "")
+                # Clear the detail view
+                comment_detail = self.query_one("#support-ticket-comment-detail", Static)
+                comment_detail.update("No comments for this ticket yet.")
                 return
             
-            # Format comments for display
-            comments_text = ""
+            # Add comments to the table
             for idx, comment in enumerate(comments):
                 # Format timestamp
                 created_time = comment.created_at or "Unknown"
@@ -472,22 +478,17 @@ class SupportTicketManagementTabPane(TabPane):
                     except Exception:
                         pass
                 
-                # Build comment display with full text
-                comment_text = comment.raw_text or "No comment text"
                 user_email = comment.user_email or "Unknown"
                 
-                comments_text += f"[bold cyan]{user_email}[/bold cyan] - [dim]{created_time}[/dim]\n"
-                comments_text += f"{comment_text}\n"
-                
-                # Add separator between comments (except after the last one)
-                if idx < len(comments) - 1:
-                    comments_text += "\n" + "─" * 80 + "\n\n"
-                
-                logger.debug(f"Formatted comment {idx+1}: user={user_email}, time={created_time}")
+                logger.debug(f"Adding comment {idx+1}: user={user_email}, time={created_time}")
+                comments_table.add_row(
+                    user_email,
+                    created_time,
+                    key=str(idx)  # Use index as key to identify comment later
+                )
             
-            # Update the display
-            comments_display.update(comments_text)
-            logger.debug(f"Successfully displayed {len(comments)} comments for ticket {ticket_id}")
+            logger.debug(f"Successfully loaded {len(comments)} comments for ticket {ticket_id} into table")
+
             
         except Exception as e:
             logger.error(f"Failed to load comments for ticket {ticket_id}: {e}")
