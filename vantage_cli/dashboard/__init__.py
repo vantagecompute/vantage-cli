@@ -829,6 +829,9 @@ class DashboardApp(App):
         if self.config.enable_logs:
             self.call_later(self.load_debug_log)
             self.set_interval(2.0, self.refresh_debug_log)  # Refresh every 2 seconds
+        
+        # Auto-refresh clusters and deployments every 10 seconds
+        self.set_interval(10.0, self.auto_refresh_data)
     
     def on_mount(self) -> None:
         """Called when the app is mounted"""
@@ -1247,6 +1250,33 @@ class DashboardApp(App):
         except Exception:
             pass
 
+    def auto_refresh_data(self) -> None:
+        """Auto-refresh clusters and deployments data every 10 seconds"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Refresh clusters if the cluster tab pane exists
+            try:
+                cluster_tab = self.query_one(ClusterManagementTabPane)
+                if cluster_tab:
+                    logger.debug("Auto-refreshing clusters...")
+                    cluster_tab.refresh_clusters()
+            except Exception as e:
+                logger.debug(f"No cluster tab pane to refresh: {e}")
+            
+            # Refresh deployments if the deployment tab pane exists
+            try:
+                deployment_tab = self.query_one(DeploymentManagementTabPane)
+                if deployment_tab:
+                    logger.debug("Auto-refreshing deployments...")
+                    deployment_tab.refresh_deployments()
+            except Exception as e:
+                logger.debug(f"No deployment tab pane to refresh: {e}")
+                
+        except Exception as e:
+            logger.error(f"Error during auto-refresh: {e}")
+
     # Button event handlers
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses"""
@@ -1349,14 +1379,20 @@ class DashboardApp(App):
             }
             
             provider = provider_map.get(cluster_creation_input_data['cloud'].lower(), cluster_creation_input_data['cloud'])
+            
+            logger.debug(f"🗺️  Provider mapped: {cluster_creation_input_data['cloud']} -> {provider}")
 
             # Extract deployment_app before creating cluster (don't pass to create_cluster)
             deployment_app = cluster_creation_input_data.get('deployment_app')
+            
+            logger.debug(f"📦 Extracted deployment_app: {deployment_app}")
 
             # Log deployment app selection for debugging
             if deployment_app:
+                logger.info(f"🔍 Deployment app selected: {deployment_app}")
                 self.add_log(f"🔍 Deployment app selected: {deployment_app}", "INFO")
             else:
+                logger.info("🔍 No deployment app selected")
                 self.add_log("🔍 No deployment app selected", "INFO")
             
             # Create the cluster (only pass supported parameters)
@@ -1395,14 +1431,19 @@ class DashboardApp(App):
                 pass
             
             # Deploy deployment app if one was selected (already extracted above)
+            logger.debug(f"🎯 About to check deployment_app: {deployment_app}")
             if deployment_app:
+                logger.info(f"📦 Deploying application '{deployment_app}' to cluster '{new_cluster.name}'...")
                 self.add_log(
                     f"📦 Deploying application '{deployment_app}' to cluster '{new_cluster.name}'...",
                     "INFO"
                 )
                 try:
+                    logger.debug(f"🚀 Calling deploy_app_to_cluster({new_cluster.name}, {deployment_app})")
                     await self.deploy_app_to_cluster(new_cluster, deployment_app)
+                    logger.info(f"✅ Successfully deployed '{deployment_app}' to cluster '{new_cluster.name}'")
                 except Exception as deploy_error:
+                    logger.error(f"❌ Deployment error: {str(deploy_error)}", exc_info=True)
                     self.add_log(
                         f"❌ Failed to deploy app '{deployment_app}': {str(deploy_error)}",
                         "ERROR"
@@ -1412,6 +1453,8 @@ class DashboardApp(App):
                         severity="warning",
                         timeout=10
                     )
+            else:
+                logger.debug("ℹ️  No deployment_app to deploy")
                 
         except Exception as e:
             error_msg = f"Failed to create cluster: {str(e)}"
@@ -1431,11 +1474,20 @@ class DashboardApp(App):
         """
         from vantage_cli.sdk.deployment_app import deployment_app_sdk
         from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
+        from vantage_cli.auth import extract_persona
         
         try:
             # Ensure we have a valid context
             if not self.ctx or not self.ctx.obj:
                 raise Exception("Dashboard context is not properly initialized")
+            
+            # Attach persona to context if not already present (required by deployment apps)
+            if not self.ctx.obj.persona:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug("Extracting persona from cached tokens for deployment")
+                self.ctx.obj.persona = extract_persona(self.ctx.obj.profile)
+                logger.debug(f"Persona attached with identity: {self.ctx.obj.persona.identity_data.email}")
             
             # Get the deployment app details
             app = deployment_app_sdk.get(app_name)
