@@ -25,7 +25,7 @@ class VantageProviderLabel(str, Enum):
     AWS = "aws"
     GCP = "gcp"
     AZURE = "azure"
-    CUDO = "cudo"
+    CUDO = "on_prem"
 
 
 class CloudType(str, Enum):

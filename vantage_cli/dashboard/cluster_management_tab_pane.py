@@ -82,6 +82,11 @@ class CreateClusterModal(ModalScreen[Optional[Dict[str, str]]]):
     }
     """
     
+    def __init__(self, **kwargs):
+        """Initialize the create cluster modal."""
+        super().__init__(**kwargs)
+        self.selected_cloud: Optional[str] = None
+    
     def compose(self) -> ComposeResult:
         """Create the modal layout."""
         with Vertical(id="create-cluster-dialog"):
@@ -114,9 +119,70 @@ class CreateClusterModal(ModalScreen[Optional[Dict[str, str]]]):
                 id="cloud-provider-select",
             )
             
+            yield Label("Deployment Application (optional):", id="app-label")
+            yield Select(
+                options=[],
+                prompt="Select deployment application",
+                id="deployment-app-select",
+                disabled=True,
+            )
+            
             with Horizontal(id="button-row"):
                 yield Button("✅ Create", variant="success", id="create-btn")
                 yield Button("❌ Cancel", variant="error", id="cancel-btn")
+    
+    def on_select_changed(self, event: Select.Changed) -> None:
+        """Handle cloud provider selection change to update deployment app options."""
+        if event.select.id == "cloud-provider-select":
+            selected_cloud = str(event.value) if event.value else None
+            self.selected_cloud = selected_cloud
+            
+            # Update deployment app dropdown based on selected cloud
+            if selected_cloud:
+                self._update_deployment_apps(selected_cloud)
+            else:
+                # Disable deployment app dropdown if no cloud selected
+                app_select = self.query_one("#deployment-app-select", Select)
+                app_select.set_options([])
+                app_select.disabled = True
+    
+    def _update_deployment_apps(self, cloud: str) -> None:
+        """Update the deployment application dropdown based on selected cloud.
+        
+        Args:
+            cloud: The selected cloud provider (e.g., 'localhost', 'aws')
+        """
+        try:
+            # Import SDK here to avoid module-level initialization issues
+            from vantage_cli.sdk.deployment_app import deployment_app_sdk
+            
+            # Get apps for the selected cloud
+            apps = deployment_app_sdk.list(cloud=cloud)
+            
+            # Update the deployment app select widget
+            app_select = self.query_one("#deployment-app-select", Select)
+            
+            if apps:
+                # Create options from available apps
+                app_options = [
+                    (f"{app.name} ({app.substrate})", app.name)
+                    for app in apps
+                ]
+                app_select.set_options(app_options)
+                app_select.disabled = False
+                logger.debug(f"Updated deployment apps for cloud '{cloud}': {[a.name for a in apps]}")
+            else:
+                # No apps available for this cloud
+                app_select.set_options([])
+                app_select.disabled = True
+                logger.debug(f"No deployment apps found for cloud '{cloud}'")
+                
+        except Exception as e:
+            logger.error(f"Failed to load deployment apps for cloud '{cloud}': {e}")
+            # Disable dropdown on error
+            app_select = self.query_one("#deployment-app-select", Select)
+            app_select.set_options([])
+            app_select.disabled = True
     
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses in the modal."""
@@ -125,6 +191,7 @@ class CreateClusterModal(ModalScreen[Optional[Dict[str, str]]]):
             name_input = self.query_one("#cluster-name-input", Input)
             description_input = self.query_one("#cluster-description-input", Input)
             cloud_select = self.query_one("#cloud-provider-select", Select)
+            app_select = self.query_one("#deployment-app-select", Select)
             
             cluster_name = name_input.value.strip()
             
@@ -133,11 +200,15 @@ class CreateClusterModal(ModalScreen[Optional[Dict[str, str]]]):
                 self.notify("Cluster name is required", severity="error")
                 return
             
+            # Get deployment app if selected
+            deployment_app = str(app_select.value) if app_select.value else None
+            
             # Return the cluster data
             cluster_data = {
                 "name": cluster_name,
                 "description": description_input.value.strip(),
                 "cloud": str(cloud_select.value) if cloud_select.value else "",
+                "deployment_app": deployment_app,  # Include deployment app
             }
             
             self.dismiss(cluster_data)

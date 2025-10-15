@@ -770,8 +770,13 @@ class DashboardApp(App):
                     yield ClusterManagementTabPane(self.ctx)
 
                 # Add profile management tab if context is available
+                logger.info(f"🔍 Checking if should add ProfileManagementTabPane: self.ctx={self.ctx is not None}")
                 if self.ctx:
+                    logger.info("🚀 Adding ProfileManagementTabPane to dashboard")
                     yield ProfileManagementTabPane(self.ctx)
+                    logger.info("✅ ProfileManagementTabPane added successfully")
+                else:
+                    logger.warning("❌ Not adding ProfileManagementTabPane - no ctx available")
 
                 # Add credentials management tab if context is available
                 if self.ctx:
@@ -1295,8 +1300,10 @@ class DashboardApp(App):
         def handle_cluster_creation(cluster_data: Optional[Dict[str, str]]) -> None:
             """Handle the result from cluster creation modal"""
             if cluster_data:
+                deployment_app = cluster_data.get('deployment_app')
+                app_msg = f" with app '{deployment_app}'" if deployment_app else ""
                 self.add_log(
-                    f"🖥️  Creating cluster: {cluster_data['name']} on {cluster_data['cloud']}", 
+                    f"🖥️  Creating cluster: {cluster_data['name']} on {cluster_data['cloud']}{app_msg}", 
                     "INFO"
                 )
                 # Create the cluster via SDK (triggers async work)
@@ -1308,13 +1315,17 @@ class DashboardApp(App):
         self.push_screen(CreateClusterModal(), handle_cluster_creation)
     
     @work(exclusive=True)
-    async def create_cluster_from_modal(self, cluster_data: Dict[str, str]) -> None:
+    async def create_cluster_from_modal(self, cluster_creation_input_data: Dict[str, str]) -> None:
         """Create a cluster using the SDK.
         
         Args:
             cluster_data: Dictionary with name, description, and cloud provider
         """
         from vantage_cli.sdk.cluster.crud import cluster_sdk
+        
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"📋 create_cluster_from_modal called with data: {cluster_creation_input_data}")
         
         if not self.ctx:
             self.add_log("❌ No context available for cluster creation", "ERROR")
@@ -1326,24 +1337,34 @@ class DashboardApp(App):
             self.notify("Creating cluster...", severity="information")
             
             # Normalize provider name (convert display name to API format)
+            # Map CLI cloud names to GraphQL API's ClusterProviderEnum values
             provider_map = {
                 "aws": "aws",
                 "gcp": "gcp", 
                 "azure": "azure",
-                "cudo-compute": "cudo-compute",
+                "cudo-compute": "on_prem",  # Cudo Compute uses on_prem in GraphQL API
                 "on-premises": "on_prem",
                 "k8s": "k8s",
                 "localhost": "localhost",
             }
             
-            provider = provider_map.get(cluster_data['cloud'].lower(), cluster_data['cloud'])
+            provider = provider_map.get(cluster_creation_input_data['cloud'].lower(), cluster_creation_input_data['cloud'])
+
+            # Extract deployment_app before creating cluster (don't pass to create_cluster)
+            deployment_app = cluster_creation_input_data.get('deployment_app')
+
+            # Log deployment app selection for debugging
+            if deployment_app:
+                self.add_log(f"🔍 Deployment app selected: {deployment_app}", "INFO")
+            else:
+                self.add_log("🔍 No deployment app selected", "INFO")
             
-            # Create the cluster
+            # Create the cluster (only pass supported parameters)
             new_cluster = await cluster_sdk.create_cluster(
                 ctx=self.ctx,
-                name=cluster_data['name'],
+                name=cluster_creation_input_data['name'],
                 provider=provider,
-                description=cluster_data['description'] if cluster_data['description'] else None,
+                description=cluster_creation_input_data.get('description') or None,
             )
             
             self.add_log(
@@ -1372,6 +1393,25 @@ class DashboardApp(App):
                 cluster_tab.refresh_clusters()
             except Exception:
                 pass
+            
+            # Deploy deployment app if one was selected (already extracted above)
+            if deployment_app:
+                self.add_log(
+                    f"📦 Deploying application '{deployment_app}' to cluster '{new_cluster.name}'...",
+                    "INFO"
+                )
+                try:
+                    await self.deploy_app_to_cluster(new_cluster, deployment_app)
+                except Exception as deploy_error:
+                    self.add_log(
+                        f"❌ Failed to deploy app '{deployment_app}': {str(deploy_error)}",
+                        "ERROR"
+                    )
+                    self.notify(
+                        f"Cluster created but app deployment failed: {str(deploy_error)}",
+                        severity="warning",
+                        timeout=10
+                    )
                 
         except Exception as e:
             error_msg = f"Failed to create cluster: {str(e)}"
@@ -1381,6 +1421,97 @@ class DashboardApp(App):
             import logging
             logger = logging.getLogger(__name__)
             logger.exception("Cluster creation failed")
+    
+    async def deploy_app_to_cluster(self, cluster: Cluster, app_name: str) -> None:
+        """Deploy a deployment application to a cluster.
+        
+        Args:
+            cluster: The Cluster object to deploy to
+            app_name: Name of the deployment application
+        """
+        from vantage_cli.sdk.deployment_app import deployment_app_sdk
+        from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
+        
+        try:
+            # Ensure we have a valid context
+            if not self.ctx or not self.ctx.obj:
+                raise Exception("Dashboard context is not properly initialized")
+            
+            # Get the deployment app details
+            app = deployment_app_sdk.get(app_name)
+            if not app:
+                raise Exception(f"Deployment app '{app_name}' not found")
+            
+            # Check if the app has a create/deploy function
+            if not app.module or not hasattr(app.module, 'create'):
+                raise Exception(f"Deployment app '{app_name}' does not have a create function")
+            
+            # Initialize cloud-specific SDK if needed
+            if app.cloud == "cudo-compute":
+                from cudo_compute_sdk import CudoComputeSDK
+                
+                # Get default credential for Cudo Compute
+                cudo_credential = cloud_credential_sdk.get_default(cloud_name="cudo-compute")
+                if cudo_credential is None:
+                    raise Exception(
+                        "No default credential found for 'cudo-compute'. "
+                        "Run: vantage cloud credential create --cloud cudo-compute"
+                    )
+                
+                # Initialize SDK and attach to context
+                self.ctx.obj.cudo_sdk = CudoComputeSDK(
+                    api_key=cudo_credential.credentials_data["api_key"]
+                )
+                
+                self.add_log("🔑 Initialized Cudo Compute SDK", "INFO")
+            
+            # Fetch sssd_binder_password from organization extra attributes if needed
+            if not cluster.sssd_binder_password:
+                from vantage_cli.sdk.admin.management.organizations import get_extra_attributes
+                
+                try:
+                    extra_attrs = await get_extra_attributes(self.ctx)
+                    if extra_attrs and (sssd_pwd := extra_attrs.get("sssd_binder_password")):
+                        cluster.sssd_binder_password = sssd_pwd
+                    else:
+                        self.add_log(
+                            "⚠️  Using default sssd_binder_password - consider configuring organization settings",
+                            "WARNING"
+                        )
+                        cluster.sssd_binder_password = "rats"
+                except Exception:
+                    cluster.sssd_binder_password = "rats"
+            
+            # Call the app's create function
+            create_func = getattr(app.module, 'create')
+            
+            self.notify(
+                f"Deploying '{app_name}' to cluster '{cluster.name}'...",
+                severity="information"
+            )
+            
+            # Execute the deployment - pass the Cluster object directly
+            result = await create_func(self.ctx, cluster)
+            
+            # Check if the function returned an error exit code
+            if isinstance(result, typer.Exit) and result.exit_code != 0:
+                raise Exception(f"App deployment failed with exit code {result.exit_code}")
+            
+            self.add_log(
+                f"✅ Successfully deployed '{app_name}' to cluster '{cluster.name}'",
+                "SUCCESS"
+            )
+            
+            self.notify(
+                f"App '{app_name}' deployed successfully to cluster '{cluster.name}'!",
+                severity="information",
+                timeout=5
+            )
+            
+        except Exception as e:
+            error_msg = f"Failed to deploy app '{app_name}': {str(e)}"
+            self.add_log(f"❌ {error_msg}", "ERROR")
+            raise  # Re-raise to be handled by caller
 
     def open_create_credential_modal(self):
         """Open the credential creation modal"""
@@ -1766,12 +1897,13 @@ class DashboardApp(App):
         """
         if not self.ctx:
             return None
-            
+
         try:
             token_set = load_tokens_from_cache(self.ctx.obj.profile)
             if token_set.access_token and not is_token_expired(token_set.access_token):
                 persona = extract_persona(self.ctx.obj.profile, token_set)
-                return persona.identity_data.email
+                if persona and persona.identity_data:
+                    return persona.identity_data.email
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)

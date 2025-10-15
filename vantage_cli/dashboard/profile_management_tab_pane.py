@@ -272,101 +272,6 @@ class RemoveProfileModal(ModalScreen[Optional[str]]):
 class ProfileManagementTabPane(TabPane):
     """A TabPane widget for profile management functionality."""
 
-    DEFAULT_CSS = """
-    ProfileManagementTabPane {
-        height: 100%;
-        width: 100%;
-    }
-    
-    ProfileManagementTabPane .header {
-        height: auto;
-        width: 100%;
-        align: center middle;
-        padding: 1;
-        background: $panel;
-    }
-    
-    ProfileManagementTabPane .title {
-        text-style: bold;
-        color: $accent;
-    }
-    
-    ProfileManagementTabPane .content {
-        height: 1fr;
-        width: 100%;
-    }
-    
-    ProfileManagementTabPane .left-panel {
-        width: 1fr;
-        height: 100%;
-        border-right: solid $primary;
-    }
-    
-    ProfileManagementTabPane .right-panel {
-        width: 1fr;
-        height: 100%;
-        padding: 0 1;
-    }
-    
-    ProfileManagementTabPane .management-section {
-        height: auto;
-        width: 100%;
-        border: solid $primary;
-        padding: 1;
-        margin: 1;
-    }
-    
-    ProfileManagementTabPane .profiles-section {
-        height: 1fr;
-        width: 100%;
-        padding: 1;
-        margin: 1;
-    }
-    
-    ProfileManagementTabPane .details-section {
-        height: 100%;
-        width: 100%;
-    }
-    
-    ProfileManagementTabPane .section-title {
-        text-style: bold;
-        color: $text;
-        margin-bottom: 1;
-    }
-    
-    ProfileManagementTabPane #profiles-table {
-        height: 1fr;
-        width: 100%;
-    }
-    
-    ProfileManagementTabPane #profile-details-table {
-        height: 1fr;
-        width: 100%;
-    }
-    
-    ProfileManagementTabPane .action-buttons {
-        height: auto;
-        width: 100%;
-        align: center middle;
-        margin-top: 1;
-    }
-    
-    ProfileManagementTabPane .action-buttons Button {
-        margin: 0 1;
-    }
-    
-    ProfileManagementTabPane #profile-status-bar {
-        height: auto;
-        width: 100%;
-        align: left middle;
-        padding: 0 1;
-    }
-    
-    ProfileManagementTabPane #profile-status-bar Static {
-        margin: 0 1;
-    }
-    """
-
     # Reactive attributes for profile data
     profiles: reactive[List[Profile]] = reactive([])
     selected_profile: reactive[Optional[Profile]] = reactive(None)
@@ -386,45 +291,37 @@ class ProfileManagementTabPane(TabPane):
     def compose(self) -> ComposeResult:
         """Create the profile management layout with split panels."""
         with Vertical():
-            # Header with title and refresh button
-            with Horizontal(classes="header"):
-                yield Static("👤 Profile Management", classes="title")
-                yield Button("🔄 Refresh", id="refresh-profiles-btn", variant="success")
+            yield Static("� Profile Management", classes="section-header")
+
+            # Status and refresh section
+            with Horizontal(id="profile-status-bar"):
+                yield Static("Status: Ready", id="profile-status")
+                yield Static("Last refresh: Never", id="profile-last-refresh-display")
+                yield Button("🔄 Refresh", id="refresh-profiles-btn", variant="primary")
 
             # Main content area - split into left and right panels
-            with Horizontal(classes="content"):
-                # Left panel: Profile Management and Available Profiles
-                with Vertical(classes="left-panel"):
-                    # Profile Management section
-                    with Vertical(classes="management-section"):
-                        yield Static("⚙️  Profile Status", classes="section-title")
-                        with Horizontal(id="profile-status-bar"):
-                            yield Static("Status: Ready", id="profile-status")
-                            yield Static("Last refresh: Never", id="profile-last-refresh-display")
-
-                    # Available Profiles section
-                    with Vertical(classes="profiles-section"):
-                        yield Static("📋 Available Profiles", classes="section-title")
-                        yield DataTable(id="profiles-table", zebra_stripes=True)
+            with Horizontal(id="profile-content"):
+                # Left panel: Available Profiles
+                with Vertical(id="profiles-section"):
+                    yield Static("📋 Available Profiles", classes="subsection-header")
+                    yield DataTable(id="profiles-table", zebra_stripes=True)
 
                 # Right panel: Profile Details
-                with Vertical(classes="right-panel"):
-                    with Vertical(classes="details-section"):
-                        yield Static("📄 Profile Details", classes="section-title")
-                        yield DataTable(id="profile-details-table", show_header=False)
+                with Vertical(id="profile-details-section"):
+                    yield Static("📄 Profile Details", classes="subsection-header")
+                    yield DataTable(id="profile-details-table", show_header=False)
 
-                        # Action buttons
-                        with Horizontal(classes="action-buttons"):
-                            yield Button(
-                                "🎯 Activate", id="activate-profile-btn", disabled=True, variant="primary"
-                            )
-                            yield Button("📊 View Details", id="view-profile-details-btn", disabled=True)
-                            yield Button("✏️ Edit", id="edit-profile-btn", disabled=True)
-                            yield Button("🗑️ Delete", id="delete-profile-btn", disabled=True, variant="error")
+            # Action buttons
+            with Horizontal(id="profile-actions"):
+                yield Button("🎯 Activate", id="activate-profile-btn", disabled=True, variant="primary")
+                yield Button("📊 View Details", id="view-profile-details-btn", disabled=True)
+                yield Button("✏️ Edit", id="edit-profile-btn", disabled=True)
+                yield Button("🗑️ Delete", id="delete-profile-btn", disabled=True, variant="error")
 
     def on_mount(self) -> None:
         """Initialize the profile table when the tab is mounted."""
         logger.info("ProfileManagementTabPane.on_mount() called")
+        
         self.setup_profiles_table()
         self.setup_details_table()
 
