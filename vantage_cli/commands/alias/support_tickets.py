@@ -9,15 +9,17 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""Support Ticket SDK for managing support tickets."""
+"""Alias command for support-tickets -> support-ticket list."""
 
-from vantage_cli.sdk.support_ticket.crud import SupportTicketSDK, support_ticket_sdk
-from vantage_cli.sdk.support_ticket.schema import Attachment, Comment, SupportTicket
+import typer
 
-__all__ = [
-    "SupportTicketSDK",
-    "support_ticket_sdk",
-    "SupportTicket",
-    "Comment",
-    "Attachment",
-]
+from vantage_cli.commands.support_ticket.list import list_support_tickets
+from vantage_cli.exceptions import handle_abort
+
+
+@handle_abort
+async def support_tickets_command(
+    ctx: typer.Context,
+):
+    """List all support tickets (alias for 'vantage support-ticket list')."""
+    await list_support_tickets(ctx)

@@ -17,13 +17,14 @@ import logging
 logger = logging.getLogger(__name__)
 from typing_extensions import Annotated
 
-from vantage_cli.config import attach_settings
+from vantage_cli.config import attach_graphql_client, attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
 @handle_abort
 @attach_settings
+@attach_graphql_client(base_path="/sos/graphql")
 async def get_support_ticket(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the support ticket to retrieve")],
@@ -49,15 +50,14 @@ async def get_support_ticket(
         # Convert SupportTicket object to dict format for the formatter
         ticket_data = {
             "id": ticket.id,
-            "subject": ticket.subject,
+            "title": ticket.title,
             "description": ticket.description,
             "status": ticket.status,
             "priority": ticket.priority,
-            "owner_email": ticket.owner_email,
-            "assigned_to": ticket.assigned_to,
+            "user_email": ticket.user_email,
+            "assigned_to": ticket.assigned_to or "Unassigned",
             "created_at": ticket.created_at,
             "updated_at": ticket.updated_at,
-            "resolved_at": ticket.resolved_at,
         }
 
         # Use formatter to render the ticket details

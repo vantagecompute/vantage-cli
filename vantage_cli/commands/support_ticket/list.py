@@ -19,13 +19,14 @@ import logging
 logger = logging.getLogger(__name__)
 from typing_extensions import Annotated
 
-from vantage_cli.config import attach_settings
+from vantage_cli.config import attach_graphql_client, attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
 @handle_abort
 @attach_settings
+@attach_graphql_client(base_path="/sos/graphql")
 async def list_support_tickets(
     ctx: typer.Context,
     status: Annotated[
@@ -61,10 +62,10 @@ async def list_support_tickets(
         for ticket in tickets:
             ticket_dict = {
                 "id": ticket.id,
-                "subject": ticket.subject,
+                "title": ticket.title,
                 "status": ticket.status,
                 "priority": ticket.priority,
-                "owner_email": ticket.owner_email,
+                "user_email": ticket.user_email,
                 "created_at": ticket.created_at,
                 "updated_at": ticket.updated_at,
             }

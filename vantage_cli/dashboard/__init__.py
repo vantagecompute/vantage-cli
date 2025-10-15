@@ -103,6 +103,7 @@ from .dependency_tracker import DependencyTracker, Worker, WorkerState
 from .deployment_management_tab_pane import DeploymentManagementTabPane
 from .login_modal import LoginModal
 from .profile_management_tab_pane import ProfileManagementTabPane, CreateProfileModal, RemoveProfileModal
+from .support_ticket_tab_pane import SupportTicketManagementTabPane, CreateSupportTicketModal, UpdateSupportTicketModal
 
 
 @dataclass
@@ -790,6 +791,10 @@ class DashboardApp(App):
                 # Add deployment management tab if context is available
                 if self.ctx:
                     yield DeploymentManagementTabPane(self.ctx)
+
+                # Add support ticket management tab if context is available
+                if self.ctx:
+                    yield SupportTicketManagementTabPane(self.ctx)
 
             # Control buttons
             if self.config.enable_controls:

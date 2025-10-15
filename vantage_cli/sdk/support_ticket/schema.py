@@ -11,21 +11,85 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Support ticket schemas for the Vantage CLI."""
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
 
 class SupportTicket(BaseModel):
-    """Schema for support ticket data."""
+    """Schema for support ticket data.
+    
+    Matches the Tickets type from the SOS GraphQL API.
+    API field mapping:
+    - id: Int! (ticket ID)
+    - title: String! (ticket subject/title)
+    - description: String! (ticket description)
+    - status: TicketStatus! (OPEN, IN_PROGRESS, CLOSED, etc.)
+    - priority: SeverityLevel! (LOW, MEDIUM, HIGH, CRITICAL)
+    - userEmail: String! (email of ticket creator)
+    - assignedTo: String (email of assigned user, optional)
+    - createdAt: DateTime!
+    - updatedAt: DateTime!
+    """
 
     id: str
-    subject: str
-    description: Optional[str] = None
-    status: Optional[str] = None  # e.g., "open", "in_progress", "closed"
-    priority: Optional[str] = None  # e.g., "low", "medium", "high", "critical"
-    owner_email: Optional[str] = None
-    assigned_to: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    resolved_at: Optional[str] = None
+    title: str  # API field: 'title'
+    description: str
+    status: str  # e.g., "OPEN", "IN_PROGRESS", "CLOSED"
+    priority: str  # e.g., "LOW", "MEDIUM", "HIGH", "CRITICAL"
+    user_email: str  # API field: 'userEmail'
+    assigned_to: Optional[str] = None  # API field: 'assignedTo'
+    created_at: str  # API field: 'createdAt'
+    updated_at: str  # API field: 'updatedAt'
+
+
+class Comment(BaseModel):
+    """Schema for support ticket comment data.
+    
+    Matches the Comments type from the SOS GraphQL API.
+    API field mapping:
+    - id: Int! (comment ID)
+    - ticketId: Int! (ID of the ticket this comment belongs to)
+    - rawText: String! (comment text content)
+    - userEmail: String! (email of comment author)
+    - mentions: [String] (list of mentioned user emails)
+    - attachments: [Attachments] (list of attached files)
+    - createdAt: DateTime!
+    - updatedAt: DateTime!
+    """
+
+    id: str
+    ticket_id: str
+    raw_text: str
+    user_email: str
+    mentions: Optional[List[str]] = None
+    attachments: Optional[List["Attachment"]] = None
+    created_at: str
+    updated_at: str
+
+
+class Attachment(BaseModel):
+    """Schema for comment attachment data.
+    
+    Matches the Attachments type from the SOS GraphQL API.
+    API field mapping:
+    - id: Int! (attachment ID)
+    - commentId: Int! (ID of the comment this attachment belongs to)
+    - filename: String! (original filename)
+    - type: String! (MIME type)
+    - size: Int! (file size in bytes)
+    - createdAt: DateTime!
+    - updatedAt: DateTime!
+    """
+
+    id: str
+    comment_id: str
+    filename: str
+    type: str  # MIME type
+    size: int  # bytes
+    created_at: str
+    updated_at: str
+
+
+# Update forward references
+Comment.model_rebuild()

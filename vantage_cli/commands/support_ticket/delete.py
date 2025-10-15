@@ -17,13 +17,14 @@ import logging
 logger = logging.getLogger(__name__)
 from typing_extensions import Annotated
 
-from vantage_cli.config import attach_settings
+from vantage_cli.config import attach_graphql_client, attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
 @handle_abort
 @attach_settings
+@attach_graphql_client(base_path="/sos/graphql")
 async def delete_support_ticket(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the support ticket to delete")],

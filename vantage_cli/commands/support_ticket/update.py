@@ -19,18 +19,19 @@ import logging
 logger = logging.getLogger(__name__)
 from typing_extensions import Annotated
 
-from vantage_cli.config import attach_settings
+from vantage_cli.config import attach_graphql_client, attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
 from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
 
 
 @handle_abort
 @attach_settings
+@attach_graphql_client(base_path="/sos/graphql")
 async def update_support_ticket(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the support ticket to update")],
-    subject: Annotated[
-        Optional[str], typer.Option("--subject", "-s", help="New ticket subject")
+    title: Annotated[
+        Optional[str], typer.Option("--title", "-t", help="New ticket title")
     ] = None,
     description: Annotated[
         Optional[str], typer.Option("--description", "-d", help="New ticket description")
@@ -52,7 +53,7 @@ async def update_support_ticket(
         ticket = await support_ticket_sdk.update_ticket(
             ctx,
             ticket_id=ticket_id,
-            subject=subject,
+            title=title,
             description=description,
             status=status,
             priority=priority,
@@ -61,11 +62,11 @@ async def update_support_ticket(
         # Convert SupportTicket object to dict format for the formatter
         ticket_data = {
             "id": ticket.id,
-            "subject": ticket.subject,
+            "title": ticket.title,
             "description": ticket.description,
             "status": ticket.status,
             "priority": ticket.priority,
-            "owner_email": ticket.owner_email,
+            "user_email": ticket.user_email,
             "updated_at": ticket.updated_at,
         }
 

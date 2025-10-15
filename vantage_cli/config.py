@@ -150,6 +150,73 @@ def attach_settings(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
+def attach_graphql_client(base_path: str = "/cluster/graphql") -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator to attach a VantageGQLClient to the CLI context.
+    
+    This decorator automatically creates and injects a GraphQL client configured
+    for the specified API endpoint into ctx.obj.graphql_client.
+    
+    Must be used after @attach_settings since it requires ctx.obj.settings.
+    
+    Args:
+        base_path: API endpoint path (e.g., "/cluster/graphql", "/sos/graphql")
+        
+    Example:
+        >>> @handle_abort
+        >>> @attach_settings
+        >>> @attach_graphql_client(base_path="/sos/graphql")
+        >>> async def create_support_ticket(ctx: typer.Context, ...):
+        >>>     # ctx.obj.graphql_client is now available
+        >>>     response = await ctx.obj.graphql_client.execute_async(query, variables)
+    """
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        # Import here to avoid circular dependency
+        from .gql_client import VantageGQLClient
+        
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(ctx: typer.Context, *args, **kwargs):
+                # Ensure settings are available
+                if not hasattr(ctx.obj, 'settings'):
+                    logger.error("Settings not found in context. Use @attach_settings before @attach_graphql_client")
+                    raise typer.Exit(1)
+                
+                # Get profile from context or use default
+                profile = getattr(ctx.obj, "profile", "default")
+                
+                # Create and attach GraphQL client
+                logger.debug(f"Creating GraphQL client for {base_path}")
+                ctx.obj.graphql_client = VantageGQLClient(
+                    ctx.obj.settings, profile, base_path=base_path
+                ).create()
+                
+                return await func(ctx, *args, **kwargs)
+            
+            return async_wrapper
+        else:
+            @wraps(func)
+            def wrapper(ctx: typer.Context, *args, **kwargs):
+                # Ensure settings are available
+                if not hasattr(ctx.obj, 'settings'):
+                    logger.error("Settings not found in context. Use @attach_settings before @attach_graphql_client")
+                    raise typer.Exit(1)
+                
+                # Get profile from context or use default
+                profile = getattr(ctx.obj, "profile", "default")
+                
+                # Create and attach GraphQL client
+                logger.debug(f"Creating GraphQL client for {base_path}")
+                ctx.obj.graphql_client = VantageGQLClient(
+                    ctx.obj.settings, profile, base_path=base_path
+                ).create()
+                
+                return func(ctx, *args, **kwargs)
+            
+            return wrapper
+    
+    return decorator
+
+
 def dump_settings(profile: str, settings: Settings) -> None:
     """Save settings to the user configuration file."""
     logger.debug(f"Saving settings to {USER_CONFIG_FILE}")

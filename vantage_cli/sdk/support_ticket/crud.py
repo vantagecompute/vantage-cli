@@ -9,22 +9,57 @@
 #
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <https://www.gnu.org/licenses/>.
-"""CRUD operations for support tickets using GraphQL."""
+"""Support ticket CRUD operations using GraphQL API."""
 
+import logging
 from typing import Any, Dict, List, Optional
 
 import typer
-import logging
-
-logger = logging.getLogger(__name__)
 
 from vantage_cli.exceptions import Abort
-from vantage_cli.gql_client import create_async_graphql_client
-from vantage_cli.sdk.support_ticket.schema import SupportTicket
+from vantage_cli.sdk.support_ticket.schema import Attachment, Comment, SupportTicket
+from vantage_cli.gql_client import VantageGQLClient, VantageGraphQLClient
+from vantage_cli.schemas import CliContext
+
+logger = logging.getLogger(__name__)
 
 
 class SupportTicketSDK:
     """SDK for support ticket operations."""
+
+    def _get_graphql_client(self, ctx: typer.Context) -> VantageGraphQLClient:
+        """Get or create a GraphQL client for SOS API.
+        
+        Args:
+            ctx: Typer context or CliContext
+            
+        Returns:
+            VantageGraphQLClient instance configured for SOS API
+        """
+        # Check if this is a typer.Context with obj.graphql_client
+        if hasattr(ctx, 'obj') and hasattr(ctx.obj, 'graphql_client'):
+            return ctx.obj.graphql_client
+        
+        # Otherwise, create a new GraphQL client for SOS API
+        # This handles the dashboard case where ctx is a CliContext
+        if isinstance(ctx, CliContext):
+            # Create GraphQL client with SOS endpoint
+            factory = VantageGQLClient(
+                settings=ctx.settings,
+                profile=ctx.profile,
+                base_path="/sos/graphql"
+            )
+            return factory.create()
+        elif hasattr(ctx, 'obj') and isinstance(ctx.obj, CliContext):
+            # Handle typer.Context wrapping CliContext
+            factory = VantageGQLClient(
+                settings=ctx.obj.settings,
+                profile=ctx.obj.profile,
+                base_path="/sos/graphql"
+            )
+            return factory.create()
+        else:
+            raise ValueError("Context must be typer.Context or CliContext")
 
     async def list_tickets(
         self,
@@ -46,19 +81,18 @@ class SupportTicketSDK:
         """
         query = """
         query SupportTickets($first: Int) {
-            supportTickets(first: $first) {
+            tickets(first: $first) {
                 edges {
                     node {
                         id
-                        subject
+                        title
                         description
                         status
                         priority
-                        ownerEmail
+                        userEmail
                         assignedTo
                         createdAt
                         updatedAt
-                        resolvedAt
                     }
                 }
                 total
@@ -73,9 +107,8 @@ class SupportTicketSDK:
             variables["first"] = 100  # Default limit
 
         try:
-            # Create async GraphQL client
-            profile = getattr(ctx.obj, "profile", "default")
-            graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+            # Get GraphQL client (handles both CLI and dashboard contexts)
+            graphql_client = self._get_graphql_client(ctx)
 
             # Execute the query
             logger.debug(
@@ -88,7 +121,7 @@ class SupportTicketSDK:
                 # Return empty list if no response (API might not be implemented yet)
                 return []
 
-            tickets_data = response_data.get("supportTickets", {})
+            tickets_data = response_data.get("tickets", {})
             tickets_list = [edge["node"] for edge in tickets_data.get("edges", [])]
 
             # Apply client-side filters if provided
@@ -101,16 +134,15 @@ class SupportTicketSDK:
             tickets = []
             for ticket_dict in tickets_list:
                 ticket = SupportTicket(
-                    id=ticket_dict.get("id", ""),
-                    subject=ticket_dict.get("subject", ""),
-                    description=ticket_dict.get("description"),
-                    status=ticket_dict.get("status"),
-                    priority=ticket_dict.get("priority"),
-                    owner_email=ticket_dict.get("ownerEmail"),
+                    id=str(ticket_dict.get("id", "")),
+                    title=ticket_dict.get("title", ""),
+                    description=ticket_dict.get("description", ""),
+                    status=ticket_dict.get("status", ""),
+                    priority=ticket_dict.get("priority", ""),
+                    user_email=ticket_dict.get("userEmail", ""),
                     assigned_to=ticket_dict.get("assignedTo"),
-                    created_at=ticket_dict.get("createdAt"),
-                    updated_at=ticket_dict.get("updatedAt"),
-                    resolved_at=ticket_dict.get("resolvedAt"),
+                    created_at=ticket_dict.get("createdAt", ""),
+                    updated_at=ticket_dict.get("updatedAt", ""),
                 )
                 tickets.append(ticket)
 
@@ -143,142 +175,89 @@ class SupportTicketSDK:
         Returns:
             SupportTicket object if found, None otherwise
         """
-        query = """
-        query SupportTicket($id: ID!) {
-            supportTicket(id: $id) {
-                id
-                subject
-                description
-                status
-                priority
-                ownerEmail
-                assignedTo
-                createdAt
-                updatedAt
-                resolvedAt
-            }
-        }
-        """
-
-        variables: Dict[str, Any] = {"id": ticket_id}
-
-        try:
-            # Create async GraphQL client
-            profile = getattr(ctx.obj, "profile", "default")
-            graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
-
-            # Execute the query
-            logger.debug(f"Executing GraphQL query to get support ticket '{ticket_id}'")
-            response_data = await graphql_client.execute_async(query, variables)
-
-            if not response_data or not response_data.get("supportTicket"):
-                logger.debug(f"Support ticket '{ticket_id}' not found")
-                return None
-
-            ticket_dict = response_data["supportTicket"]
-
-            # Map to SupportTicket object
-            ticket = SupportTicket(
-                id=ticket_dict.get("id", ""),
-                subject=ticket_dict.get("subject", ""),
-                description=ticket_dict.get("description"),
-                status=ticket_dict.get("status"),
-                priority=ticket_dict.get("priority"),
-                owner_email=ticket_dict.get("ownerEmail"),
-                assigned_to=ticket_dict.get("assignedTo"),
-                created_at=ticket_dict.get("createdAt"),
-                updated_at=ticket_dict.get("updatedAt"),
-                resolved_at=ticket_dict.get("resolvedAt"),
-            )
-
-            logger.debug(f"Successfully retrieved support ticket '{ticket_id}'")
-            return ticket
-
-        except Exception as e:
-            # If the GraphQL endpoint doesn't exist yet, return None gracefully
-            if "GraphQL errors" in str(e) or "Cannot query field" in str(e):
-                logger.warning(f"Support ticket API not available: {e}")
-                return None
-            logger.error(f"Failed to get support ticket '{ticket_id}': {e}")
-            raise Abort(
-                f"Failed to get support ticket: {e}",
-                subject="Query Failed",
-                log_message=f"GraphQL query failed: {e}",
-            )
+        # Use the tickets query and filter by ID
+        # The API doesn't have a singular 'ticket' query
+        tickets = await self.list_tickets(ctx, limit=1000)  # Get all tickets
+        
+        # Find the ticket with matching ID
+        for ticket in tickets:
+            if ticket.id == str(ticket_id):
+                logger.debug(f"Successfully retrieved support ticket '{ticket_id}'")
+                return ticket
+        
+        logger.debug(f"Support ticket '{ticket_id}' not found")
+        return None
 
     async def create_ticket(
         self,
         ctx: typer.Context,
-        subject: str,
+        title: str,
         description: str,
-        priority: Optional[str] = "medium",
+        priority: Optional[str] = "MEDIUM",
     ) -> SupportTicket:
         """Create a new support ticket.
 
         Args:
             ctx: Typer context containing settings and profile
-            subject: Ticket subject
+            title: Ticket title
             description: Ticket description
-            priority: Ticket priority (default: medium)
+            priority: Ticket priority (default: MEDIUM)
 
         Returns:
             Created SupportTicket object
         """
         mutation = """
-        mutation CreateSupportTicket($input: CreateSupportTicketInput!) {
-            createSupportTicket(input: $input) {
+        mutation CreateTicket($input: CreateTicketInput!) {
+            createTicket(input: $input) {
                 id
-                subject
+                title
                 description
                 status
                 priority
-                ownerEmail
+                userEmail
                 assignedTo
                 createdAt
                 updatedAt
-                resolvedAt
             }
         }
         """
 
         variables: Dict[str, Any] = {
             "input": {
-                "subject": subject,
+                "title": title,
                 "description": description,
-                "priority": priority,
+                "priority": priority.upper() if priority else "MEDIUM",
             }
         }
 
         try:
-            # Create async GraphQL client
-            profile = getattr(ctx.obj, "profile", "default")
-            graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+            # Use GraphQL client from context
+            graphql_client = self._get_graphql_client(ctx)
 
             # Execute the mutation
             logger.debug("Executing GraphQL mutation to create support ticket")
             response_data = await graphql_client.execute_async(mutation, variables)
 
-            if not response_data or not response_data.get("createSupportTicket"):
+            if not response_data or not response_data.get("createTicket"):
                 raise Abort(
                     "Failed to create support ticket: No response from server",
                     subject="Mutation Failed",
                     log_message="GraphQL mutation returned no data",
                 )
 
-            ticket_dict = response_data["createSupportTicket"]
+            ticket_dict = response_data["createTicket"]
 
             # Map to SupportTicket object
             ticket = SupportTicket(
-                id=ticket_dict.get("id", ""),
-                subject=ticket_dict.get("subject", ""),
-                description=ticket_dict.get("description"),
-                status=ticket_dict.get("status"),
-                priority=ticket_dict.get("priority"),
-                owner_email=ticket_dict.get("ownerEmail"),
+                id=str(ticket_dict.get("id", "")),
+                title=ticket_dict.get("title", ""),
+                description=ticket_dict.get("description", ""),
+                status=ticket_dict.get("status", ""),
+                priority=ticket_dict.get("priority", ""),
+                user_email=ticket_dict.get("userEmail", ""),
                 assigned_to=ticket_dict.get("assignedTo"),
-                created_at=ticket_dict.get("createdAt"),
-                updated_at=ticket_dict.get("updatedAt"),
-                resolved_at=ticket_dict.get("resolvedAt"),
+                created_at=ticket_dict.get("createdAt", ""),
+                updated_at=ticket_dict.get("updatedAt", ""),
             )
 
             logger.debug(f"Successfully created support ticket '{ticket.id}'")
@@ -298,7 +277,7 @@ class SupportTicketSDK:
         self,
         ctx: typer.Context,
         ticket_id: str,
-        subject: Optional[str] = None,
+        title: Optional[str] = None,
         description: Optional[str] = None,
         status: Optional[str] = None,
         priority: Optional[str] = None,
@@ -308,7 +287,7 @@ class SupportTicketSDK:
         Args:
             ctx: Typer context containing settings and profile
             ticket_id: ID of the ticket to update
-            subject: New subject (optional)
+            title: New title (optional)
             description: New description (optional)
             status: New status (optional)
             priority: New priority (optional)
@@ -317,68 +296,65 @@ class SupportTicketSDK:
             Updated SupportTicket object
         """
         mutation = """
-        mutation UpdateSupportTicket($id: ID!, $input: UpdateSupportTicketInput!) {
-            updateSupportTicket(id: $id, input: $input) {
+        mutation UpdateTicket($id: Int!, $input: UpdateTicketInput!) {
+            updateTicket(id: $id, input: $input) {
                 id
-                subject
+                title
                 description
                 status
                 priority
-                ownerEmail
+                userEmail
                 assignedTo
                 createdAt
                 updatedAt
-                resolvedAt
             }
         }
         """
 
         # Build input with only provided fields
         input_data: Dict[str, Any] = {}
-        if subject is not None:
-            input_data["subject"] = subject
+        if title is not None:
+            input_data["title"] = title
         if description is not None:
             input_data["description"] = description
         if status is not None:
-            input_data["status"] = status
+            input_data["status"] = status.upper()
         if priority is not None:
-            input_data["priority"] = priority
+            input_data["priority"] = priority.upper()
 
         variables: Dict[str, Any] = {
-            "id": ticket_id,
+            "id": int(ticket_id),
             "input": input_data,
         }
 
         try:
-            # Create async GraphQL client
-            profile = getattr(ctx.obj, "profile", "default")
-            graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+            # Use GraphQL client from context
+            graphql_client = self._get_graphql_client(ctx)
 
             # Execute the mutation
             logger.debug(f"Executing GraphQL mutation to update support ticket '{ticket_id}'")
             response_data = await graphql_client.execute_async(mutation, variables)
 
-            if not response_data or not response_data.get("updateSupportTicket"):
+            if not response_data or not response_data.get("updateTicket"):
                 raise Abort(
                     f"Failed to update support ticket '{ticket_id}': No response from server",
                     subject="Mutation Failed",
                     log_message="GraphQL mutation returned no data",
                 )
 
-            ticket_dict = response_data["updateSupportTicket"]
+            ticket_dict = response_data["updateTicket"]
 
             # Map to SupportTicket object
             ticket = SupportTicket(
-                id=ticket_dict.get("id", ""),
-                subject=ticket_dict.get("subject", ""),
-                description=ticket_dict.get("description"),
-                status=ticket_dict.get("status"),
-                priority=ticket_dict.get("priority"),
-                owner_email=ticket_dict.get("ownerEmail"),
+                id=str(ticket_dict.get("id", "")),
+                title=ticket_dict.get("title", ""),
+                description=ticket_dict.get("description", ""),
+                status=ticket_dict.get("status", ""),
+                priority=ticket_dict.get("priority", ""),
+                user_email=ticket_dict.get("userEmail", ""),
                 assigned_to=ticket_dict.get("assignedTo"),
-                created_at=ticket_dict.get("createdAt"),
-                updated_at=ticket_dict.get("updatedAt"),
-                resolved_at=ticket_dict.get("resolvedAt"),
+                created_at=ticket_dict.get("createdAt", ""),
+                updated_at=ticket_dict.get("updatedAt", ""),
             )
 
             logger.debug(f"Successfully updated support ticket '{ticket_id}'")
@@ -419,9 +395,8 @@ class SupportTicketSDK:
         variables: Dict[str, Any] = {"id": ticket_id}
 
         try:
-            # Create async GraphQL client
-            profile = getattr(ctx.obj, "profile", "default")
-            graphql_client = create_async_graphql_client(ctx.obj.settings, profile)
+            # Use GraphQL client from context
+            graphql_client = self._get_graphql_client(ctx)
 
             # Execute the mutation
             logger.debug(f"Executing GraphQL mutation to delete support ticket '{ticket_id}'")
@@ -449,6 +424,278 @@ class SupportTicketSDK:
             logger.error(f"Failed to delete support ticket '{ticket_id}': {e}")
             raise Abort(
                 f"Failed to delete support ticket: {e}",
+                subject="Mutation Failed",
+                log_message=f"GraphQL mutation failed: {e}",
+            )
+
+    async def list_comments(
+        self,
+        ctx: typer.Context,
+        ticket_id: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[Comment]:
+        """List comments for a ticket or all comments.
+
+        Args:
+            ctx: Typer context containing graphql_client
+            ticket_id: Optional ticket ID to filter comments
+            limit: Maximum number of comments to return
+
+        Returns:
+            List of Comment objects
+        """
+        query = """
+        query Comments($first: Int, $filters: JSONScalar) {
+            comments(first: $first, filters: $filters) {
+                edges {
+                    node {
+                        id
+                        ticketId
+                        rawText
+                        userEmail
+                        mentions
+                        createdAt
+                        updatedAt
+                    }
+                }
+            }
+        }
+        """
+
+        variables: Dict[str, Any] = {}
+        if limit:
+            variables["first"] = limit
+        else:
+            variables["first"] = 100
+
+        if ticket_id:
+            variables["filters"] = {"ticketId": {"eq": int(ticket_id)}}
+
+        try:
+            graphql_client = self._get_graphql_client(ctx)
+            logger.debug(f"Executing GraphQL query to list comments")
+            response_data = await graphql_client.execute_async(query, variables)
+
+            if not response_data:
+                return []
+
+            comments_data = response_data.get("comments", {})
+            comments_list = [edge["node"] for edge in comments_data.get("edges", [])]
+
+            comments = []
+            for comment_dict in comments_list:
+                comment = Comment(
+                    id=str(comment_dict.get("id", "")),
+                    ticket_id=str(comment_dict.get("ticketId", "")),
+                    raw_text=comment_dict.get("rawText", ""),
+                    user_email=comment_dict.get("userEmail", ""),
+                    mentions=comment_dict.get("mentions", []),
+                    attachments=[],  # Will be populated separately if needed
+                    created_at=comment_dict.get("createdAt", ""),
+                    updated_at=comment_dict.get("updatedAt", ""),
+                )
+                comments.append(comment)
+
+            logger.debug(f"Successfully retrieved {len(comments)} comments")
+            return comments
+
+        except Exception as e:
+            logger.error(f"Failed to list comments: {e}")
+            raise Abort(
+                f"Failed to list comments: {e}",
+                subject="Query Failed",
+                log_message=f"GraphQL query failed: {e}",
+            )
+
+    async def add_comment(
+        self,
+        ctx: typer.Context,
+        ticket_id: str,
+        text: str,
+        mentions: Optional[List[str]] = None,
+    ) -> Comment:
+        """Add a comment to a support ticket.
+
+        Args:
+            ctx: Typer context containing graphql_client
+            ticket_id: ID of the ticket to comment on
+            text: Comment text content
+            mentions: Optional list of user emails to mention
+
+        Returns:
+            Created Comment object
+        """
+        mutation = """
+        mutation AddComment($ticketId: Int!, $input: AddCommentToTicket!) {
+            addCommentToTicket(ticketId: $ticketId, addCommentToTicketInput: $input) {
+                id
+                ticketId
+                rawText
+                userEmail
+                mentions
+                createdAt
+                updatedAt
+            }
+        }
+        """
+
+        variables: Dict[str, Any] = {
+            "ticketId": int(ticket_id),
+            "input": {
+                "rawText": text,
+                "mentions": mentions or [],
+            },
+        }
+
+        try:
+            graphql_client = self._get_graphql_client(ctx)
+            logger.debug(f"Adding comment to ticket '{ticket_id}'")
+            response_data = await graphql_client.execute_async(mutation, variables)
+
+            if not response_data or not response_data.get("addCommentToTicket"):
+                raise Abort(
+                    "Failed to add comment: No response from server",
+                    subject="Mutation Failed",
+                    log_message="GraphQL mutation returned no data",
+                )
+
+            comment_dict = response_data["addCommentToTicket"]
+            comment = Comment(
+                id=str(comment_dict.get("id", "")),
+                ticket_id=str(comment_dict.get("ticketId", "")),
+                raw_text=comment_dict.get("rawText", ""),
+                user_email=comment_dict.get("userEmail", ""),
+                mentions=comment_dict.get("mentions", []),
+                attachments=[],
+                created_at=comment_dict.get("createdAt", ""),
+                updated_at=comment_dict.get("updatedAt", ""),
+            )
+
+            logger.debug(f"Successfully added comment to ticket '{ticket_id}'")
+            return comment
+
+        except Abort:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to add comment: {e}")
+            raise Abort(
+                f"Failed to add comment: {e}",
+                subject="Mutation Failed",
+                log_message=f"GraphQL mutation failed: {e}",
+            )
+
+    async def update_comment(
+        self,
+        ctx: typer.Context,
+        comment_id: str,
+        text: str,
+        mentions: Optional[List[str]] = None,
+    ) -> Comment:
+        """Update a comment's text.
+
+        Args:
+            ctx: Typer context containing graphql_client
+            comment_id: ID of the comment to update
+            text: New comment text
+            mentions: Optional list of user emails to mention
+
+        Returns:
+            Updated Comment object
+        """
+        mutation = """
+        mutation UpdateComment($commentId: Int!, $rawText: String!, $mentions: [String!]) {
+            updateCommentText(commentId: $commentId, rawText: $rawText, mentions: $mentions) {
+                id
+                ticketId
+                rawText
+                userEmail
+                mentions
+                createdAt
+                updatedAt
+            }
+        }
+        """
+
+        variables: Dict[str, Any] = {
+            "commentId": int(comment_id),
+            "rawText": text,
+            "mentions": mentions or [],
+        }
+
+        try:
+            graphql_client = self._get_graphql_client(ctx)
+            logger.debug(f"Updating comment '{comment_id}'")
+            response_data = await graphql_client.execute_async(mutation, variables)
+
+            if not response_data or not response_data.get("updateCommentText"):
+                raise Abort(
+                    "Failed to update comment: No response from server",
+                    subject="Mutation Failed",
+                    log_message="GraphQL mutation returned no data",
+                )
+
+            comment_dict = response_data["updateCommentText"]
+            comment = Comment(
+                id=str(comment_dict.get("id", "")),
+                ticket_id=str(comment_dict.get("ticketId", "")),
+                raw_text=comment_dict.get("rawText", ""),
+                user_email=comment_dict.get("userEmail", ""),
+                mentions=comment_dict.get("mentions", []),
+                attachments=[],
+                created_at=comment_dict.get("createdAt", ""),
+                updated_at=comment_dict.get("updatedAt", ""),
+            )
+
+            logger.debug(f"Successfully updated comment '{comment_id}'")
+            return comment
+
+        except Abort:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to update comment: {e}")
+            raise Abort(
+                f"Failed to update comment: {e}",
+                subject="Mutation Failed",
+                log_message=f"GraphQL mutation failed: {e}",
+            )
+
+    async def delete_comment(
+        self,
+        ctx: typer.Context,
+        comment_id: str,
+    ) -> bool:
+        """Delete a comment.
+
+        Args:
+            ctx: Typer context containing graphql_client
+            comment_id: ID of the comment to delete
+
+        Returns:
+            True if deletion was successful
+        """
+        mutation = """
+        mutation DeleteComment($commentId: Int!) {
+            deleteComment(commentId: $commentId)
+        }
+        """
+
+        variables: Dict[str, Any] = {"commentId": int(comment_id)}
+
+        try:
+            graphql_client = self._get_graphql_client(ctx)
+            logger.debug(f"Deleting comment '{comment_id}'")
+            response_data = await graphql_client.execute_async(mutation, variables)
+
+            success = response_data.get("deleteComment", False)
+            logger.debug(f"Comment '{comment_id}' deleted: {success}")
+            return bool(success)
+
+        except Abort:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to delete comment: {e}")
+            raise Abort(
+                f"Failed to delete comment: {e}",
                 subject="Mutation Failed",
                 log_message=f"GraphQL mutation failed: {e}",
             )
