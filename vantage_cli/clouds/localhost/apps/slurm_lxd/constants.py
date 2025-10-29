@@ -22,3 +22,8 @@ JUPYTERHUB_APPLICATION_NAME = "vantage-jupyterhub"
 
 SSSD_SECRET_NAME = "vantage-sssd-config"
 SSSD_APPLICATION_NAME = "vantage-sssd"
+
+# Bundle deployment timeout in seconds (15 minutes)
+# This allows sufficient time for complex deployments with multiple charms
+# and dependencies, especially on slower systems or during high network latency
+BUNDLE_DEPLOY_TIMEOUT = 900

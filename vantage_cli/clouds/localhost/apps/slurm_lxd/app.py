@@ -49,6 +49,7 @@ from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 from .bundle_yaml import VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML
 from .constants import (
     APP_NAME,
+    BUNDLE_DEPLOY_TIMEOUT,
     JUPYTERHUB_APPLICATION_NAME,
     JUPYTERHUB_SECRET_NAME,
     SSSD_APPLICATION_NAME,
@@ -126,10 +127,10 @@ async def _write_and_deploy_model_bundle(model, bundle_yaml: dict[str, Any]) -> 
         os.chdir(td)
         try:
             with SuppressOutput():
-                # Add timeout to prevent hanging indefinitely on bundle deployment
+                # Use configurable timeout to allow sufficient time for complex deployments
                 await asyncio.wait_for(
-                    model.deploy("./bundle.yaml"), timeout=120
-                )  # 2 minutes timeout
+                    model.deploy("./bundle.yaml"), timeout=BUNDLE_DEPLOY_TIMEOUT
+                )
         finally:
             os.chdir(original_cwd)
 
