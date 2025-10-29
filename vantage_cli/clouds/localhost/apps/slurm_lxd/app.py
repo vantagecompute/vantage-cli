@@ -379,6 +379,9 @@ async def create_command(
         else:
             raise typer.Exit(code=1)
     else:
+        ctx.obj.console.print(
+            "[bold red]Error:[/bold red] The --dev-run option is not supported for the slurm-lxd app."
+        )
         raise typer.Exit(code=1)
 
     await create(ctx=ctx, cluster=deploy_to_cluster)
