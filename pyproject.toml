@@ -1,6 +1,6 @@
 [project]
 name = "vantage-cli"
-version = "0.1.18"
+version = "0.1.19"
 description = "The Vantage Compute CLI."
 authors = [
     {name = "jamesbeedy", email = "james@vantagecompute.ai"}
