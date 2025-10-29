@@ -78,8 +78,11 @@ async def _deploy_slurm_metal_cudo(
         cudo_ctx={"api_key": cudo_sdk.api_key, "data_center_id": default_datacenter_id},
     )
     from pathlib import Path
+    import os
 
-    Path("/home/bdx/slurm_head_node_init_script_1.sh").write_text(slurm_head_node_init_script)
+    script_path = "/home/bdx/slurm_head_node_init_script_1.sh"
+    Path(script_path).write_text(slurm_head_node_init_script)
+    os.chmod(script_path, 0o600)  # Owner read/write only
     vm_id = await init_project_and_head_node(
         ctx,
         project_name=deployment.name,

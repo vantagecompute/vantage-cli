@@ -33,8 +33,8 @@ def head_node_init_script(
         export TUNNEL_API_URL="{vantage_cluster_ctx.tunnel_api_url}"
         export VANTAGE_API_URL="{vantage_cluster_ctx.base_api_url}"
         export OIDC_DOMAIN="{vantage_cluster_ctx.oidc_domain}"
-        export CUDO_API_KEY="{cudo_api_key}"
-        export CUDO_DATA_CENTER="{cudo_data_center}"
+        export CUDO_API_KEY="${CUDO_API_KEY}"
+        export CUDO_DATA_CENTER="${CUDO_DATA_CENTER}"
 
         # Install snap packages
         snap install vantage-agent --channel=edge --classic
@@ -102,8 +102,8 @@ def head_node_init_script(
 
         # Configure Cudo Compute SDK
         cat > /etc/default/cudo << EOF
-        CUDO_API_KEY=$CUDO_API_KEY
-        CUDO_DATA_CENTER=$CUDO_DATA_CENTER
+        CUDO_API_KEY=${CUDO_API_KEY}
+        CUDO_DATA_CENTER=${CUDO_DATA_CENTER}
         EOF
         uv venv /srv/vantage-nfs/cudo
         source /srv/vantage-nfs/cudo/bin/activate && uv pip install cudo-compute-sdk
