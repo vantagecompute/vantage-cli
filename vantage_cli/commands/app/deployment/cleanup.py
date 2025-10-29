@@ -98,10 +98,10 @@ async def _cleanup_single_deployment(
         app_name = deployment.app_name
 
         if app_name in available_apps:
-            app_info = available_apps[app_name]
+            app = available_apps[app_name]
 
-            if "module" in app_info and hasattr(app_info["module"], "remove"):
-                remove_function = getattr(app_info["module"], "remove")
+            if app.module and hasattr(app.module, "remove"):
+                remove_function = getattr(app.module, "remove")
                 await remove_function(ctx, deployment)
                 result["status"] = "cleaned"
             else:
@@ -200,7 +200,7 @@ async def cleanup_orphans(
 
         from vantage_cli.sdk.deployment_app import deployment_app_sdk
 
-        available_apps = deployment_app_sdk.list()
+        available_apps = {app.name: app for app in deployment_app_sdk.list()}
         cleanup_results = []
 
         for deployment in orphaned:
