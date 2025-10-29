@@ -241,8 +241,6 @@ async def create_command(
             deploy_to_cluster = cluster
         else:
             raise typer.Exit(code=1)
-    else:
-        raise typer.Exit(code=1)
 
     await create(ctx=ctx, cluster=deploy_to_cluster)
 
