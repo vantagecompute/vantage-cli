@@ -21,20 +21,11 @@ from vantage_cli.exceptions import handle_abort
 async def clouds_command(
     ctx: typer.Context,
 ) -> None:
-    """List all configured cloud providers.
+    """List all available cloud providers.
 
     This is an alias for 'vantage cloud list'.
+
+    Examples:
+        $ vantage clouds
     """
-    import time
-
-    await list_command(ctx, command_start_time=time.time())
-
-
-def main():
-    """Entry point for direct execution."""
-    # This would typically be called through the CLI
-    pass
-
-
-if __name__ == "__main__":
-    main()
+    await list_command(ctx)

@@ -14,12 +14,9 @@
 import typer
 from typing_extensions import Annotated
 
-from vantage_cli.commands.cluster.utils import get_cluster_by_name
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.render import RenderStepOutput
-
-from .render import render_cluster_details
+from vantage_cli.sdk.cluster.crud import cluster_sdk
 
 
 @handle_abort
@@ -29,35 +26,49 @@ async def get_cluster(
     cluster_name: Annotated[str, typer.Argument(help="Name of the cluster to get details for")],
 ):
     """Get details of a specific Vantage cluster."""
-    verbose = getattr(ctx.obj, "verbose", False)
-    json_output = getattr(ctx.obj, "json_output", False)
-    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+    # Use UniversalOutputFormatter for consistent output
 
-    renderer = RenderStepOutput(
-        console=ctx.obj.console,
-        operation_name=f"Getting cluster '{cluster_name}'",
-        step_names=[
-            "Fetching cluster details",
-            "Complete",
-        ],
-        verbose=verbose,
-        command_start_time=command_start_time,
-    )
+    try:
+        # Use SDK to get cluster
+        cluster = await cluster_sdk.get_cluster(ctx, cluster_name)
 
-    cluster = await get_cluster_by_name(ctx=ctx, cluster_name=cluster_name)
-    if not cluster:
-        raise Abort(
-            f"No cluster found with name '{cluster_name}'.",
-            subject="Cluster Not Found",
-            log_message=f"Cluster '{cluster_name}' not found",
+        if not cluster:
+            ctx.obj.formatter.render_error(
+                error_message=f"No cluster found with name '{cluster_name}'."
+            )
+            raise Abort(
+                f"No cluster found with name '{cluster_name}'.",
+                subject="Cluster Not Found",
+                log_message=f"Cluster '{cluster_name}' not found",
+            )
+
+        # Access Cluster attributes directly to build data dict
+        cluster_data = {
+            "name": cluster.name,
+            "status": cluster.status,
+            "client_id": cluster.client_id,
+            "client_secret": cluster.client_secret,
+            "description": cluster.description,
+            "owner_email": cluster.owner_email,
+            "provider": cluster.provider,
+            "cloud_account_id": cluster.cloud_account_id,
+            "creation_parameters": cluster.creation_parameters,
+            "cluster_type": cluster.cluster_type,
+            "is_ready": cluster.is_ready,
+            "jupyterhub_url": cluster.jupyterhub_url,
+            "jupyterhub_token": cluster.jupyterhub_token,
+            "sssd_binder_password": cluster.sssd_binder_password,
+        }
+
+        # Use formatter to render the cluster details
+        ctx.obj.formatter.render_get(
+            data=cluster_data, resource_name="Cluster", resource_id=cluster_name
         )
 
-    # Handle JSON output first
-    if json_output:
-        renderer.json_bypass(cluster)
-        return
-
-    with renderer:
-        renderer.start_step("Fetching cluster details")
-        renderer.table_step(render_cluster_details(cluster))
-        renderer.complete_step("Complete")
+    except Abort:
+        raise
+    except Exception as e:
+        ctx.obj.formatter.render_error(
+            error_message=f"An unexpected error occurred while getting cluster '{cluster_name}'.",
+            details={"error": str(e)},
+        )

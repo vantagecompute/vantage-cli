@@ -12,7 +12,6 @@
 """List teams command."""
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
@@ -22,16 +21,14 @@ from vantage_cli.exceptions import handle_abort
 @handle_abort
 async def list_teams(ctx: typer.Context):
     """List all teams."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(
-            data={
-                "teams": [
-                    {"team_id": "team-12345", "name": "Development Team", "member_count": 5},
-                    {"team_id": "team-67890", "name": "QA Team", "member_count": 3},
-                ]
-            }
-        )
-    else:
-        ctx.obj.console.print("👥 Teams:")
-        ctx.obj.console.print("  team-12345 - Development Team (5 members)")
-        ctx.obj.console.print("  team-67890 - QA Team (3 members)")
+    # Mock team data
+    teams = [
+        {"team_id": "team-12345", "name": "Development Team", "member_count": 5},
+        {"team_id": "team-67890", "name": "QA Team", "member_count": 3},
+    ]
+
+    # Use UniversalOutputFormatter for consistent list rendering
+
+    ctx.obj.formatter.render_list(
+        data=teams, resource_name="Teams", empty_message="No teams found."
+    )

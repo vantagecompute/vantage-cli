@@ -14,7 +14,6 @@
 from typing import Annotated
 
 import typer
-from rich import print_json
 
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
@@ -23,10 +22,25 @@ from vantage_cli.exceptions import handle_abort
 @attach_settings
 @handle_abort
 async def update_team(
-    ctx: typer.Context, team_id: Annotated[str, typer.Argument(help="ID of the team to update")]
+    ctx: typer.Context,
+    team_id: Annotated[str, typer.Argument(help="ID of the team to update")],
+    name: str = typer.Option(None, help="New name of the team"),
+    description: str = typer.Option(None, help="New description of the team"),
 ):
     """Update team settings."""
-    if getattr(ctx.obj, "json_output", False):
-        print_json(data={"team_id": team_id, "status": "updated"})
-    else:
-        ctx.obj.console.print(f"🔄 Team {team_id} updated successfully!")
+    # Mock team update result
+    result = {
+        "team_id": team_id,
+        "name": name or "Existing Name",
+        "description": description or "Existing Description",
+        "updated_at": "2025-09-15T14:30:00Z",
+    }
+
+    # Use UniversalOutputFormatter for consistent update rendering
+
+    ctx.obj.formatter.render_update(
+        data=result,
+        resource_name="Team",
+        resource_id=team_id,
+        success_message=f"Team '{team_id}' updated successfully!",
+    )

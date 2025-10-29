@@ -21,6 +21,7 @@ Test isolation strategy:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 import tempfile
@@ -473,35 +474,33 @@ def mock_graphql_client() -> Generator[MockGraphQLClient, None, None]:
 
     # Mock the main factory function used throughout the codebase
     with patch("vantage_cli.gql_client.create_async_graphql_client", return_value=mock_client):
-        # Also patch any import paths where the factory might be used
-        with patch(
+        # Also patch any import paths where the factory might be used, but tolerate missing attributes
+        optional_patch_targets = [
             "vantage_cli.commands.cluster.create.create_async_graphql_client",
-            return_value=mock_client,
-        ):
-            with patch(
-                "vantage_cli.commands.cluster.list.create_async_graphql_client",
-                return_value=mock_client,
-            ):
-                with patch(
-                    "vantage_cli.commands.cluster.delete.create_async_graphql_client",
-                    return_value=mock_client,
-                ):
-                    with patch(
-                        "vantage_cli.commands.cluster.utils.create_async_graphql_client",
-                        return_value=mock_client,
-                    ):
-                        # Mock httpx AsyncClient used for HTTP requests
-                        with patch("httpx.AsyncClient") as mock_httpx:
-                            # Create a proper async context manager
-                            async def mock_aenter(*args: Any, **kwargs: Any) -> Mock:
-                                mock_client = Mock()
-                                mock_client.post = AsyncMock()
-                                mock_client.get = AsyncMock()
-                                return mock_client
+            "vantage_cli.commands.cluster.list.create_async_graphql_client",
+            "vantage_cli.commands.cluster.delete.create_async_graphql_client",
+            "vantage_cli.commands.cluster.utils.create_async_graphql_client",
+        ]
 
-                            async def mock_aexit_http(*args: Any) -> None:
-                                pass
+        with contextlib.ExitStack() as patch_stack:
+            for target in optional_patch_targets:
+                try:
+                    patch_stack.enter_context(patch(target, return_value=mock_client))
+                except AttributeError:
+                    continue
 
-                            mock_httpx.return_value.__aenter__ = mock_aenter
-                            mock_httpx.return_value.__aexit__ = mock_aexit_http
-                            yield mock_client
+            # Mock httpx AsyncClient used for HTTP requests
+            with patch("httpx.AsyncClient") as mock_httpx:
+                # Create a proper async context manager
+                async def mock_aenter(*args: Any, **kwargs: Any) -> Mock:
+                    mock_client = Mock()
+                    mock_client.post = AsyncMock()
+                    mock_client.get = AsyncMock()
+                    return mock_client
+
+                async def mock_aexit_http(*args: Any) -> None:
+                    pass
+
+                mock_httpx.return_value.__aenter__ = mock_aenter
+                mock_httpx.return_value.__aexit__ = mock_aexit_http
+                yield mock_client

@@ -18,11 +18,9 @@ from vantage_cli.exceptions import handle_abort
 
 
 @handle_abort
-def profiles_command(
+async def profiles_command(
     ctx: typer.Context,
 ):
     """List all profiles (alias for 'vantage profile list')."""
     # Extract flags from the AsyncTyper context
-    json_output = getattr(ctx.obj, "json_output", False)
-    verbose = getattr(ctx.obj, "verbose", False)
-    list_profiles(ctx, json_output=json_output, verbose=verbose)
+    await list_profiles(ctx)

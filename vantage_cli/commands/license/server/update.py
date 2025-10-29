@@ -11,17 +11,21 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update license server command."""
 
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.sdk.license import license_server_sdk
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client(base_path="/lm")
 async def update_license_server(
     ctx: typer.Context,
     server_id: Annotated[str, typer.Argument(help="ID of the license server to update")],
@@ -37,30 +41,24 @@ async def update_license_server(
     ] = None,
 ):
     """Update an existing license server."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        update_data: Dict[str, Any] = {"server_id": server_id}
-        if name:
-            update_data["name"] = name
-        if host:
-            update_data["host"] = host
-        if port:
-            update_data["port"] = port
-        if description:
-            update_data["description"] = description
+    # Build the update payload with only provided fields
+    update_data = {}
+    if name is not None:
+        update_data["name"] = name
+    if host is not None:
+        update_data["host"] = host
+    if port is not None:
+        update_data["port"] = port
+    if description is not None:
+        update_data["description"] = description
 
-        update_data["message"] = "License server updated successfully"
-        print_json(data=update_data)
-    else:
-        # Rich console output
-        ctx.obj.console.print("🔑 License Server Update Command")
-        ctx.obj.console.print(f"📋 Updating license server: {server_id}")
-        if name:
-            ctx.obj.console.print(f"📝 New name: {name}")
-        if host:
-            ctx.obj.console.print(f"🌐 New host: {host}")
-        if port:
-            ctx.obj.console.print(f"🔌 New port: {port}")
-        if description:
-            ctx.obj.console.print(f"📄 New description: {description}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    # Use SDK to update license server
+    response = await license_server_sdk.update(ctx, server_id, update_data)
+
+    # Use UniversalOutputFormatter for consistent update rendering
+    ctx.obj.formatter.render_update(
+        data=response,
+        resource_name="License Server",
+        resource_id=str(server_id),
+        success_message=f"License server '{response.get('name')}' updated successfully!",
+    )

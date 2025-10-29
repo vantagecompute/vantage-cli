@@ -11,56 +11,66 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Get support ticket command."""
 
-from typing import Annotated
+import logging
 
 import typer
+from typing_extensions import Annotated
 
-from vantage_cli.config import attach_settings
-from vantage_cli.exceptions import handle_abort
-from vantage_cli.render import RenderStepOutput
+from vantage_cli.config import attach_graphql_client, attach_settings
+from vantage_cli.exceptions import Abort, handle_abort
+from vantage_cli.sdk.support_ticket.crud import support_ticket_sdk
+
+logger = logging.getLogger(__name__)
 
 
 @handle_abort
 @attach_settings
+@attach_graphql_client(base_path="/sos/graphql")
 async def get_support_ticket(
     ctx: typer.Context,
     ticket_id: Annotated[str, typer.Argument(help="ID of the support ticket to retrieve")],
 ):
     """Get details of a specific support ticket."""
-    json_output = getattr(ctx.obj, "json_output", False)
-    verbose = getattr(ctx.obj, "verbose", False)
+    # Use UniversalOutputFormatter for consistent output
 
-    # Get command start time for timing
-    command_start_time = getattr(ctx.obj, "command_start_time", None) if ctx.obj else None
+    try:
+        # Use SDK to get support ticket
+        logger.debug(f"Fetching support ticket '{ticket_id}' from SDK")
+        ticket = await support_ticket_sdk.get_ticket(ctx, ticket_id)
 
-    # Mock data
-    ticket_data = {
-        "ticket_id": ticket_id,
-        "subject": "Help request",
-        "status": "open",
-        "priority": "medium",
-    }
+        if not ticket:
+            ctx.obj.formatter.render_error(
+                error_message=f"Support ticket '{ticket_id}' not found."
+            )
+            raise Abort(
+                f"Support ticket '{ticket_id}' not found.",
+                subject="Ticket Not Found",
+                log_message=f"Support ticket '{ticket_id}' not found",
+            )
 
-    # Create renderer once
-    renderer = RenderStepOutput(
-        console=ctx.obj.console,
-        operation_name=f"Get Support Ticket '{ticket_id}'",
-        step_names=[] if json_output else ["Fetching ticket details", "Formatting output"],
-        verbose=verbose,
-        command_start_time=command_start_time,
-    )
+        # Convert SupportTicket object to dict format for the formatter
+        ticket_data = {
+            "id": ticket.id,
+            "title": ticket.title,
+            "description": ticket.description,
+            "status": ticket.status.value,
+            "priority": ticket.priority.value,
+            "user_email": ticket.user_email,
+            "assigned_to": ticket.assigned_to or "Unassigned",
+            "created_at": ticket.created_at,
+            "updated_at": ticket.updated_at,
+        }
 
-    # Handle JSON output first
-    if json_output:
-        return renderer.json_bypass(ticket_data)
+        # Use formatter to render the ticket details
+        ctx.obj.formatter.render_get(
+            data=ticket_data, resource_name="Support Ticket", resource_id=ticket_id
+        )
 
-    with renderer:
-        renderer.complete_step("Fetching ticket details")
-        renderer.start_step("Formatting output")
-
-        ctx.obj.console.print(f"🎫 Support ticket details for {ticket_id}")
-        ctx.obj.console.print("  Subject: Help request")
-        ctx.obj.console.print("  Status: open")
-        ctx.obj.console.print("  Priority: medium")
-
-        renderer.complete_step("Formatting output")
+    except Abort:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error getting support ticket '{ticket_id}': {e}")
+        ctx.obj.formatter.render_error(
+            error_message=f"An unexpected error occurred while getting support ticket '{ticket_id}'.",
+            details={"error": str(e)},
+        )

@@ -11,27 +11,32 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Create new clusters and register them in Vantage."""
 
-import uuid
+import logging
 from pathlib import Path
 from typing import Any, Optional
 
 import click
 import typer
-from loguru import logger
 from typing_extensions import Annotated
 
-from vantage_cli.apps.common import track_deployment
-from vantage_cli.apps.utils import get_available_apps
+from vantage_cli.auth import attach_persona
+from vantage_cli.clouds.constants import DEV_SSSD_BINDER_PASSWORD
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import Abort, handle_abort
-from vantage_cli.gql_client import create_async_graphql_client
+from vantage_cli.sdk.cloud.crud import cloud_sdk
+from vantage_cli.sdk.cluster.crud import cluster_sdk
+from vantage_cli.sdk.cluster.schema import Cluster
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
-from .render import render_cluster_details
-from .utils import get_app_choices, get_cloud_choices
+from .utils import get_cloud_choices
+
+logger = logging.getLogger(__name__)
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def create_cluster(
     ctx: typer.Context,
     cluster_name: Annotated[str, typer.Argument(help="Name of the cluster to create")],
@@ -62,11 +67,13 @@ async def create_cluster(
             "--app",
             help="Deploy an application after cluster creation.",
             case_sensitive=False,
-            click_type=click.Choice(get_app_choices(), case_sensitive=False),
         ),
     ] = None,
 ):
     """Create a new Vantage cluster."""
+    # Use UniversalOutputFormatter for consistent output
+    verbose = getattr(ctx.obj, "verbose", False)
+
     # Ensure we have settings configured
     if not ctx.obj or not ctx.obj.settings:
         raise Abort(
@@ -75,66 +82,15 @@ async def create_cluster(
             log_message="Settings not configured",
         )
 
-    # Validate cloud provider
-    supported_clouds = ctx.obj.settings.supported_clouds
-    if cloud not in supported_clouds:
-        raise Abort(
-            f"Unsupported cloud provider: {cloud}. Supported providers: {', '.join(supported_clouds)}",
-            subject="Invalid Cloud Provider",
-            log_message=f"Invalid cloud provider: {cloud}",
-        )
+    # Note: Cloud provider validation is already done by click.Choice in the parameter definition
+    # No need for additional validation here
 
-    # GraphQL mutation for creating a cluster
-    create_mutation = """
-    mutation createCluster($createClusterInput: CreateClusterInput!) {
-        createCluster(createClusterInput: $createClusterInput) {
-            ... on Cluster {
-                name
-                status
-                clientId
-                description
-                ownerEmail
-                provider
-                cloudAccountId
-                creationParameters
-            }
-            ... on ClusterNameInUse {
-                message
-            }
-            ... on InvalidInput {
-                message
-            }
-            ... on ClusterCouldNotBeDeployed {
-                message
-            }
-            ... on UnexpectedBehavior {
-                message
-            }
-        }
-    }
-    """
-
-    # Map cloud provider to GraphQL enum values
-    provider_mapping = {
-        "localhost": "on_prem",
-        "aws": "aws",
-        "gcp": "on_prem",  # TODO: Add GCP support to backend
-        "azure": "on_prem",  # TODO: Add Azure support to backend
-        "on-premises": "on_prem",
-    }
-
-    # Build the input variables
-    cluster_input: dict[str, Any] = {
-        "name": cluster_name,
-        "description": f"Cluster {cluster_name} created via CLI",
-        "provider": provider_mapping.get(cloud, "on_prem"),
-    }
-
-    # Add provider-specific attributes if needed
+    # Build provider-specific attributes
+    provider_attributes: Optional[dict[str, Any]] = None
     if cloud == "aws":
         # For AWS, we need providerAttributes (camelCase for GraphQL)
         # This is a simplified example - in practice you'd need to collect more details
-        cluster_input["providerAttributes"] = {
+        provider_attributes = {
             "aws": {
                 "headNodeInstanceType": "t3.medium",  # camelCase for GraphQL
                 "keyPair": "default",  # This should be configurable
@@ -149,8 +105,9 @@ async def create_cluster(
             import json
 
             config_data = json.loads(config_file.read_text())
-            # Merge config file data with input
-            cluster_input.update(config_data)
+            # Merge config file data
+            if "providerAttributes" in config_data:
+                provider_attributes = config_data["providerAttributes"]
         except Exception as e:
             raise Abort(
                 f"Failed to read configuration file: {e}",
@@ -158,175 +115,136 @@ async def create_cluster(
                 log_message=f"Config file error: {e}",
             )
 
-    variables = {"createClusterInput": cluster_input}
-
     try:
-        # Create async GraphQL client
-        logger.debug(f"CTX OBJ: {ctx.obj}")
-        graphql_client = create_async_graphql_client(ctx.obj.settings, ctx.obj.profile)
+        # Use SDK to create cluster
+        if verbose:
+            ctx.obj.console.print(
+                f"[bold blue]Creating cluster '{cluster_name}' on {cloud}...[/bold blue]"
+            )
 
-        # Execute the mutation
-        logger.debug(f"Creating cluster: {cluster_name}")
-        ctx.obj.console.print(
-            f"[bold blue]Creating cluster '{cluster_name}' on {cloud}...[/bold blue]"
+        # Get Cloud object to extract vantage_provider_label
+        cloud_obj = cloud_sdk.get(cloud)
+        if not cloud_obj:
+            raise Abort(
+                f"Cloud '{cloud}' not found",
+                subject="Cloud Not Found",
+                log_message=f"Cloud not found: {cloud}",
+            )
+
+        # Create cluster using SDK
+        cluster = await cluster_sdk.create_cluster(
+            ctx=ctx,
+            name=cluster_name,
+            provider=cloud_obj.vantage_provider_label,
+            description=f"Cluster {cluster_name} created via CLI",
+            provider_attributes=provider_attributes,
         )
 
-        response_data = await graphql_client.execute_async(create_mutation, variables)
+        # Use formatter to render the created cluster
+        ctx.obj.formatter.render_create(
+            data=cluster.model_dump(),
+            resource_name="Cluster",
+        )
 
-        # Handle the response
-        create_result = response_data.get("createCluster")
-
-        if not create_result:
-            raise Abort(
-                "No response from server",
-                subject="Server Error",
-                log_message="Empty response from createCluster mutation",
-            )
-
-        # Check for errors in the response
-        if "message" in create_result:
-            # This is an error response
-            error_message = create_result["message"]
-            ctx.obj.console.print(
-                f"[bold red]Failed to create cluster: {error_message}[/bold red]"
-            )
-            raise Abort(
-                f"Cluster creation failed: {error_message}",
-                subject="Cluster Creation Failed",
-                log_message=f"GraphQL error: {error_message}",
-            )
-
-        # Success case - cluster was created
-        if "name" in create_result:
-            ctx.obj.console.print(
-                f"[bold green]✓ Cluster '{create_result['name']}' created successfully![/bold green]"
-            )
-            ctx.obj.console.print()
-
-            # Display detailed cluster information
-            cluster_table = render_cluster_details(create_result)
-            ctx.obj.console.print(cluster_table)
-
-            # Deploy application if --app option was provided
-            if app:
-                await deploy_app_to_cluster(ctx, create_result, app)
-
-        else:
-            ctx.obj.console.print(
-                "[bold yellow]Cluster creation initiated but status unclear[/bold yellow]"
-            )
+        # Deploy application if --app option was provided
+        if app:
+            await deploy_app_to_cluster(ctx, cluster, app)
 
     except Abort:
         # Re-raise Abort exceptions as they contain user-friendly messages
         raise
     except Exception as e:
-        logger.error(f"Unexpected error creating cluster: {e}")
         raise Abort(
-            "An unexpected error occurred while creating the cluster.",
+            f"An unexpected error occurred while creating the cluster.\n\nError details: {type(e).__name__}: {e}",
             subject="Unexpected Error",
             log_message=f"Unexpected error: {e}",
         )
 
 
-async def deploy_app_to_cluster(ctx: typer.Context, cluster_data: dict, app_name: str):
+async def deploy_app_to_cluster(ctx: typer.Context, cluster: Cluster, app_name: str):
     """Deploy an application to the newly created cluster."""
     try:
-        # Get available apps
-        available_apps = get_available_apps()
+        # Import SDK here to avoid module-level initialization
+        from vantage_cli.sdk.cloud_credential.crud import cloud_credential_sdk
+        from vantage_cli.sdk.deployment_app import deployment_app_sdk
+
+        available_apps_list = deployment_app_sdk.list()
+        available_apps = {app.name: app for app in available_apps_list}
 
         if app_name not in available_apps:
             ctx.obj.console.print(f"[bold red]✗ App '{app_name}' not found[/bold red]")
+            ctx.obj.console.print(f"[dim]Available apps: {', '.join(available_apps.keys())}[/dim]")
             return
 
-        ctx.obj.console.print(
-            f"[bold blue]Deploying app '{app_name}' to cluster '{cluster_data['name']}'...[/bold blue]"
+        logger.info(
+            f"[bold blue]Deploying app '{app_name}' to cluster '{cluster.name}'...[/bold blue]"
         )
 
-        # Get the app info
-        app_info = available_apps[app_name]
+        # Get the app
+        app = available_apps[app_name]
 
-        # Check if this is a function-based app or class-based app
-        if "deploy_function" in app_info:
+        # Check if app has a module with create function
+        if app.module and hasattr(app.module, "create"):
+            # Initialize cloud-specific SDK if needed
+            if app.cloud == "cudo-compute":
+                from cudo_compute_sdk import CudoComputeSDK
+
+                # Get default credential for Cudo Compute
+                cudo_credential = cloud_credential_sdk.get_default(cloud_name="cudo-compute")
+                if cudo_credential is None:
+                    logger.error(
+                        "[bold red]✗ No default credential found for 'cudo-compute'[/bold red]"
+                    )
+                    logger.info(
+                        "[dim]Run: vantage cloud credential create --cloud cudo-compute[/dim]"
+                    )
+                    return
+
+                # Initialize SDK and attach to context
+                ctx.obj.cudo_sdk = CudoComputeSDK(
+                    api_key=cudo_credential.credentials_data["api_key"]
+                )
+
             # Function-based app
-            deploy_function = app_info["deploy_function"]
+            create_function = getattr(app.module, "create")
 
-            # Generate a unique deployment ID and deployment name
-            deployment_id = str(uuid.uuid4())
-            deployment_name = f"{app_name}-{cluster_data['name']}-{uuid.uuid4().hex[:8]}"
-
-            # Add deployment_name to cluster_data so apps can use it
-            cluster_data["deployment_name"] = deployment_name
-
-            await deploy_function(ctx, cluster_data)
-
-            track_deployment(
-                deployment_id=deployment_id,
-                app_name=app_name,
-                cluster_name=cluster_data["name"],
-                cluster_data=cluster_data,
-                deployment_name=deployment_name,
-                console=ctx.obj.console,
-                additional_metadata={
-                    "deployment_method": "vantage cluster create --app",
-                    "cluster_created": True,
-                    "app_type": "function-based",
-                },
-            )
-
-            ctx.obj.console.print(
-                f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
-            )
-        elif "instance" in app_info:
-            # Class-based app
-            app_instance = app_info["instance"]
-
-            # Check if the app has a deploy method
-            if hasattr(app_instance, "deploy"):
-                # Generate a unique deployment ID and deployment name
-                deployment_id = str(uuid.uuid4())
-                deployment_name = f"{app_name}-{cluster_data['name']}-{uuid.uuid4().hex[:8]}"
-
-                # Add deployment_name to cluster_data so apps can use it
-                cluster_data["deployment_name"] = deployment_name
-
-                # Call the app's deploy method
-                await app_instance.deploy(ctx)
-
-                track_deployment(
-                    deployment_id=deployment_id,
-                    app_name=app_name,
-                    cluster_name=cluster_data["name"],
-                    cluster_data=cluster_data,
-                    deployment_name=deployment_name,
-                    console=ctx.obj.console,
-                    additional_metadata={
-                        "deployment_method": "vantage cluster create --app",
-                        "cluster_created": True,
-                        "app_type": "class-based",
-                    },
+            # Fetch sssd_binder_password from organization extra attributes
+            if not cluster.sssd_binder_password:
+                logger.warning(
+                    "[bold yellow]⚠ Using default sssd_binder_password - consider configuring organization settings[/bold yellow]"
                 )
+                cluster.sssd_binder_password = DEV_SSSD_BINDER_PASSWORD
 
-                ctx.obj.console.print(
-                    f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]"
+            # Call the create function
+            logger.info(f"[dim]Calling {app.name}.create()...[/dim]")
+            result = await create_function(ctx, cluster)
+
+            # Check if the function returned an error exit code
+            if isinstance(result, typer.Exit) and result.exit_code != 0:
+                logger.error(
+                    f"[bold red]✗ App '{app_name}' deployment failed (exit code {result.exit_code})[/bold red]"
                 )
+                logger.info(
+                    "[dim]The cluster was created successfully, but app deployment encountered an error.[/dim]"
+                )
+            elif isinstance(result, typer.Exit) and result.exit_code == 0:
+                logger.info(f"[bold green]✓ App '{app_name}' deployed successfully![/bold green]")
             else:
-                ctx.obj.console.print(
-                    f"[bold yellow]! App '{app_name}' does not support automatic deployment[/bold yellow]"
-                )
-                ctx.obj.console.print(
-                    "[dim]You can manually deploy this app using the appropriate commands.[/dim]"
-                )
+                # No exit code returned, assume success
+                logger.info(f"[bold green]✓ App '{app_name}' deployment completed![/bold green]")
         else:
-            ctx.obj.console.print(
+            logger.warning(
                 f"[bold yellow]! App '{app_name}' does not support automatic deployment[/bold yellow]"
             )
-            ctx.obj.console.print(
+            logger.info(
                 "[dim]You can manually deploy this app using the appropriate commands.[/dim]"
             )
 
     except Exception as e:
-        logger.error(f"Failed to deploy app '{app_name}': {e}")
-        ctx.obj.console.print(f"[bold red]✗ Failed to deploy app '{app_name}': {e}[/bold red]")
-        ctx.obj.console.print(
-            "[dim]The cluster was created successfully, but app deployment failed.[/dim]"
-        )
+        import traceback
+
+        logger.error(f"[bold red]✗ Failed to deploy app '{app_name}':[/bold red]")
+        logger.error(f"[red]{type(e).__name__}: {e}[/red]")
+        if getattr(ctx.obj, "verbose", False):
+            logger.error(f"[dim]{traceback.format_exc()}[/dim]")
+        logger.error("[dim]The cluster was created successfully, but app deployment failed.[/dim]")

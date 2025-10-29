@@ -11,17 +11,20 @@
 # this program. If not, see <https://www.gnu.org/licenses/>.
 """Update license configuration command."""
 
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Optional
 
 import typer
-from rich import print_json
 
+from vantage_cli.auth import attach_persona
 from vantage_cli.config import attach_settings
 from vantage_cli.exceptions import handle_abort
+from vantage_cli.vantage_rest_api_client import attach_vantage_rest_client
 
 
 @handle_abort
 @attach_settings
+@attach_persona
+@attach_vantage_rest_client
 async def update_license_configuration(
     ctx: typer.Context,
     config_id: Annotated[str, typer.Argument(help="ID of the license configuration to update")],
@@ -39,30 +42,24 @@ async def update_license_configuration(
     ] = None,
 ):
     """Update an existing license configuration."""
-    if getattr(ctx.obj, "json_output", False):
-        # JSON output
-        update_data: Dict[str, Any] = {"config_id": config_id}
-        if name:
-            update_data["name"] = name
-        if license_type:
-            update_data["license_type"] = license_type
-        if max_users:
-            update_data["max_users"] = max_users
-        if description:
-            update_data["description"] = description
+    # Build the update payload with only provided fields
+    payload = {}
+    if name is not None:
+        payload["name"] = name
+    if license_type is not None:
+        payload["license_type"] = license_type
+    if max_users is not None:
+        payload["max_users"] = max_users
+    if description is not None:
+        payload["description"] = description
 
-        update_data["message"] = "License configuration updated successfully"
-        print_json(data=update_data)
-    else:
-        # Rich console output
-        ctx.obj.console.print("⚙️ License Configuration Update Command")
-        ctx.obj.console.print(f"📋 Updating license configuration: {config_id}")
-        if name:
-            ctx.obj.console.print(f"📝 New name: {name}")
-        if license_type:
-            ctx.obj.console.print(f"🔒 New license type: {license_type}")
-        if max_users:
-            ctx.obj.console.print(f"👥 New max users: {max_users}")
-        if description:
-            ctx.obj.console.print(f"📄 New description: {description}")
-        ctx.obj.console.print("⚠️  Not yet implemented - this is a stub")
+    response = await ctx.obj.rest_client.put(f"/configurations/{config_id}", json=payload)
+
+    # Use UniversalOutputFormatter for consistent update rendering
+
+    ctx.obj.formatter.render_update(
+        data=response,
+        resource_name="License Configuration",
+        resource_id=str(config_id),
+        success_message=f"License configuration '{response.get('name')}' updated successfully!",
+    )
