@@ -102,7 +102,7 @@ VANTAGE_JUPYTERHUB_JUJU_BUNDLE_YAML: Dict[str, Any] = {
             "channel": "edge",
             "num_units": 0,
             "options": {
-                "vantage-sssd-config-secret-id": "",
+                "vantage-sssd-config-secret-id": "__REQUIRED__",
             },
         },
         "sackd": {
