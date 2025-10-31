@@ -56,7 +56,10 @@ class CloudInitTemplate:
         """Build the runcmd list for cloud-init."""
         commands = [
             f"bash /opt/slurm/view/assets/slurm_assets/slurm_install.sh --full-init --start-services --cluster-name {context.cluster_name} --org-id {context.org_id} --ldap-uri {context.ldap_url} --sssd-binder-password {context.sssd_binder_password}",
-            "systemctl --now enable sssd.service",
+            # TODO: Remove when SLURM install script properly supports SSSD startup
+            "systemctl enable sssd",
+            "systemctl restart sssd",
+            "pam-auth-update --enable mkhomedir",
         ]
 
         # Agent configuration commands
